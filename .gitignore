@@ -1,0 +1,46 @@
+# Private working notes, never committed
+CLAUDE.local.md
+
+# Secrets and cloud credentials
+.env
+.env.*
+*.key
+*.pem
+.aws/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+
+# Data (loaders fetch and verify; nothing raw is committed)
+data/raw/
+data/ieee-cis/
+data/ulb/
+
+# Local stores, logs, models
+*.sqlite
+*.sqlite3
+mlruns/
+feature_repo/data/
+loadtest/results/raw/
+*.onnx
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
