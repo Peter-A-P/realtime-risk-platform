@@ -55,7 +55,7 @@ explain every choice with its public sources.
 
 ## Part of a portfolio
 
-One of ten projects built over twelve months. This is the systems project: scale, latency
+One of fifteen projects built over twelve months. This is the systems project: scale, latency
 and operations evidence, where the others are about measurement, causal inference,
 retrieval, fine-tuning and compliance.
 
