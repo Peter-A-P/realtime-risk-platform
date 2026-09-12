@@ -102,8 +102,15 @@ and ADR 2 record why:
 
 ### 2.2 Features are computed once
 
+**Amended 2026-09-12, in week 3, in the same commit as the code.** The engine below was
+Bytewax. It publishes no wheels for Python 3.13 on any platform, and the portfolio
+standard is 3.13, so the dataflow is written in `verdict/features/` instead: windowed
+aggregations with bounded state and per-entity keying. ADR 4 carries the options, the
+decision and what it gives up. Everything else in this section is unchanged, because none
+of it depended on which engine ran the dataflow.
+
 Streaming aggregations (velocity windows per card, device and merchant; entity-graph
-degree and shared-device counts; session features) are computed by one Bytewax dataflow
+degree and shared-device counts; session features) are computed by one dataflow
 and written to two sinks: Redis for online serving and Parquet for the offline store.
 There is no second implementation in SQL for training. This is the design that removes
 training-serving skew at the source; the parity test exists to prove it stayed removed.
@@ -181,7 +188,8 @@ exactly this artefact, and almost no portfolio contains it. At least fourteen ar
   research. Named in Deferred.
 - Any language model. No triage assistant, no explanation generator.
 - Multi-region, exactly-once end to end, or Flink. One region, at-least-once with
-  idempotent decisions, Bytewax; the ADRs say what changes at ten times the scale.
+  idempotent decisions, and the windowed aggregation engine in `verdict/features/` rather
+  than a distributed one; the ADRs say what changes at ten times the scale.
 - Real payment rails, card networks, PCI scope. Synthetic PANs only; the real data is
   already tokenised by its publisher.
 
@@ -204,8 +212,10 @@ verdict/
                regimes.py with the sealed schedule, seeds), replay.py (IEEE-CIS in time order)
   stream/      base.py (Stream protocol: produce, consume, checkpoint), redpanda.py, kinesis.py
                (record aggregation and deaggregation), parity.py (same replay, both paths, identical features)
-  features/    dataflow.py (Bytewax: velocity windows per card, device, merchant; entity-graph degree and
-               shared-device counts; session features), sinks.py (Redis online, Parquet offline, one write path)
+  features/    aggregators.py (windowed aggregations, bounded state, amortised constant time),
+               engine.py (per-entity state; serves each event before observing it, and holds an event back
+               until time moves on so same-instant events cannot see each other), sinks.py (one write path
+               to both stores), verify.py (parity, and the served-value record the leakage check reads)
   store/       feast/ (feature repo), retrieval.py (point-in-time joins), leakage_test.py (the test in 2.3)
   models/      train.py (XGBoost champion), challenger.py (FT-Transformer, PyTorch), export.py (ONNX),
                registry.py (MLflow), promote.py (non-inferiority on the shadow window)
@@ -246,7 +256,7 @@ against the AWS API).
 |---|---|---|
 | Week 1 (built 2026-09-12) | Repository, event schema, generator with entities, scenarios and the regime schedule (hash committed); Redpanda Compose; raw event log; ADRs 1 to 4 | **Done**, except the Compose stack, which is written but unrun: Docker is not installed on the build laptop. 12,219 events/s generated and logged (8,790 to 15,648, five runs of 500,000), against a target of 1,000; hashes in `docs/generator-hashes.json`; ADRs 1 to 4 written |
 | Week 2 (built 2026-09-12) | Feast repository and offline store; IEEE-CIS replay in time order; **leakage test written, no features yet**; training pipeline skeleton; ADRs 5 to 7 | **Done, except the IEEE-CIS replay.** The leakage test runs green on the empty feature set and red on each of three planted leaks (window includes the current event, window peeks forward, training join uses the label time); Feast repository generated from the feature definitions, with push and point-in-time retrieval proven end to end; raw-log replay refuses an out-of-order log; ADRs 5 to 7 written; 149 tests. The IEEE-CIS replay is **blocked**: its competition terms need a Kaggle login to read, so whether this repository may use the data at all is unresolved and `docs/data.md` holds the four questions. Writing a column mapping for a dataset that may have to be swapped for the ULB set is work in the wrong order. The training pipeline skeleton moves to week 3, where the first real features give it something to train on |
-| Week 3 | Bytewax dataflow: velocity, entity-graph, session features; dual sink; parity test; first leak caught (expected) and recorded | Parity 100% on a day's replay; leakage test passing with features |
+| Week 3 (built 2026-09-12) | Dataflow: velocity, entity-graph, session features; dual sink; parity test; first leak caught (expected) and recorded | **Done.** 16 features computed by the engine written here (ADR 4 amended: Bytewax has no Python 3.13 wheels); parity 100% online against offline through real Feast; the leakage test passes on all 16 features against a brute-force recomputation. **The predicted leak happened and was caught**: two events sharing a timestamp saw each other, which is 0.055% of events at microsecond resolution and 99.9% of them on second-resolution real data, where it corrupted 2.75% of one feature's values. `docs/leak-caught.md` records it; the offline PR-AUC inflation is measured in week 5, when a model exists to measure it with |
 | Week 4 | Stream-consumer scorer, ONNX champion, decision rules, per-hop timers; HTTP endpoint for comparison; first local load test; latency budget published; ADRs 8, 9 | p99 and hop breakdown in `docs/latency-budget.md` |
 | Week 5 | Champion training on IEEE-CIS and on replay; FT-Transformer challenger; shadow scoring; promotion function; rollback flag and drill; ADRs 10, 11 | Champion/challenger table with CIs; drill timed five times |
 | Week 6 | Drift monitors, trigger, retraining job, approval pull request; expected-loss queue and evaluation; ADRs 12, 13 | Queue evaluation table; a retraining PR opened end to end on a forced shift |

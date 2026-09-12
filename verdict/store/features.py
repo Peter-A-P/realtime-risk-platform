@@ -273,13 +273,166 @@ def _numeric_field(event: TransactionEvent, field: str | None, name: str) -> flo
     return float(value)
 
 
-FEATURE_SET: Final[tuple[FeatureSpec, ...]] = ()
+_HOUR = dt.timedelta(hours=1)
+_DAY = dt.timedelta(hours=24)
+_SESSION = dt.timedelta(minutes=30)
+
+FEATURE_SET: Final[tuple[FeatureSpec, ...]] = (
+    # --- Card velocity. What this card has been doing lately. ---
+    FeatureSpec(
+        name="card_txn_count_1h",
+        entity=EntityKind.CARD,
+        aggregation=Aggregation.COUNT,
+        window=_HOUR,
+        description="Transactions on this card in the last hour.",
+    ),
+    FeatureSpec(
+        name="card_txn_count_24h",
+        entity=EntityKind.CARD,
+        aggregation=Aggregation.COUNT,
+        window=_DAY,
+        description="Transactions on this card in the last day.",
+    ),
+    FeatureSpec(
+        name="card_amount_sum_1h",
+        entity=EntityKind.CARD,
+        aggregation=Aggregation.SUM,
+        field="amount_cents",
+        window=_HOUR,
+        description="Money moved on this card in the last hour.",
+    ),
+    FeatureSpec(
+        name="card_amount_mean_24h",
+        entity=EntityKind.CARD,
+        aggregation=Aggregation.MEAN,
+        field="amount_cents",
+        window=_DAY,
+        description=(
+            "This card's usual ticket over a day. The model compares it with the "
+            "amount on the event being scored, which is how a takeover's spending "
+            "becomes unusual for this card rather than unusual in general."
+        ),
+    ),
+    FeatureSpec(
+        name="card_amount_max_24h",
+        entity=EntityKind.CARD,
+        aggregation=Aggregation.MAX,
+        field="amount_cents",
+        window=_DAY,
+        description="The largest amount on this card in the last day.",
+    ),
+    FeatureSpec(
+        name="card_seconds_since_last",
+        entity=EntityKind.CARD,
+        aggregation=Aggregation.SECONDS_SINCE_LAST,
+        window=_DAY,
+        description=(
+            "Silence before this transaction. A dormant card used twice in a "
+            "minute is the shape of a takeover."
+        ),
+    ),
+    FeatureSpec(
+        name="card_distinct_merchants_24h",
+        entity=EntityKind.CARD,
+        aggregation=Aggregation.DISTINCT_COUNT,
+        field="merchant_id",
+        window=_DAY,
+        description="How many different merchants this card touched in a day.",
+    ),
+    # --- Device. The entity-graph view: one device, many cards. ---
+    FeatureSpec(
+        name="device_txn_count_1h",
+        entity=EntityKind.DEVICE,
+        aggregation=Aggregation.COUNT,
+        window=_HOUR,
+        description="Transactions from this device in the last hour.",
+    ),
+    FeatureSpec(
+        name="device_distinct_cards_1h",
+        entity=EntityKind.DEVICE,
+        aggregation=Aggregation.DISTINCT_COUNT,
+        field="card_id",
+        window=_HOUR,
+        description=(
+            "Cards seen on this device in an hour. This is what a card-testing "
+            "burst looks like from the outside, and it is invisible in any single "
+            "transaction."
+        ),
+    ),
+    FeatureSpec(
+        name="device_distinct_cards_24h",
+        entity=EntityKind.DEVICE,
+        aggregation=Aggregation.DISTINCT_COUNT,
+        field="card_id",
+        window=_DAY,
+        description="Cards seen on this device in a day.",
+    ),
+    FeatureSpec(
+        name="device_amount_mean_1h",
+        entity=EntityKind.DEVICE,
+        aggregation=Aggregation.MEAN,
+        field="amount_cents",
+        window=_HOUR,
+        description=(
+            "Card testing runs small amounts, so a device with many cards and a "
+            "low mean is a different thing from a busy shared family device."
+        ),
+    ),
+    # --- Merchant. Where collusion shows up, over hours rather than seconds. ---
+    FeatureSpec(
+        name="merchant_txn_count_1h",
+        entity=EntityKind.MERCHANT,
+        aggregation=Aggregation.COUNT,
+        window=_HOUR,
+        description="Transactions at this merchant in the last hour.",
+    ),
+    FeatureSpec(
+        name="merchant_distinct_cards_1h",
+        entity=EntityKind.MERCHANT,
+        aggregation=Aggregation.DISTINCT_COUNT,
+        field="card_id",
+        window=_HOUR,
+        description="Cards seen at this merchant in an hour.",
+    ),
+    FeatureSpec(
+        name="merchant_amount_mean_1h",
+        entity=EntityKind.MERCHANT,
+        aggregation=Aggregation.MEAN,
+        field="amount_cents",
+        window=_HOUR,
+        description=(
+            "A colluding merchant inflates its tickets, so its own mean moves "
+            "while nothing about any single transaction looks wrong."
+        ),
+    ),
+    # --- Session. Card-not-present activity, grouped as it happens. ---
+    FeatureSpec(
+        name="session_txn_count",
+        entity=EntityKind.SESSION,
+        aggregation=Aggregation.COUNT,
+        window=_SESSION,
+        description="Transactions in this session so far.",
+    ),
+    FeatureSpec(
+        name="session_amount_sum",
+        entity=EntityKind.SESSION,
+        aggregation=Aggregation.SUM,
+        field="amount_cents",
+        window=_SESSION,
+        description="Money moved in this session so far.",
+    ),
+)
 """The features this platform serves.
 
-**Deliberately empty in week 2.** The leakage test is written before the
-first feature exists, so that no feature can ever be written without it. The
-velocity, entity-graph and session features arrive in week 3, one at a time,
-each one green through `leakage.py` before the next is added.
+Sixteen, computed once by `verdict.features.engine` and served both online
+and offline from that one computation. Each is keyed on an entity, because
+none of the three fraud patterns in the generator is visible in a single
+transaction: card testing is one device against many cards, a takeover is a
+card behaving unlike itself, and collusion is one merchant's own distribution
+moving.
+
+They were added in week 3, after the leakage test in week 2, and every one of
+them is checked by it on every run.
 """
 
 

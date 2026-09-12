@@ -6,7 +6,7 @@ the training-versus-production mismatch that quietly breaks most deployed models
 platform around the model is what organisations are actually missing, and this one runs
 live where a hiring manager can watch it.
 
-**Status: building, weeks 1 and 2 of 9 done.** The plan is in [PLAN.md](PLAN.md): a nine-week
+**Status: building, weeks 1 to 3 of 9 done.** The plan is in [PLAN.md](PLAN.md): a nine-week
 build, then three months live at risk.peterparker.ca. Nothing is scored yet, so the
 headline tables below are still empty, and they stay empty until the thing they describe
 has actually run.
@@ -58,8 +58,8 @@ slowest of the lot, at 6,580 /s. Details in [docs/generator.md](docs/generator.m
 
 ## What exists so far
 
-Weeks 1 and 2 of nine: the event stream, and the test that will judge every feature
-before any feature exists.
+Weeks 1 to 3 of nine: the event stream, the test that judges every feature, and the
+sixteen features it now judges.
 
 | Piece | Where | Note |
 |---|---|---|
@@ -69,18 +69,24 @@ before any feature exists.
 | Sealed regime schedule | [verdict/events/generator/regimes.py](verdict/events/generator/regimes.py) | Design public, development schedule public, live realisation sealed until Jul 1 2027 |
 | Raw event log | [verdict/events/rawlog.py](verdict/events/rawlog.py) | Three files. Ground truth is kept out of the transaction log, and a test reads the bytes to prove it |
 | Replay, in time order | [verdict/events/replay.py](verdict/events/replay.py) | Refuses an out-of-order log rather than sorting it quietly |
+| **The feature engine** | [verdict/features/engine.py](verdict/features/engine.py) | Written here, not taken off the shelf: Bytewax has no Python 3.13 wheels ([ADR 4](docs/adr/0004-aggregation-engine.md)). Serves each event before observing it, and holds it back until time moves on |
+| Windowed aggregations | [verdict/features/aggregators.py](verdict/features/aggregators.py) | Bounded state, amortised constant time, checked against brute force with property-based tests |
+| One write path | [verdict/features/sinks.py](verdict/features/sinks.py) | The same value reaches both stores from one call. Parity 100% on a replay |
 | **The leakage test** | [verdict/store/leakage.py](verdict/store/leakage.py) | Written before the first feature. Two checks, and three planted leaks that prove it can fail |
-| Feature definitions | [verdict/store/features.py](verdict/store/features.py) | A feature is a specification. The window is `[t - w, t)`, and an event is never part of its own features |
+| Sixteen feature definitions | [verdict/store/features.py](verdict/store/features.py) | A feature is a specification, not code: card velocity, device and merchant entity-graph counts, session aggregates. The window is `[t - w, t)`, and an event is never part of its own features |
 | Feature store | [verdict/store/repo.py](verdict/store/repo.py) | Feast, generated from the definitions, push sources rather than materialisation |
 | Local stream stack | [deploy/compose/docker-compose.yml](deploy/compose/docker-compose.yml) | Redpanda. **Written but not yet run**: Docker is not installed on the build laptop |
-| Decisions 1 to 7 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine; feature store; computed once; leakage test first |
+| Decisions 1 to 7 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first |
 
-149 tests, `ruff` and `mypy --strict` clean.
+188 tests, `ruff` and `mypy --strict` clean.
 
-The feature set is deliberately **empty**. The leakage test runs green over it today,
-which is the only state in which it can be trusted later: week 3 cannot add the first
-feature without the test already standing there. What it catches is in
-[ADR 7](docs/adr/0007-leakage-test-first.md).
+**The leakage test caught a real leak on the day the first features were written**, which
+is what it was written a week earlier for. Two transactions sharing a timestamp saw each
+other, because a window is `[t - w, t)` and excludes anything at `t`. That is 0.055 percent
+of events at microsecond resolution, and 99.9 percent of them on second-resolution data
+like the public competition set, where it corrupted 2.75 percent of one feature's values.
+The episode, including the mistake made while wiring up the check itself, is in
+[docs/leak-caught.md](docs/leak-caught.md).
 
 ## How it works
 

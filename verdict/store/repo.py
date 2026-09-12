@@ -294,15 +294,35 @@ def apply_repo(repo_dir: Path) -> None:
     config = load_repo_config(resolved, resolved / "feature_store.yaml")
     previous_cwd = Path.cwd()
     sys.path.insert(0, str(resolved))
-    sys.modules.pop("definitions", None)
+    _forget_modules_under(resolved)
     try:
         os.chdir(resolved)
         apply_total(config, resolved, skip_source_validation=True)
     finally:
         os.chdir(previous_cwd)
-        sys.modules.pop("definitions", None)
+        _forget_modules_under(resolved)
         if str(resolved) in sys.path:
             sys.path.remove(str(resolved))
+
+
+def _forget_modules_under(repo_dir: Path) -> None:
+    """Drop cached imports that came from a repository directory.
+
+    Repository modules are imported by bare name, so two repositories with a
+    file of the same name are the same cache entry. Applying one and then the
+    other would silently register the first one's definitions a second time,
+    which is how the parity suite and the store suite ended up applying each
+    other's features when they ran in one process.
+
+    Args:
+        repo_dir: The repository directory whose modules should be forgotten.
+    """
+    import sys
+
+    for name, module in list(sys.modules.items()):
+        origin = getattr(module, "__file__", None)
+        if origin and Path(origin).is_relative_to(repo_dir):
+            del sys.modules[name]
 
 
 def _definitions_module(specs: Sequence[FeatureSpec], specs_ref: str | None) -> str:

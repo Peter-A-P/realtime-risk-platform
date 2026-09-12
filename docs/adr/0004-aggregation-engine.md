@@ -1,6 +1,9 @@
 # 4. Bytewax for the streaming aggregations
 
-- Status: accepted
+- Status: **amended 2026-09-12, in week 3.** The reasoning below stands; the
+  chosen engine does not. Bytewax cannot be installed on this project's
+  Python, so the dataflow is written here instead. See "Amendment" at the
+  end, which is the decision now in force.
 - Date: 2026-09-12
 - Deciders: Peter Parker
 
@@ -91,3 +94,97 @@ the engine ever has to change, what moves is the operator names.
 - Feast documentation on online and offline stores sharing one definition,
   the pattern this dataflow implements directly.
   https://docs.feast.dev/
+
+---
+
+## Amendment, 2026-09-12 (week 3): the dataflow is written here
+
+### What forced it
+
+Bytewax publishes no wheels for Python 3.13. Not on Windows, not on Linux,
+not for any version up to its latest, 0.21.1, whose wheels stop at cp312.
+Installing it on 3.13 falls back to a source build that needs a Rust
+toolchain.
+
+The portfolio's engineering standard is Python 3.13. So this is not a
+platform inconvenience: the engine chosen above cannot be installed on the
+project's own Python anywhere.
+
+### Options, once that was known
+
+1. **Pin the project to Python 3.12 and keep Bytewax.** Nothing written so
+   far needs 3.13, so the code cost is nil. It changes the portfolio's stated
+   standard for this project, and puts a second Python on every machine that
+   builds it.
+2. **Install Rust and build Bytewax from source.** Keeps both the engine and
+   3.13. It makes a Rust toolchain a build requirement on the laptop, in CI
+   on every run, and on the live spot instance, and makes a source build of a
+   native extension part of the recovery path during the live window.
+3. **Quix Streams.** Pure Python, installs on 3.13, actively maintained. It
+   is Kafka-only, so the Kinesis path from ADR 3 would need a second
+   implementation, which breaks the one-dataflow-two-transports property that
+   ADR 3 and the parity test exist to protect.
+4. **Write the stateful consumer here**, which is option 5 above, previously
+   rejected.
+
+### Decision
+
+Option 4. `verdict/features/` holds the engine: `aggregators.py` for the
+windowed aggregations and `engine.py` for the per-entity state and the
+ordering.
+
+The original objection to this option was that windowing, watermarks and
+recovery are where the subtle bugs live, and that the point of this project
+is not to write a worse stream processor. That objection was right, and what
+changed is not the difficulty but the safety net. The leakage test and the
+parity test were both written in week 2, **before** this choice was forced,
+against a definition of each feature that is independent of how it is
+computed. The engine is therefore checked against a brute-force
+implementation on every run, on every feature, on real generated traffic.
+
+That is not a theoretical reassurance. The test caught a real leak in this
+engine within hours of it being written, at a boundary that the off-the-shelf
+engine would also have had to get right: two events sharing a timestamp.
+`docs/leak-caught.md` records it, including the measurement that it would
+have corrupted 2.75 percent of one feature's values on the real-data track,
+where timestamps are whole seconds.
+
+### Consequences
+
+- The scope of what is written here stays deliberately narrow: keyed
+  aggregations over event-time windows, and nothing else. No dataflow graph,
+  no operator algebra, no distributed shuffle. If the platform ever needs
+  those, that is a signal to revisit rather than to extend.
+- Aggregations are amortised constant time per event: a running total with
+  subtracting eviction, a monotonic deque for sliding extremes, a multiset
+  for distinct counts. They are checked against brute force with
+  property-based tests, because a boundary bug here is exactly the failure
+  this project exists to prevent.
+- State is bounded by pruning entities whose windows have all emptied. A
+  memory leak found by the same test: the "seconds since last" aggregator
+  originally kept its timestamp after it fell out of the window, so no card
+  that had ever transacted was ever dropped. Over 87 live days that is one
+  retained aggregator per card seen.
+- Recovery is now this project's problem rather than the library's. The
+  online store is rebuilt by replaying the stream after an instance
+  replacement, which is what ADR 15 will cover; the engine holds no state
+  that cannot be rebuilt that way.
+- What is given up is real: Bytewax's recovery, its scaling story, and the
+  keyword on the technical line. The parity test between the Redpanda and
+  Kinesis paths is unaffected, because it never depended on the engine.
+- The door stays open. The features are specifications, not code
+  (`verdict/store/features.py`), so the thing that would have to be
+  rewritten to move to Flink or a future Bytewax is one module, not the
+  platform.
+
+### Sources
+
+- Bytewax on PyPI: wheels for the current release, 0.21.1, cover cp38 to
+  cp312. https://pypi.org/project/bytewax/#files
+- Bytewax's build requirements: Rust and Cargo for a source install.
+  https://github.com/bytewax/bytewax
+- Quix Streams, the pure-Python alternative considered.
+  https://quix.io/docs/quix-streams/introduction.html
+- Sliding-window maximum with a monotonic deque, the standard technique used
+  in `aggregators.py`.
+  https://en.wikipedia.org/wiki/Sliding_window_protocol#Sliding_window_maximum
