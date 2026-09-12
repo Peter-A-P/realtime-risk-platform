@@ -1,0 +1,36 @@
+{
+  "_note": "Week 1 laptop measurement of the generator. Track: synthetic live. Not a platform latency or throughput number: nothing is being scored here, and the live figures come from the load tests in weeks 4 and 8 on the live stack.",
+  "machine": "build laptop, Windows 11, Python 3.13.15",
+  "runs": 5,
+  "events_per_run": 500000,
+  "generate_and_log_eps": {
+    "mean": 12219.1,
+    "ci95": [
+      8790.3,
+      15647.8
+    ]
+  },
+  "generate_only_eps": {
+    "mean": 19577.2,
+    "ci95": [
+      8146.4,
+      31008.1
+    ]
+  },
+  "fraud_share": {
+    "mean": 0.03056,
+    "ci95": [
+      0.02853,
+      0.03259
+    ],
+    "target": 0.03
+  },
+  "live_rate_target_eps": 1000.0,
+  "headroom_multiple_generate_and_log": 12.2,
+  "sustained_single_run": {
+    "events": 1000000,
+    "generate_and_log_eps": 6579.6,
+    "fraud_share": 0.03103,
+    "note": "One continuous run writing about 1.7 GB to disk. Slower than the five shorter runs because the raw-log write, not the generator, is what binds."
+  }
+}

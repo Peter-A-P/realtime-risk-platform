@@ -6,8 +6,10 @@ the training-versus-production mismatch that quietly breaks most deployed models
 platform around the model is what organisations are actually missing, and this one runs
 live where a hiring manager can watch it.
 
-**Status: planning.** Nothing has run yet. The plan is in [PLAN.md](PLAN.md): a nine-week
-build from Feb 1 2027, live Apr 5 to Jun 30 2027 at risk.peterparker.ca, torn down Jul 1.
+**Status: building, week 1 of 9 done.** The plan is in [PLAN.md](PLAN.md): a nine-week
+build, then three months live at risk.peterparker.ca. Nothing is scored yet, so the
+headline tables below are still empty, and they stay empty until the thing they describe
+has actually run.
 
 This is a platform, not a fraud model. The model is the least interesting part.
 
@@ -20,6 +22,22 @@ Not yet measured. The build fills the first table; the live window fills the sec
 | Decision latency p50 / p95 / p99 ms (95% CI) | Hop breakdown | Online/offline parity | Leak caught (commit, PR-AUC inflation) | Rollback drill (s, 5 runs) | Queue: $ caught per analyst-hour, expected loss vs score (95% CI) |
 |---|---|---|---|---|---|
 | _not yet_ | | | | | |
+
+**What has been measured (week 1, synthetic live track)**
+
+The event generator only. Nothing here is a platform latency or throughput figure, because
+nothing is being scored yet. Build laptop, Windows 11, Python 3.13.15; five runs of 500,000
+events; 95 percent intervals.
+
+| Measurement | Result | Against |
+|---|---|---|
+| Events generated and written to the raw log | 12,219 /s (8,790 to 15,648) | a live rate of 1,000 /s |
+| Events generated, nothing written | 19,577 /s (8,146 to 31,008) | the same |
+| Fraud share produced | 3.06% (2.85 to 3.26) | a 3% target |
+
+The intervals are wide because a laptop is a noisy machine, and because the raw-log write
+rather than the generator is what binds: a single continuous run of a million events is the
+slowest of the lot, at 6,580 /s. Details in [docs/generator.md](docs/generator.md).
 
 **Live window, Apr 5 to Jun 30 2027**
 
@@ -37,6 +55,23 @@ Not yet measured. The build fills the first table; the live window fills the sec
 - It does not touch real payment systems, card networks or personal data.
 - It runs in one region with at-least-once delivery and idempotent decisions. The
   architecture decision records say what changes at ten times the scale.
+
+## What exists so far
+
+Week 1 of nine: the event schema, the synthetic generator, the raw event log, the local
+stream stack and the first four architecture decision records.
+
+| Piece | Where | Note |
+|---|---|---|
+| Wire schema, versioned and closed | [verdict/events/schema.py](verdict/events/schema.py) | A transaction carries no label, no score and no feature. A test asserts it |
+| Entity graph: cards, devices, merchants | [verdict/events/generator/entities.py](verdict/events/generator/entities.py) | Fraud is a property of a graph, not a row |
+| Three fraud patterns | [verdict/events/generator/scenarios.py](verdict/events/generator/scenarios.py) | Card testing, account takeover, merchant collusion |
+| Sealed regime schedule | [verdict/events/generator/regimes.py](verdict/events/generator/regimes.py) | Design public, development schedule public, live realisation sealed until Jul 1 2027 |
+| Raw event log | [verdict/events/rawlog.py](verdict/events/rawlog.py) | Three files. Ground truth is kept out of the transaction log, and a test reads the bytes to prove it |
+| Local stream stack | [deploy/compose/docker-compose.yml](deploy/compose/docker-compose.yml) | Redpanda. **Written but not yet run**: Docker is not installed on the build laptop |
+| Decisions 1 to 4 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine |
+
+99 tests, `ruff` and `mypy --strict` clean.
 
 ## How it works
 

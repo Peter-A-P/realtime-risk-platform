@@ -1,0 +1,14 @@
+{
+  "_note": "Committed hashes. A test asserts each of these against the code. Changing one is a deliberate act that belongs in the same commit as the change it records, with the reason in the commit message.",
+  "reference_population": {
+    "cards": 20000,
+    "devices": 15000,
+    "merchants": 500
+  },
+  "reference_graph_seed": 20270201,
+  "reference_graph_sha256": "82394df056095f9ef6c050379b228279ca927b1a57f148bd2e87fd452af04c36",
+  "dev_schedule_name": "dev-2026-09",
+  "dev_schedule_sha256": "5b99f8f947c41e7f2d8f548350756839cd95f9042698ea383d1cabb807657bc5",
+  "regimes_source_sha256": "c80db2279d90865138051158804ba075a19f5c2880e76804d4bb118a2917c3e1",
+  "schema_sha256": "7adcab3a1e8269b6d8f43d5eaf5b275e0e3549d29474239cc9878df7c1c66ef9"
+}

@@ -1,8 +1,19 @@
 # Plan: Real-Time Fraud and Risk Decisioning Platform
 
-**Written:** 2026-09-06. **Status:** plan only, nothing built.
+**Written:** 2026-09-06. **Status:** building. Week 1 was built on 2026-09-12, about twenty
+weeks ahead of its slot, after a dependency check found nothing in the portfolio blocking
+it (the plan's own sequence has 01, 08 and 09 independent).
 
-**Build:** nine weeks, Feb 1 to Apr 4 2027. **Live:** Apr 5 to Jun 30 2027, torn down Jul 1.
+**Build:** nine weeks. The slot was Feb 1 to Apr 4 2027; the build started early, so the
+week numbers below are the schedule and the dates are not. **Live:** Apr 5 to Jun 30 2027
+as planned, torn down Jul 1, **but the go-live date is now an open decision**: starting
+five months early moves the live window unless the built platform waits, and the live
+window is what the AWS account timing in the plan repository's action 9 was arranged
+around (a free-plan account closes itself six months after opening). That decision is due
+before week 7, which is the first week that needs an AWS account, and it belongs in the
+plan repository's STATUS, not here. Nothing before week 7 costs anything: the build months
+run on the laptop.
+
 **Package:** `verdict`. **Fed by:** nothing in the portfolio; 01, 02 and 03 exist by then and
 their habits carry over. **Feeds:** 10 reads this platform's traces as one of its production
 signals; the write-up is one of the three under Rule E.
@@ -66,8 +77,28 @@ through one pipeline and says which number came from which:
 | Real-data offline | IEEE-CIS, replayed in its own time order through the feature store and training pipeline | The leakage test, parity, champion/challenger and queue ranking on real fraud |
 | Synthetic live | The `verdict` generator: an entity graph of cards, devices and merchants, fraud scenarios (card testing bursts, account takeover, merchant collusion), and a sealed schedule of regime shifts | Throughput, latency, drift detection, retraining, operations, cost |
 
-The generator's regime schedule is hashed and committed before go-live and revealed on
-Jul 1, so the drift monitors are graded against shifts they could not have been tuned to.
+The generator's regime schedule is sealed before go-live and revealed on Jul 1, so the
+drift monitors are graded against shifts they could not have been tuned to.
+
+**Amended 2026-09-12, in week 1, in the same commit as the code.** The plan said the
+schedule was "hashed and committed before go-live and revealed on Jul 1". Those two
+things cannot both be true of a schedule that sits in the repository in the clear: it
+would be committed, but it would not be sealed, because the person writing the drift
+monitors would have read it. Three things are now kept apart, and `docs/generator.md`
+and ADR 2 record why:
+
+- **The design is public.** `events/generator/regimes.py` publishes the kinds of shift
+  and the range each parameter may take. A test asserts every derived schedule stays
+  inside those ranges.
+- **A development realisation is public.** `DEV_SCHEDULE` is fixed, readable and used
+  throughout the build, and it contains the case that catches a naive monitor: a regime
+  that moves the amount distribution while the fraud rate holds still.
+- **The live realisation is sealed.** It is derived from a secret this repository does
+  not contain. `verdict schedule seal` commits three hashes before go-live: of the
+  secret, of the derived schedule, and of `regimes.py` itself. On Jul 1 2027 the secret
+  is published and `verdict schedule verify --reveal` re-derives the schedule and checks
+  all three, which is what makes the live drift numbers checkable by a stranger rather
+  than merely asserted.
 
 ### 2.2 Features are computed once
 
@@ -213,16 +244,16 @@ against the AWS API).
 
 | Dates | Built | Done when |
 |---|---|---|
-| Feb 1 to 7 | Repository, event schema, generator with entities, scenarios and the regime schedule (hash committed); Redpanda Compose; raw event log; ADRs 1 to 4 | 1,000 events per second generated and logged locally; schedule hash in the repository |
-| Feb 8 to 14 | Feast repository and offline store; IEEE-CIS replay in time order; **leakage test written, no features yet**; training pipeline skeleton; ADRs 5 to 7 | Leakage test runs green on an empty feature set and red on a planted fixture |
-| Feb 15 to 21 | Bytewax dataflow: velocity, entity-graph, session features; dual sink; parity test; first leak caught (expected) and recorded | Parity 100% on a day's replay; leakage test passing with features |
-| Feb 22 to 28 | Stream-consumer scorer, ONNX champion, decision rules, per-hop timers; HTTP endpoint for comparison; first local load test; latency budget published; ADRs 8, 9 | p99 and hop breakdown in `docs/latency-budget.md` |
-| Mar 1 to 7 | Champion training on IEEE-CIS and on replay; FT-Transformer challenger; shadow scoring; promotion function; rollback flag and drill; ADRs 10, 11 | Champion/challenger table with CIs; drill timed five times |
-| Mar 8 to 14 | Drift monitors, trigger, retraining job, approval pull request; expected-loss queue and evaluation; ADRs 12, 13 | Queue evaluation table; a retraining PR opened end to end on a forced shift |
-| Mar 15 to 21 | Kinesis path with aggregation; Redpanda/Kinesis parity; Terraform for the live stack; AWS budget alarms (plan repository action 9); Grafana dashboards; ADRs 14, 15 | Stack up and down on AWS on one command each; parity across paths |
-| Mar 22 to 28 | Chaos tests and `failure-modes.md`; load test on the live instance; cost per million events; hardening; ADR 16 | Every chaos scenario has observed behaviour and a fix; loadtest results with CIs |
-| Mar 29 to Apr 4 | 72-hour dry live run; README; runbook; ADR review | Dry run clean; go-live checklist ticked |
-| **Apr 5** | **Go-live at 1,000 events per second**, dashboard public at risk.peterparker.ca | |
+| Week 1 (built 2026-09-12) | Repository, event schema, generator with entities, scenarios and the regime schedule (hash committed); Redpanda Compose; raw event log; ADRs 1 to 4 | **Done**, except the Compose stack, which is written but unrun: Docker is not installed on the build laptop. 12,219 events/s generated and logged (8,790 to 15,648, five runs of 500,000), against a target of 1,000; hashes in `docs/generator-hashes.json`; ADRs 1 to 4 written |
+| Week 2 | Feast repository and offline store; IEEE-CIS replay in time order; **leakage test written, no features yet**; training pipeline skeleton; ADRs 5 to 7 | Leakage test runs green on an empty feature set and red on a planted fixture |
+| Week 3 | Bytewax dataflow: velocity, entity-graph, session features; dual sink; parity test; first leak caught (expected) and recorded | Parity 100% on a day's replay; leakage test passing with features |
+| Week 4 | Stream-consumer scorer, ONNX champion, decision rules, per-hop timers; HTTP endpoint for comparison; first local load test; latency budget published; ADRs 8, 9 | p99 and hop breakdown in `docs/latency-budget.md` |
+| Week 5 | Champion training on IEEE-CIS and on replay; FT-Transformer challenger; shadow scoring; promotion function; rollback flag and drill; ADRs 10, 11 | Champion/challenger table with CIs; drill timed five times |
+| Week 6 | Drift monitors, trigger, retraining job, approval pull request; expected-loss queue and evaluation; ADRs 12, 13 | Queue evaluation table; a retraining PR opened end to end on a forced shift |
+| Week 7 | Kinesis path with aggregation; Redpanda/Kinesis parity; Terraform for the live stack; AWS budget alarms (plan repository action 9); Grafana dashboards; ADRs 14, 15 | Stack up and down on AWS on one command each; parity across paths |
+| Week 8 | Chaos tests and `failure-modes.md`; load test on the live instance; cost per million events; hardening; ADR 16 | Every chaos scenario has observed behaviour and a fix; loadtest results with CIs |
+| Week 9 | 72-hour dry live run; README; runbook; ADR review | Dry run clean; go-live checklist ticked |
+| **Go-live** | **Go-live at 1,000 events per second**, dashboard public at risk.peterparker.ca. Date open: see the header | |
 | Apr 5 to Jun 30 | Weekly check; monthly report to the plan repository's STATUS; regime shifts land on the sealed schedule; retraining PRs reviewed; interruptions recovered | 87 days of telemetry |
 | Jul 1 | `down.sh`; schedule revealed; live-window report; Rule E write-up drafted | Nothing billable remains; report published |
 

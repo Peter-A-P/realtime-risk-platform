@@ -1,0 +1,84 @@
+# The local stack. One command up, one command down, same code as the live
+# region with Redpanda standing in for Kinesis behind the `Stream` interface.
+#
+# Week 1 brings up the stream and the console only. Redis, Postgres, MLflow,
+# Prometheus and Grafana arrive in the weeks that need them (3, 5, 6 and 7),
+# so that every service here is one a test already exercises.
+#
+# Images are pinned to a minor version, not to `latest`. A stack that silently
+# upgrades under a latency measurement is not a measurement.
+
+name: verdict
+
+services:
+  redpanda:
+    # Kafka-compatible, single binary, no ZooKeeper or KRaft quorum to run on
+    # a laptop. ADR 0003 records why the local stream is Redpanda and the live
+    # one is Kinesis, and what the `Stream` interface has to hide.
+    image: redpandadata/redpanda:v24.3.6
+    container_name: verdict-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+      - --set=redpanda.auto_create_topics_enabled=false
+    ports:
+      # 19092 is the host-facing listener; in-network services use 9092.
+      - "19092:19092"
+      - "9644:9644"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  # Topics are created explicitly, never by a producer. Auto-creation gives a
+  # typo its own topic and a silent zero-throughput consumer, which is a
+  # failure mode this platform reports rather than absorbs.
+  topics:
+    image: redpandadata/redpanda:v24.3.6
+    container_name: verdict-topics
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -e
+        rpk topic create transactions --brokers redpanda:9092 \
+          --partitions 4 --replicas 1 --topic-config retention.ms=604800000
+        rpk topic create labels --brokers redpanda:9092 \
+          --partitions 1 --replicas 1 --topic-config retention.ms=2592000000
+        rpk topic create decisions --brokers redpanda:9092 \
+          --partitions 4 --replicas 1 --topic-config retention.ms=604800000
+        rpk topic list --brokers redpanda:9092
+    restart: "no"
+
+  console:
+    # Read-only window on the stream while developing. Not part of the live
+    # stack: the live dashboard is Grafana, behind a rate limit.
+    image: redpandadata/console:v2.8.2
+    container_name: verdict-console
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+
+volumes:
+  redpanda-data:
