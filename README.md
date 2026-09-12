@@ -6,7 +6,7 @@ the training-versus-production mismatch that quietly breaks most deployed models
 platform around the model is what organisations are actually missing, and this one runs
 live where a hiring manager can watch it.
 
-**Status: building, week 1 of 9 done.** The plan is in [PLAN.md](PLAN.md): a nine-week
+**Status: building, weeks 1 and 2 of 9 done.** The plan is in [PLAN.md](PLAN.md): a nine-week
 build, then three months live at risk.peterparker.ca. Nothing is scored yet, so the
 headline tables below are still empty, and they stay empty until the thing they describe
 has actually run.
@@ -58,8 +58,8 @@ slowest of the lot, at 6,580 /s. Details in [docs/generator.md](docs/generator.m
 
 ## What exists so far
 
-Week 1 of nine: the event schema, the synthetic generator, the raw event log, the local
-stream stack and the first four architecture decision records.
+Weeks 1 and 2 of nine: the event stream, and the test that will judge every feature
+before any feature exists.
 
 | Piece | Where | Note |
 |---|---|---|
@@ -68,10 +68,19 @@ stream stack and the first four architecture decision records.
 | Three fraud patterns | [verdict/events/generator/scenarios.py](verdict/events/generator/scenarios.py) | Card testing, account takeover, merchant collusion |
 | Sealed regime schedule | [verdict/events/generator/regimes.py](verdict/events/generator/regimes.py) | Design public, development schedule public, live realisation sealed until Jul 1 2027 |
 | Raw event log | [verdict/events/rawlog.py](verdict/events/rawlog.py) | Three files. Ground truth is kept out of the transaction log, and a test reads the bytes to prove it |
+| Replay, in time order | [verdict/events/replay.py](verdict/events/replay.py) | Refuses an out-of-order log rather than sorting it quietly |
+| **The leakage test** | [verdict/store/leakage.py](verdict/store/leakage.py) | Written before the first feature. Two checks, and three planted leaks that prove it can fail |
+| Feature definitions | [verdict/store/features.py](verdict/store/features.py) | A feature is a specification. The window is `[t - w, t)`, and an event is never part of its own features |
+| Feature store | [verdict/store/repo.py](verdict/store/repo.py) | Feast, generated from the definitions, push sources rather than materialisation |
 | Local stream stack | [deploy/compose/docker-compose.yml](deploy/compose/docker-compose.yml) | Redpanda. **Written but not yet run**: Docker is not installed on the build laptop |
-| Decisions 1 to 4 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine |
+| Decisions 1 to 7 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine; feature store; computed once; leakage test first |
 
-99 tests, `ruff` and `mypy --strict` clean.
+149 tests, `ruff` and `mypy --strict` clean.
+
+The feature set is deliberately **empty**. The leakage test runs green over it today,
+which is the only state in which it can be trusted later: week 3 cannot add the first
+feature without the test already standing there. What it catches is in
+[ADR 7](docs/adr/0007-leakage-test-first.md).
 
 ## How it works
 

@@ -24,6 +24,21 @@ dependencies = [
   # CLI. Pre-1.0, so the minor is pinned too: Typer still changes argument
   # handling between minors.
   "typer>=0.15,<0.16",
+  # The feature store: registry, point-in-time joins, and the online read.
+  # Pre-1.0 and it brings 48 packages with it, so the minor is pinned and
+  # raised deliberately. ADR 5 records what it is used for, what it is not,
+  # and the measurements that decided it. The online key layout is pinned
+  # separately, in the generated feature_store.yaml.
+  "feast>=0.66,<0.67",
+  # Feast's own frame type, and what the point-in-time join returns. v2 is
+  # the current major; v3 will change the copy-on-write defaults.
+  "pandas>=2.2,<3",
+  # The offline store's file format, through Feast. Majors move fast and
+  # change the Parquet writer's defaults, which would rewrite files the live
+  # window depends on being readable.
+  "pyarrow>=18,<26",
+  # Reading and writing feature_store.yaml.
+  "pyyaml>=6.0,<7",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +56,12 @@ dev = [
   # Lint and format. Pre-1.0 and moves fast, so the minor is pinned and
   # raised deliberately.
   "ruff>=0.9,<0.10",
+  # Type stubs. They exist only so `mypy --strict` can see into the two
+  # libraries this project calls that ship no types of their own; without
+  # them the strict run would have to be told to ignore whole modules, which
+  # is how type checking quietly stops covering the interesting parts.
+  "pandas-stubs>=2.2,<3",
+  "types-PyYAML>=6.0,<7",
 ]
 
 [project.scripts]
