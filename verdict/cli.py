@@ -23,6 +23,7 @@ from typing import Annotated
 
 import typer
 
+from verdict.events import ieee_cis
 from verdict.events.generator.driver import Generator, GeneratorConfig
 from verdict.events.generator.entities import EntityGraph, Population
 from verdict.events.generator.regimes import (
@@ -45,6 +46,11 @@ schedule_app = typer.Typer(
     name="schedule", help="The regime schedule and its seal.", no_args_is_help=True
 )
 app.add_typer(schedule_app)
+
+data_app = typer.Typer(
+    name="data", help="The real-data track's files and what is in them.", no_args_is_help=True
+)
+app.add_typer(data_app)
 
 
 @app.command()
@@ -203,6 +209,144 @@ def schedule_verify(
             secret, window_days=commitment.window_days, name=commitment.schedule_name
         )
         typer.echo(json.dumps(json.loads(schedule.to_json()), indent=2))
+
+
+@data_app.command("ingest")
+def data_ingest(
+    archive: Annotated[Path, typer.Option(help="The downloaded competition archive.")],
+    out: Annotated[Path, typer.Option(help="Where to extract it.")] = (
+        ieee_cis.DEFAULT_DESTINATION
+    ),
+) -> None:
+    """Extract the competition archive and record a hash of everything in it.
+
+    Nothing here downloads anything. The competition rules permit use by
+    people who have accepted them, so the download stays a deliberate act by
+    the account holder, and this project stores no Kaggle credential.
+
+    Args:
+        archive: The downloaded archive.
+        out: Where to extract it.
+    """
+    manifest = ieee_cis.ingest(archive, out)
+    typer.echo(
+        json.dumps(
+            {
+                "archive": manifest.archive_name,
+                "archive_sha256": manifest.archive_sha256,
+                "destination": manifest.destination,
+                "files": [
+                    {"name": entry.name, "mb": round(entry.bytes_written / 1e6, 1)}
+                    for entry in manifest.files
+                ],
+            },
+            indent=2,
+        )
+    )
+
+
+@data_app.command("manifest")
+def data_manifest(
+    directory: Annotated[Path, typer.Option(help="Where the files already are.")] = (
+        ieee_cis.DEFAULT_DESTINATION
+    ),
+    archive: Annotated[Path | None, typer.Option(help="The archive, if kept.")] = None,
+) -> None:
+    """Record a hash of files that were extracted outside this tool.
+
+    Args:
+        directory: Where the files are.
+        archive: The archive they came from, if it is still around.
+    """
+    manifest = ieee_cis.manifest_existing(directory, archive)
+    typer.echo(
+        json.dumps(
+            {
+                "destination": manifest.destination,
+                "archive_sha256": manifest.archive_sha256,
+                "files": [
+                    {
+                        "name": entry.name,
+                        "mb": round(entry.bytes_written / 1e6, 1),
+                        "sha256": entry.sha256,
+                    }
+                    for entry in manifest.files
+                ],
+            },
+            indent=2,
+        )
+    )
+
+
+@data_app.command("verify")
+def data_verify(
+    directory: Annotated[Path, typer.Option(help="Where the files are.")] = (
+        ieee_cis.DEFAULT_DESTINATION
+    ),
+) -> None:
+    """Check the local files against the committed checksum record.
+
+    Args:
+        directory: Where the files are.
+
+    Raises:
+        typer.Exit: With code 1 if anything is missing or has changed.
+    """
+    result = ieee_cis.verify(directory)
+    typer.echo(
+        json.dumps(
+            {
+                "ok": result.ok,
+                "checked": list(result.checked),
+                "missing": list(result.missing),
+                "mismatched": list(result.mismatched),
+            },
+            indent=2,
+        )
+    )
+    if not result.ok:
+        raise typer.Exit(code=1)
+
+
+@data_app.command("inspect")
+def data_inspect(
+    directory: Annotated[Path, typer.Option(help="Where the files were extracted.")] = (
+        ieee_cis.DEFAULT_DESTINATION
+    ),
+    full: Annotated[bool, typer.Option(help="Print every column, not just the findings.")] = False,
+) -> None:
+    """Report what the competition files contain.
+
+    The loader that maps this data onto the platform's event schema is
+    written against this report rather than against a memory of a schema
+    published in 2019.
+
+    Args:
+        directory: Where the files were extracted.
+        full: Whether to print the whole column list.
+    """
+    findings = ieee_cis.find_answers(directory)
+    report: dict[str, object] = {
+        "has_merchant_identifier": findings.has_merchant_identifier,
+        "merchant_columns": list(findings.merchant_columns),
+        "identity_coverage": findings.identity_coverage,
+        "fraud_share": findings.fraud_share,
+        "transaction_time": findings.time_column,
+        "notes": list(findings.notes),
+    }
+    if full:
+        schema = ieee_cis.inspect_file(directory / ieee_cis.TRANSACTION_FILE)
+        report["rows"] = schema.rows
+        report["columns"] = [
+            {
+                "name": column.name,
+                "dtype": column.dtype,
+                "missing": column.missing_share,
+                "distinct_in_sample": column.distinct_in_sample,
+            }
+            for column in schema.columns
+        ]
+    typer.echo(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":  # pragma: no cover

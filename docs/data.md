@@ -8,18 +8,47 @@ it is, what it is used for, and the terms it comes under.
 
 | Source | Used for | Terms recorded | Downloaded |
 |---|---|---|:--:|
-| IEEE-CIS Fraud Detection | Real-data offline track | **Yes, 2026-09-12** | Not yet |
+| IEEE-CIS Fraud Detection | Real-data offline track | **Yes, 2026-09-12** | **Yes, 2026-09-12** |
 | `verdict` generator (own) | Synthetic live track | Written here, published with the repository | n/a |
 | Sparkov generator | Reference for categories and amounts | Reference only, no data used | No |
 | ULB credit-card fraud | Fallback for the real-data track | ODbL | No |
 
 ## IEEE-CIS Fraud Detection
 
-About 590,000 card transactions with 400-odd features and roughly 3.5 percent
-fraud, published by Vesta Corporation for the IEEE Computational Intelligence
+Published by Vesta Corporation for the IEEE Computational Intelligence
 Society's 2019 technical challenge. It is the real-data track: the leakage
 test, online/offline parity, the champion/challenger comparison and the
 review-queue evaluation all run on it.
+
+**Measured from the file on 2026-09-12**, rather than quoted from the
+competition page, by `verdict data inspect`:
+
+| | |
+|---|---|
+| Transactions (`train_transaction.csv`) | 590,540 |
+| Span of `TransactionDT` | 182.0 days, whole seconds, offset from an unstated reference |
+| Mean rate | 0.0376 events per second |
+| Fraud share | 3.499% |
+| Rows with identity (device) data | 24.4% |
+| Merchant identifier | **None** |
+
+Three of those shape what this track can do, and the loader is written against
+them rather than around them:
+
+- **There is no merchant.** The platform's feature set includes three
+  merchant-keyed features, and this track cannot compute any of them. The
+  response is to report per track which features exist, not to promote
+  `ProductCD` (a five-valued product category) into a merchant and then
+  measure an entity-graph feature against something invented here.
+- **Device features cover a quarter of the rows.** The identity file is a
+  subset, so device-keyed features are present for 24.4 percent of
+  transactions and absent for the rest. Absent is a value the platform already
+  has a sentinel for.
+- **The clock is whole seconds and the stream is sparse.** 0.0376 events per
+  second means same-instant collisions are uncommon: 5.75 percent of rows
+  share a timestamp with another row, and only 0.053 percent share both a
+  timestamp and a card. That number is why `docs/leak-caught.md` carries a
+  correction.
 
 Competition page: https://www.kaggle.com/competitions/ieee-fraud-detection
 

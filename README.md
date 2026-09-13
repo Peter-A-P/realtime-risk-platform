@@ -81,15 +81,16 @@ sixteen features it now judges.
 | Local stream stack | [deploy/compose/docker-compose.yml](deploy/compose/docker-compose.yml) | Redpanda. **Written but not yet run**: Docker is not installed on the build laptop |
 | Decisions 1 to 7 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first |
 
-197 tests, `ruff` and `mypy --strict` clean.
+223 tests, `ruff` and `mypy --strict` clean.
 
 **The leakage test caught a real leak on the day the first features were written**, which
 is what it was written a week earlier for. Two transactions sharing a timestamp saw each
-other, because a window is `[t - w, t)` and excludes anything at `t`. That is 0.055 percent
-of events at microsecond resolution, and 99.9 percent of them on second-resolution data
-like the public competition set, where it corrupted 2.75 percent of one feature's values.
-The episode, including the mistake made while wiring up the check itself, is in
-[docs/leak-caught.md](docs/leak-caught.md).
+other, because a window is `[t - w, t)` and excludes anything at `t`. On the public
+competition data that is 312 rows of 590,540, a twentieth of one percent, invisible and
+permanent and slightly concentrated in the rows the model exists to find. The episode is in
+[docs/leak-caught.md](docs/leak-caught.md), along with a correction: the first published
+version of that measurement described the wrong stream, and overstated it by three orders
+of magnitude.
 
 ## How it works
 

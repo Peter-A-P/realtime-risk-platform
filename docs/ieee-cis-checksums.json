@@ -1,0 +1,26 @@
+{
+  "_note": "Checksums of the IEEE-CIS competition files as downloaded on 2026-09-12. Hashes only: no data. `verdict data verify` compares a local copy against this, so a truncated download or a substituted file is an error rather than a strange model. The archive is the one the competition's Data tab serves.",
+  "archive_sha256": "4cc646da09d0a9b265983ffed775b1f9ee15af5266586df610e04d6adae0b829",
+  "files": {
+    "sample_submission.csv": {
+      "bytes": 6080314,
+      "sha256": "50d7e0d6fcfc6e498efc297001f252101512ccdcb34aefbde6db98f8242a3626"
+    },
+    "test_identity.csv": {
+      "bytes": 25797161,
+      "sha256": "3e5978cb13ca5e72f52babc4349ae0125e14b87ca8bfabe952ab67bb4ff1e10b"
+    },
+    "test_transaction.csv": {
+      "bytes": 613194934,
+      "sha256": "2a8e51f1d335a86025d2b7f45beb9b78d0ab1edd726ef531d8b71a8a0065c011"
+    },
+    "train_identity.csv": {
+      "bytes": 26529680,
+      "sha256": "b63c725d8377be90a995268d97f347c17d456b95db45807adcf9f59cd603c37c"
+    },
+    "train_transaction.csv": {
+      "bytes": 683351067,
+      "sha256": "3a5c83ab6b3cc13dcabe5ffa9f522307fd5f7f7b6e6f6a60c32284ca6283d642"
+    }
+  }
+}

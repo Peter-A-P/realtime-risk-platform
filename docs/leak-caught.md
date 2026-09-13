@@ -35,35 +35,70 @@ events therefore never see each other, which is what the definition says and
 what a production scorer, deciding on each transaction before the next
 arrives, would also do.
 
+How much this was worth is measured below, and the first published version of
+that measurement was wrong. The correction is kept in place rather than
+quietly edited out, because a document about a leak that nobody noticed is a
+poor place to silently fix a number nobody noticed.
+
 ## What it would have cost
 
-Two measurements, because the answer differs sharply by track, and the
-difference is the interesting part.
+Three measurements. The first two were taken before the competition data was
+downloaded; the third is the one that describes it, and it is the reason this
+section was rewritten.
 
-| Track | Timestamp resolution | Events sharing a timestamp | Feature values corrupted |
-|---|---|---:|---:|
-| Synthetic live, 1,000 events/s | microsecond | 33 of 60,000 (0.055%) | 0 of 60,000 |
-| Real-data offline, as IEEE-CIS is published | second | 19,980 of 20,000 (99.9%) | 55 of 2,000 sampled (2.75%) |
+| Stream | Rate | Timestamp resolution | Rows sharing an instant | Values actually corrupted |
+|---|---:|---|---:|---|
+| Synthetic live | 1,000/s | microsecond | 0.055% | 0 of 60,000 |
+| Synthetic, truncated to whole seconds | 1,000/s | second | 99.9% | 2.75% of one feature's values |
+| **IEEE-CIS, as published** | **0.0376/s** | second | **5.75%** | **0.053%: 312 of 590,540 rows** |
 
-On the synthetic stream the leak is real but rare: collisions happen, and in
-this sample none of the colliding pairs shared a card, device or merchant, so
-no served value actually changed. Had the test not caught it, the live window
-would have run for three months with a defect firing on roughly one event in
-two thousand and visible in nothing.
+### The correction
 
-On the real-data track it would have been severe. The public competition
-data's `TransactionDT` is a whole-number offset in seconds, so essentially
-every event shares its timestamp with others, and 2.75 percent of the sampled
-`device_distinct_cards_1h` values were wrong. That feature is the one that
-exists to catch card testing, which is precisely a burst of events inside a
-single second.
+An earlier version of this document put the middle row in the table under the
+heading "Real-data offline track, as IEEE-CIS is published". That was wrong,
+and the error went into the README and the plan's status with it.
+
+The middle row is the **synthetic** stream with its timestamps truncated to
+whole seconds. It is a stress test, not a description of anything. The real
+competition data carries 590,540 transactions across 182 days, which is
+**0.0376 events per second**: about twenty-six thousand times sparser than the
+synthetic stream. Collisions there are uncommon, not universal.
+
+The mistake was assuming that second-resolution timestamps were what made
+collisions likely. They are half of it. What actually decides collision
+frequency is **events per unit of timestamp resolution**, and the two tracks
+sit at opposite corners of that: a dense stream with fine timestamps, and a
+sparse one with coarse timestamps. They end up in a similar place, with
+roughly one row in two thousand affected.
+
+### What the real data says
+
+On IEEE-CIS, 33,932 rows (5.75 percent) share a `TransactionDT` value with
+another row. Sharing an instant is only half of what the leak needs, though:
+it also has to be the same entity, or no feature value changes. Grouping by
+instant and card:
+
+- **312 rows (0.053 percent)** share both an instant and a `card1` value, so
+  their card-keyed features would have been wrong.
+- 160 rows (0.027 percent) on the tighter `card1`+`addr1` card proxy.
+- Those 312 rows are 7.7 percent fraud against a 3.5 percent base rate. That
+  is the direction you would expect if bursts are disproportionately
+  fraudulent, and with 24 fraudulent rows in the group it is far too small to
+  lean on. It is recorded because it points the right way, not because it
+  proves anything.
+
+So on the real data the leak would have been small. It would also have been
+entirely invisible, permanent, and concentrated slightly in the rows the model
+exists to find.
 
 **The offline PR-AUC inflation is not measured here**, because there is no
 model yet: model work is week 5. The plan asks for that number, so week 5
 trains the champion twice, once on features from the fixed engine and once on
 features from the unfixed one, and reports the difference. The unfixed
-implementation is kept as a fixture in `tests/test_engine.py` for exactly
-that purpose rather than deleted.
+implementation is kept as a fixture in `tests/test_engine.py` for exactly that
+purpose rather than deleted. On 312 rows out of 590,540, the honest
+expectation is that the difference will be small and possibly not separable
+from noise, and that is worth reporting either way.
 
 ## The second catch, which is the more useful story
 
