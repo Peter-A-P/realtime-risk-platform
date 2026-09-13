@@ -53,6 +53,9 @@ slowest of the lot, at 6,580 /s. Details in [docs/generator.md](docs/generator.m
   volume, so the real data (a public competition set) runs through the same pipeline
   offline, and every number says which track it came from.
 - It does not touch real payment systems, card networks or personal data.
+- The public competition data is used under its own terms, which permit non-commercial
+  use and forbid redistribution. None of it, and nothing derived from it row by row, is in
+  this repository or on the live stack. [docs/data.md](docs/data.md) records the clauses.
 - It runs in one region with at-least-once delivery and idempotent decisions. The
   architecture decision records say what changes at ten times the scale.
 
@@ -78,7 +81,7 @@ sixteen features it now judges.
 | Local stream stack | [deploy/compose/docker-compose.yml](deploy/compose/docker-compose.yml) | Redpanda. **Written but not yet run**: Docker is not installed on the build laptop |
 | Decisions 1 to 7 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first |
 
-188 tests, `ruff` and `mypy --strict` clean.
+197 tests, `ruff` and `mypy --strict` clean.
 
 **The leakage test caught a real leak on the day the first features were written**, which
 is what it was written a week earlier for. Two transactions sharing a timestamp saw each

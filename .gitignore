@@ -26,10 +26,13 @@ dist/
 build/
 *.egg-info/
 
-# Data (loaders fetch and verify; nothing raw is committed)
-data/raw/
-data/ieee-cis/
-data/ulb/
+# Data. Nothing raw is committed, and nothing row-level derived from the
+# competition data either: its rules forbid making the data available to
+# anyone who has not accepted them, and a per-transaction feature store is a
+# transformed copy rather than a published result. See docs/data.md, and
+# tests/test_data_terms.py, which asserts these rules still exist.
+data/
+!data/.gitkeep
 
 # Local stores, logs, models
 *.sqlite
