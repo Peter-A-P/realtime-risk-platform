@@ -3,16 +3,26 @@
 This repository is the Real-Time Fraud and Risk Decisioning Platform, package `verdict`: a
 streaming feature store with point-in-time correctness, a stream-consumer scorer under a
 published latency budget, shadow deployment, drift-triggered retraining behind an approval
-gate, and an expected-loss review queue, built Feb to Apr 2027 and live Apr 5 to Jun 30
-2027. The plan is in [PLAN.md](PLAN.md).
+gate, and an expected-loss review queue. The plan is in [PLAN.md](PLAN.md).
+
+The slot was a Feb to Apr 2027 build with a live window from Apr 5 2027. **The build
+started on 2026-09-12, about twenty weeks early**, so the week numbers in the plan are the
+schedule and the dates are not, and the go-live date is an open decision due before week 7.
+Weeks 1 to 3 are done.
 
 ## Read first
 
+- **[docs/STATE.md](docs/STATE.md): start here.** Where the build has got to, what was
+  decided and why, what is waiting on Peter, and the handful of facts about this machine
+  that will otherwise cost an hour. It is written for a session starting cold.
 - [README.md](README.md): what this is and the current result tables.
 - [PLAN.md](PLAN.md): the design. Do not deviate from it silently; if something in it turns
   out wrong, change the plan in the same commit as the code and say why in the commit
   message, and write or amend the architecture decision record.
 - `docs/adr/`: every architecture decision, with its public sources.
+
+Keep `docs/STATE.md` current as the build moves. It is the handover, so a week that ends
+without updating it is a week whose context lives only in one session's memory.
 
 ## Engineering standard
 
@@ -40,6 +50,11 @@ gate, and an expected-loss review queue, built Feb to Apr 2027 and live Apr 5 to
   that carries the shadow evidence.
 - **Teardown is part of done.** `down.sh` must leave nothing billable; the test asserts it
   against the cloud API.
+- **Run Python through the project venv**: `.venv/Scripts/python.exe -m ...`. Bare `python`
+  is the system interpreter and does not have the dependencies.
+- **The competition data may not be redistributed.** `data/` is ignored in full, including
+  anything derived from it row by row, and the real-data track never runs on the live AWS
+  stack. `docs/data.md` carries the clauses; `tests/test_data_terms.py` enforces them.
 - **The model is timeboxed.** Model work is week 5 of the build. Improvements after that
   need an ADR saying what platform property they serve.
 - **Every reported number carries a confidence interval** and says which track (real data

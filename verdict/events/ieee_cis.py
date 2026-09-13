@@ -43,8 +43,13 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
-DEFAULT_DESTINATION: Final = Path("data/ieee-cis")
-"""Where the extracted files live. Gitignored, and covered by a test."""
+DEFAULT_DESTINATION: Final = Path("data/raw/ieee-fraud-detection")
+"""Where the extracted files live.
+
+This is where the competition's own archive unpacks to, which is where the
+download actually landed, so every `verdict data` command works with no flags.
+Gitignored in full, and a test asserts that.
+"""
 
 MANIFEST_NAME: Final = "manifest.json"
 
