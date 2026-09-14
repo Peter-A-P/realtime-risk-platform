@@ -430,5 +430,74 @@ def data_check(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def loadtest(
+    stream: Annotated[str, typer.Option(help="memory, or redpanda for the compose broker.")] = (
+        "memory"
+    ),
+    rate: Annotated[float, typer.Option(help="Transactions sent per second.")] = 1000.0,
+    events: Annotated[int, typer.Option(help="Transactions per run.")] = 20_000,
+    runs: Annotated[int, typer.Option(help="Runs, for the interval. At least 2.")] = 5,
+    warmup: Annotated[int, typer.Option(help="Decisions per run left out.")] = 1_000,
+    out: Annotated[Path | None, typer.Option(help="Also write the report here.")] = None,
+) -> None:
+    """Drive the scorer at a fixed rate and report latency per hop.
+
+    Synthetic live track only. The model is the week 4 stand-in, and the
+    report says so in its own fields.
+
+    Args:
+        stream: Which stream to run on.
+        rate: Target sends per second.
+        events: Transactions per run.
+        runs: How many runs.
+        warmup: Decisions per run excluded from the statistics.
+        out: Where to write the JSON report, if anywhere.
+
+    Raises:
+        typer.BadParameter: If the stream is not one this build knows.
+    """
+    import platform
+    from dataclasses import asdict
+
+    from verdict.scoring import loadtest as load
+
+    match stream:
+        case "memory":
+            backend = load.memory_backend()
+        case "redpanda":
+            backend = load.redpanda_backend()
+        case _:
+            msg = f"unknown stream {stream!r}; use memory or redpanda"
+            raise typer.BadParameter(msg)
+
+    sent = load.generate_events(events, rate=rate)
+    results = [load.run_once(backend, sent, rate=rate, warmup=warmup) for _ in range(runs)]
+    report = {
+        "track": "synthetic live, local",
+        "stream": backend.name,
+        "model": "stand-in-0 (not trained; see verdict/scoring/model.py)",
+        "features": "served by the in-process engine",
+        "rate_target_per_second": rate,
+        "events_per_run": events,
+        "warmup_decisions_excluded": warmup,
+        "runs": runs,
+        "host": {
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+            "python": platform.python_version(),
+            "system": f"{platform.system()} {platform.release()}",
+        },
+        "measured_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "summary": load.summarise(results),
+        "per_run": [asdict(result) for result in results],
+    }
+    text = json.dumps(report, indent=2)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+    typer.echo(text)
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

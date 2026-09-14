@@ -31,6 +31,10 @@ expected loss in money.
   would fail on a `None`, which is what makes this a breaking change. No
   version 1 record is kept anywhere that matters: the development logs are
   regenerated from a seed.
+- **2, extended** (week 4, 2026-09-14). `DecisionEvent` added, for the
+  `decisions` topic, and included in the fingerprint. A new record type
+  changes nothing an existing reader reads, so the version stays at 2; the
+  fingerprint changes, deliberately, in the same commit.
 """
 
 from __future__ import annotations
@@ -248,6 +252,45 @@ class GroundTruth(Record):
     """Name of the regime in force when the event was generated."""
 
 
+class Action(StrEnum):
+    """What a decision does with a transaction."""
+
+    APPROVE = "approve"
+    REVIEW = "review"
+    """Approved for now and placed in the review queue (week 6)."""
+    DECLINE = "decline"
+
+
+class DecisionEvent(Record):
+    """What the scorer decided about one transaction, as written to `decisions`.
+
+    Keyed on `event_id` like everything else, which is what makes decisions
+    idempotent: a consumer of this topic that sees the same `event_id` twice
+    has seen one decision twice, not two decisions (ADR 8).
+
+    It carries the score and the rule that fired, and not the features. The
+    features are in the offline store, keyed the same way; copying them here
+    would make a second place they live.
+    """
+
+    schema_version: Literal[2] = SCHEMA_VERSION
+    event_id: EntityId
+    card_id: EntityId
+    action: Action
+    score: float = Field(ge=0.0, le=1.0)
+    """The model's score, a probability-like number in [0, 1]."""
+    rule: str = Field(min_length=1, max_length=64)
+    """The name of the rule that decided, so a decision can be explained."""
+    model_version: str = Field(min_length=1, max_length=64)
+    decided_at: dt.datetime
+    """When the decision was made, timezone-aware UTC, on the scorer's clock."""
+
+    @field_validator("decided_at")
+    @classmethod
+    def _check_decided_at(cls, value: dt.datetime) -> dt.datetime:
+        return require_utc(value)
+
+
 def decode_transaction(raw: str | bytes) -> TransactionEvent:
     """Decode one JSON record from the stream into a `TransactionEvent`.
 
@@ -306,6 +349,7 @@ class SchemaFingerprint(Record):
             The fingerprint of this build's wire schema.
         """
         payload = {
+            "DecisionEvent": DecisionEvent.model_json_schema(),
             "GroundTruth": GroundTruth.model_json_schema(),
             "LabelEvent": LabelEvent.model_json_schema(),
             "TransactionEvent": TransactionEvent.model_json_schema(),

@@ -23,8 +23,9 @@ checksums are committed, and since 2026-09-14 its rows map onto the platform's
 events (ADR 17): 590,540 events replayed, 6 of 16 features on that track, and
 the point-in-time check clean over a 2 percent sample of cards. The wire
 schema is at version 2. Week 4 has started: the `Stream` interface exists with
-in-process and Redpanda implementations, tested against the running broker.
-286 tests; `ruff`, `ruff format` and
+in-process and Redpanda implementations, tested against the running broker,
+and the scorer consumes it (ADR 8) with a stand-in model and a load test. No
+latency figure is published yet (section 11). 312 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -91,18 +92,25 @@ verdict/
     memory.py        In process, shaped like Kafka: a broker object and client handles.
     redpanda.py      confluent-kafka. Idempotent producer; consumers assigned, not
                      subscribed, so no rebalance delay lands in a latency number.
+  scoring/
+    consumer.py      The scorer. Ledger check, engine features, model, rules, decision;
+                     flush then checkpoint per batch. Needs a one-partition topic.
+    model.py         The Model protocol and StandInModel: fixed weights, NOT trained.
+    rules.py         Placeholder thresholds, until week 6's expected loss.
+    timing.py        Hops, percentiles, the t interval used for every rate and latency.
+    loadtest.py      Paced producer thread, scorer thread, per-hop report.
   store/
     features.py      FEATURE_SET: the sixteen features, as specifications not code.
                      Also the brute-force reference evaluation.
     leakage.py       The point-in-time test. Two checks. Never weakened.
     repo.py          Generates the Feast repository from the specifications.
     retrieval.py     Point-in-time training sets. Refuses to carry the label time.
-  cli.py             verdict generate | schedule show/hash/seal/verify |
+  cli.py             verdict generate | loadtest | schedule show/hash/seal/verify |
                      data ingest/manifest/verify/inspect/events/check
 ```
 
 Not yet written: `stream/kinesis.py` and `stream/parity.py` (week 7),
-`scoring/`, `models/`, `drift/`, `queue/`, `observe/`, `chaos/`,
+`scoring/http.py`, `scoring/shadow.py`, `scoring/flags.py`, `models/`, `drift/`, `queue/`, `observe/`, `chaos/`,
 `deploy/terraform/`.
 
 `deploy/compose/docker-compose.yml` **ran for the first time on 2026-09-13**:
@@ -113,6 +121,10 @@ is not a `redpanda start` flag in v24.3, and the broker exited on it. Auto-creat
 is now set in the cluster bootstrap file, and the topics job fails unless it
 reads back `false`. Producing to a missing topic was checked by hand to fail
 with `UNKNOWN_TOPIC_OR_PARTITION`.
+
+**The `transactions` topic now has one partition (ADR 8).** A volume created
+before that holds a four-partition topic, and the topics job refuses it with
+`transactions has 4 partitions, expected 1`: run `down -v` and `up` again.
 
 **Its second run found a second fault (2026-09-14):** the topics job exited 1
 whenever the volume already held the topics, so every `up` after the first
@@ -126,7 +138,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Eight ADRs, in `docs/adr/`: 1 to 7 and 17. Read them before reopening anything they cover.
+Nine ADRs, in `docs/adr/`: 1 to 8 and 17. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -137,6 +149,7 @@ Eight ADRs, in `docs/adr/`: 1 to 7 and 17. Read them before reopening anything t
 | 5 | Feast: registry, point-in-time join, online read | Push sources, not materialisation. **Its first online read after start-up costs about 42 ms against a 5 ms budget hop: the scorer must warm the store** |
 | 6 | Features computed once; the reference evaluation is not a second computation | One definition, two executions, and the test holds them together |
 | 7 | The leakage test is written first and never weakened | It has already caught three real faults |
+| 8 | The scorer is a stream consumer: at least once, duplicates stopped before the engine, checkpoint after durable decisions, features served from the engine in process | **`transactions` has one partition** because the engine needs time order; more needs a reorder buffer whose hold time is latency |
 | 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Pending Peter's review**: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code
@@ -272,7 +285,7 @@ precedent for what to do about it.
 
 ```bash
 # everything, from the repository root
-.venv/Scripts/python.exe -m pytest                 # 223 tests, 2 to 3.5 minutes
+.venv/Scripts/python.exe -m pytest                 # 312 tests, 2.5 to 4 minutes with the broker up
 .venv/Scripts/python.exe -m pytest -m "not slow"   # about 90 seconds
 .venv/Scripts/python.exe -m ruff format .
 .venv/Scripts/python.exe -m ruff check .
@@ -332,11 +345,20 @@ In the order the plan sets, with nothing blocked except where noted:
 
 1. ~~The IEEE-CIS row-to-event mapper~~ **Done 2026-09-14**, ADR 17.
 2. **Week 4, in progress.** Done: the `Stream` protocol, in-process and
-   Redpanda implementations, contract tests on the live broker. Next: the
-   stream-consumer scorer with per-hop timers, decision rules, the HTTP
-   endpoint for the comparison in Rule C candidate 3, and
-   `docs/latency-budget.md`. ADRs 8 and 9. The published p99 waits on a real
-   broker; everything else does not.
+   Redpanda implementations, contract tests on the live broker; the scorer,
+   rules, stand-in model, per-hop timers and load test (ADR 8).
+   **Next, and waiting on a quiet machine:** the first published latency
+   measurement, `verdict loadtest --stream redpanda --runs 5 --out
+   docs/latency-week4.json`, then ADR 9 and `docs/latency-budget.md` from it.
+   On 2026-09-14 project 08's neural training (`headroom neural`) held most of
+   the CPU, and 08's own log already retracted one timing taken that way. A
+   functional run that day, not to be published, showed the shape: every
+   scorer hop under a millisecond at p99, and send-to-start (`ingest`) around
+   50 ms at p50 and 190 ms at p99 through Redpanda against about 2 ms on the
+   in-process stream. Measure first, untuned, as the plan requires; then test
+   one change at a time (the client's Nagle and fetch settings are the first
+   suspects) and publish the before and after. Then the HTTP endpoint for
+   the comparison in Rule C candidate 3.
 3. **Week 5:** champion on IEEE-CIS and on replay, FT-Transformer challenger,
    shadow scoring, promotion function, rollback drill. ADRs 10 and 11. This is
    also where the leak's offline PR-AUC inflation gets measured, by training

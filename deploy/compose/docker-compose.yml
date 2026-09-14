@@ -81,7 +81,10 @@ services:
               --partitions "$$2" --replicas 1 --topic-config retention.ms="$$3"
           fi
         }
-        ensure transactions 4 604800000
+        # One partition, like the one Kinesis shard live: the feature engine
+        # needs transactions in time order, and one partition is the only
+        # layout that gives it without a reorder buffer (ADR 8).
+        ensure transactions 1 604800000
         ensure labels 1 2592000000
         ensure decisions 4 604800000
         rpk topic list --brokers redpanda:9092

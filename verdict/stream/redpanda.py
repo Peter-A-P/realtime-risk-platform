@@ -105,6 +105,35 @@ class RedpandaStream:
         self._partitions[topic] = len(found.partitions)
         return self._partitions[topic]
 
+    def create_topic(self, topic: str, partitions: int, timeout_seconds: float = 15.0) -> None:
+        """Create a topic, for load tests and test fixtures.
+
+        The platform's own topics come from the compose stack's topics job;
+        this is for topics that live as long as one run.
+
+        Args:
+            topic: The name.
+            partitions: How many partitions.
+            timeout_seconds: How long to wait for the broker.
+        """
+        from confluent_kafka.cimpl import NewTopic
+
+        futures = self._admin.create_topics([NewTopic(topic, partitions, 1)])
+        for future in futures.values():
+            future.result(timeout=timeout_seconds)
+        self._partitions[topic] = partitions
+
+    def delete_topic(self, topic: str, timeout_seconds: float = 15.0) -> None:
+        """Delete a topic created for one run.
+
+        Args:
+            topic: The name.
+            timeout_seconds: How long to wait for the broker.
+        """
+        for future in self._admin.delete_topics([topic]).values():
+            future.result(timeout=timeout_seconds)
+        self._partitions.pop(topic, None)
+
     def produce(self, topic: str, key: str, value: bytes) -> None:
         """Queue one record.
 

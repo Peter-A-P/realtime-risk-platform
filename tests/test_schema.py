@@ -11,6 +11,8 @@ from pydantic import ValidationError
 
 from verdict.events.schema import (
     SCHEMA_VERSION,
+    Action,
+    DecisionEvent,
     GroundTruth,
     LabelEvent,
     SchemaFingerprint,
@@ -139,6 +141,28 @@ def test_a_card_is_never_optional() -> None:
     """Every card transaction has a card, even where the source cannot link it."""
     with pytest.raises(ValidationError):
         an_event(card_id=None)
+
+
+def test_a_decision_round_trips_and_refuses_an_impossible_score() -> None:
+    decision = DecisionEvent(
+        event_id="evt-1",
+        card_id="card-00000001",
+        action=Action.REVIEW,
+        score=0.61,
+        rule="score-review",
+        model_version="stand-in-0",
+        decided_at=dt.datetime(2027, 4, 5, 12, 0, 0, 3_000, tzinfo=dt.UTC),
+    )
+    assert DecisionEvent.model_validate_json(decision.to_json()) == decision
+    for score in (-0.01, 1.01):
+        with pytest.raises(ValidationError):
+            DecisionEvent.model_validate({**decision.model_dump(), "score": score})
+
+
+def test_a_decision_carries_no_features_and_no_outcome() -> None:
+    """The features live in the offline store; the outcome arrives as a label."""
+    fields = set(DecisionEvent.model_fields)
+    assert fields.isdisjoint({"is_fraud", "label_time", "features", "amount_cents"})
 
 
 def test_ground_truth_and_labels_are_separate_types() -> None:
