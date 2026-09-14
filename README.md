@@ -6,7 +6,8 @@ the training-versus-production mismatch that quietly breaks most deployed models
 platform around the model is what organisations are actually missing, and this one runs
 live where a hiring manager can watch it.
 
-**Status: building, weeks 1 to 3 of 9 done.** The plan is in [PLAN.md](PLAN.md): a nine-week
+**Status: building, weeks 1 to 3 of 9 done, and the real data now runs through the
+pipeline.** The plan is in [PLAN.md](PLAN.md): a nine-week
 build, then three months live at risk.peterparker.ca. Nothing is scored yet, so the
 headline tables below are still empty, and they stay empty until the thing they describe
 has actually run.
@@ -39,6 +40,21 @@ The intervals are wide because a laptop is a noisy machine, and because the raw-
 rather than the generator is what binds: a single continuous run of a million events is the
 slowest of the lot, at 6,580 /s. Details in [docs/generator.md](docs/generator.md).
 
+**What has been measured (real-data track, offline)**
+
+The public competition data mapped onto the platform's events and replayed through the
+feature engine. Counts from the file; build desktop, Python 3.13.5.
+
+| Measurement | Result |
+|---|---|
+| Transactions replayed, in their own time order | 590,540 over 182 days |
+| Rows whose card could be identified | 88.7% (203,467 cards); the rest have no visible history |
+| Features that exist on this track | 6 of 16: card velocity and amounts. No device, merchant or session is in the file ([ADR 17](docs/adr/0017-real-data-event-mapping.md)) |
+| Point-in-time check over the replay | 0 violations in 67,920 comparisons: every row of a 2% hash sample of cards (5,386), against the definition recomputed from each card's history |
+
+A count of violations is not a rate, so it carries no interval: it is zero for the sample
+checked, and the sample is fixed by a hash of the card identifier rather than chosen.
+
 **Live window, Apr 5 to Jun 30 2027**
 
 | Sustained events/s | Uptime % | Interruptions recovered | Drift triggers / retrains approved | Champion vs challenger PR-AUC (95% CI) | Cost per million events |
@@ -62,7 +78,7 @@ slowest of the lot, at 6,580 /s. Details in [docs/generator.md](docs/generator.m
 ## What exists so far
 
 Weeks 1 to 3 of nine: the event stream, the test that judges every feature, and the
-sixteen features it now judges.
+sixteen features it now judges, plus the mapping that puts the real data through all three.
 
 | Piece | Where | Note |
 |---|---|---|
@@ -72,6 +88,9 @@ sixteen features it now judges.
 | Sealed regime schedule | [verdict/events/generator/regimes.py](verdict/events/generator/regimes.py) | Design public, development schedule public, live realisation sealed until Jul 1 2027 |
 | Raw event log | [verdict/events/rawlog.py](verdict/events/rawlog.py) | Three files. Ground truth is kept out of the transaction log, and a test reads the bytes to prove it |
 | Replay, in time order | [verdict/events/replay.py](verdict/events/replay.py) | Refuses an out-of-order log rather than sorting it quietly |
+| Real data onto events | [verdict/events/ieee_cis_events.py](verdict/events/ieee_cis_events.py) | A card is issuer, product, billing region and account start day. No device or merchant is invented to fill the schema, which is at version 2 so it can say so |
+| Sampled replay check | [verdict/features/replay_check.py](verdict/features/replay_check.py) | The point-in-time check over a replay too large to check in full, sampling cards rather than rows |
+| Stream interface | [verdict/stream/](verdict/stream/) | Produce, consume, checkpoint ([ADR 3](docs/adr/0003-stream-choice.md)). In-process and Redpanda implementations held to one set of contract tests: order per key, redelivery without a checkpoint, resume after one, no rewind, unknown topics refused |
 | **The feature engine** | [verdict/features/engine.py](verdict/features/engine.py) | Written here, not taken off the shelf: Bytewax has no Python 3.13 wheels ([ADR 4](docs/adr/0004-aggregation-engine.md)). Serves each event before observing it, and holds it back until time moves on |
 | Windowed aggregations | [verdict/features/aggregators.py](verdict/features/aggregators.py) | Bounded state, amortised constant time, checked against brute force with property-based tests |
 | One write path | [verdict/features/sinks.py](verdict/features/sinks.py) | The same value reaches both stores from one call. Parity 100% on a replay |
@@ -79,18 +98,23 @@ sixteen features it now judges.
 | Sixteen feature definitions | [verdict/store/features.py](verdict/store/features.py) | A feature is a specification, not code: card velocity, device and merchant entity-graph counts, session aggregates. The window is `[t - w, t)`, and an event is never part of its own features |
 | Feature store | [verdict/store/repo.py](verdict/store/repo.py) | Feast, generated from the definitions, push sources rather than materialisation |
 | Local stream stack | [deploy/compose/docker-compose.yml](deploy/compose/docker-compose.yml) | Redpanda, three topics created explicitly, auto-creation off and checked at start-up. Its first run found a start-up flag that Redpanda v24.3 rejects |
-| Decisions 1 to 7 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first |
+| Decisions 1 to 7, and 17 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; what a card, device and moment are on the real data |
 
-223 tests, `ruff` and `mypy --strict` clean.
+286 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
 
 **The leakage test caught a real leak on the day the first features were written**, which
 is what it was written a week earlier for. Two transactions sharing a timestamp saw each
-other, because a window is `[t - w, t)` and excludes anything at `t`. On the public
-competition data that is 312 rows of 590,540, a twentieth of one percent, invisible and
-permanent and slightly concentrated in the rows the model exists to find. The episode is in
-[docs/leak-caught.md](docs/leak-caught.md), along with a correction: the first published
-version of that measurement described the wrong stream, and overstated it by three orders
-of magnitude.
+other, because a window is `[t - w, t)` and excludes anything at `t`. Replayed over the
+public competition data with the unfixed engine, it serves a wrong value on 65 rows of
+590,540, about one in nine thousand: invisible and permanent. The episode is in
+[docs/leak-caught.md](docs/leak-caught.md) with two corrections kept in place. The first
+published measurement described the wrong stream and overstated the impact by three orders
+of magnitude; a later one grouped by a column that is not a card and counted rows the leak
+cannot touch.
+
+**The first run of the local stream stack found two faults in a Compose file that had never
+run**: a start-up flag the broker rejects, and a topic job that failed on every restart after
+the first. Both are fixed, and the stream contract tests now run against the live broker.
 
 ## How it works
 

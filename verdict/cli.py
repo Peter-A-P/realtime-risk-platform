@@ -10,6 +10,10 @@ generator needs and the ones that make the sealed schedule checkable:
 - `schedule seal` takes the commitment for the live window;
 - `schedule verify` checks a revealed secret against a commitment.
 
+The real-data track adds `data ingest | manifest | verify | inspect` for the
+competition files, `data events` to map them onto the platform's events, and
+`data check` to run the point-in-time check over that replay.
+
 The rest arrive in the week that builds them.
 """
 
@@ -23,7 +27,7 @@ from typing import Annotated
 
 import typer
 
-from verdict.events import ieee_cis
+from verdict.events import ieee_cis, ieee_cis_events
 from verdict.events.generator.driver import Generator, GeneratorConfig
 from verdict.events.generator.entities import EntityGraph, Population
 from verdict.events.generator.regimes import (
@@ -46,6 +50,14 @@ schedule_app = typer.Typer(
     name="schedule", help="The regime schedule and its seal.", no_args_is_help=True
 )
 app.add_typer(schedule_app)
+
+DATA_ENV = "VERDICT_IEEE_CIS_DIR"
+"""Where the competition files are, when not at the default.
+
+The files may not live in the repository's own tree: this one is under a
+synced folder on the build machine, and a gigabyte of licensed data has no
+business being synced. Every `data` command reads this before its default.
+"""
 
 data_app = typer.Typer(
     name="data", help="The real-data track's files and what is in them.", no_args_is_help=True
@@ -214,7 +226,7 @@ def schedule_verify(
 @data_app.command("ingest")
 def data_ingest(
     archive: Annotated[Path, typer.Option(help="The downloaded competition archive.")],
-    out: Annotated[Path, typer.Option(help="Where to extract it.")] = (
+    out: Annotated[Path, typer.Option(help="Where to extract it.", envvar=DATA_ENV)] = (
         ieee_cis.DEFAULT_DESTINATION
     ),
 ) -> None:
@@ -247,9 +259,9 @@ def data_ingest(
 
 @data_app.command("manifest")
 def data_manifest(
-    directory: Annotated[Path, typer.Option(help="Where the files already are.")] = (
-        ieee_cis.DEFAULT_DESTINATION
-    ),
+    directory: Annotated[
+        Path, typer.Option(help="Where the files already are.", envvar=DATA_ENV)
+    ] = (ieee_cis.DEFAULT_DESTINATION),
     archive: Annotated[Path | None, typer.Option(help="The archive, if kept.")] = None,
 ) -> None:
     """Record a hash of files that were extracted outside this tool.
@@ -280,7 +292,7 @@ def data_manifest(
 
 @data_app.command("verify")
 def data_verify(
-    directory: Annotated[Path, typer.Option(help="Where the files are.")] = (
+    directory: Annotated[Path, typer.Option(help="Where the files are.", envvar=DATA_ENV)] = (
         ieee_cis.DEFAULT_DESTINATION
     ),
 ) -> None:
@@ -310,9 +322,9 @@ def data_verify(
 
 @data_app.command("inspect")
 def data_inspect(
-    directory: Annotated[Path, typer.Option(help="Where the files were extracted.")] = (
-        ieee_cis.DEFAULT_DESTINATION
-    ),
+    directory: Annotated[
+        Path, typer.Option(help="Where the files were extracted.", envvar=DATA_ENV)
+    ] = (ieee_cis.DEFAULT_DESTINATION),
     full: Annotated[bool, typer.Option(help="Print every column, not just the findings.")] = False,
 ) -> None:
     """Report what the competition files contain.
@@ -347,6 +359,75 @@ def data_inspect(
             for column in schema.columns
         ]
     typer.echo(json.dumps(report, indent=2))
+
+
+@data_app.command("events")
+def data_events(
+    out: Annotated[Path, typer.Option(help="Where to write the event log, under data/.")] = Path(
+        "data/raw/ieee-cis-events"
+    ),
+    directory: Annotated[
+        Path, typer.Option(help="Where the competition files are.", envvar=DATA_ENV)
+    ] = ieee_cis.DEFAULT_DESTINATION,
+) -> None:
+    """Map the competition's transactions onto the platform's events.
+
+    Writes a transaction log and a label log, and prints counts only. The
+    logs are a row-by-row copy of licensed data and stay under `data/`.
+
+    Args:
+        out: Where to write the logs.
+        directory: Where the competition files are.
+    """
+    report = ieee_cis_events.write_event_log(ieee_cis_events.iter_records(directory), out)
+    typer.echo(report.to_json())
+
+
+@data_app.command("check")
+def data_check(
+    directory: Annotated[
+        Path, typer.Option(help="Where the competition files are.", envvar=DATA_ENV)
+    ] = ieee_cis.DEFAULT_DESTINATION,
+    per_mille: Annotated[int, typer.Option(help="Cards per thousand checked in full.")] = 20,
+) -> None:
+    """Run the point-in-time check over the real-data replay.
+
+    Every feature this track can compute is served by the engine for every
+    event, and for a deterministic sample of cards every row is compared with
+    the definition recomputed from that card's history. Prints counts only.
+
+    Args:
+        directory: Where the competition files are.
+        per_mille: Cards per thousand to check.
+
+    Raises:
+        typer.Exit: With code 1 if any served value disagrees with the
+            definition.
+    """
+    from verdict.features.replay_check import check_replay
+
+    specs = ieee_cis_events.features_on_track()
+    started = time.perf_counter()
+    events = (record.event for record in ieee_cis_events.iter_records(directory))
+    result = check_replay(events, specs, per_mille=per_mille)
+    typer.echo(
+        json.dumps(
+            {
+                "track": "real data (IEEE-CIS), offline",
+                "events_replayed": result.events,
+                "features": [spec.name for spec in specs],
+                "cards_sampled": result.entities_sampled,
+                "rows_of_sampled_cards": result.events_kept,
+                "comparisons": result.report.rows_checked,
+                "violations": len(result.report.violations),
+                "seconds": round(time.perf_counter() - started, 1),
+                "summary": result.report.summary(),
+            },
+            indent=2,
+        )
+    )
+    if not result.report.clean:
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":  # pragma: no cover

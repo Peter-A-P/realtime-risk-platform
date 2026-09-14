@@ -17,6 +17,20 @@ serialised as JSON. Three rules hold the schema together:
 Money is an integer count of cents. Floating-point dollars accumulate error in
 exactly the aggregations this platform computes, and the review queue ranks by
 expected loss in money.
+
+## Version history
+
+- **1** (week 1). Every transaction named a card, a device and a merchant.
+- **2** (week 4, 2026-09-14). `device_id`, `merchant_id` and
+  `merchant_category` may be `None`, and must be stated either way: none of
+  them has a default. The real-data track has no merchant identifier at all
+  and nothing that identifies a device (ADR 17), and a transaction whose
+  entity is unknown now says so rather than carrying an identifier invented
+  to fill the field. An invented merchant shared by every row would make each
+  merchant-keyed feature a count of the whole data set. A version 1 reader
+  would fail on a `None`, which is what makes this a breaking change. No
+  version 1 record is kept anywhere that matters: the development logs are
+  regenerated from a seed.
 """
 
 from __future__ import annotations
@@ -29,7 +43,7 @@ from typing import Annotated, Final, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-SCHEMA_VERSION: Final = 1
+SCHEMA_VERSION: Final = 2
 """Major version of the wire schema. A breaking change increments this."""
 
 
@@ -157,20 +171,24 @@ class TransactionEvent(Record):
     acquirer would know at the moment the transaction is presented.
     """
 
-    schema_version: Literal[1] = SCHEMA_VERSION
+    schema_version: Literal[2] = SCHEMA_VERSION
     event_id: EntityId
     """Idempotency key. Decisions are keyed on it, so at-least-once delivery
     of the same event produces the same decision exactly once."""
     event_time: dt.datetime
     """When the transaction was presented, timezone-aware UTC."""
     card_id: EntityId
-    device_id: EntityId
-    merchant_id: EntityId
+    device_id: EntityId | None
+    """The device, or `None` when the source cannot identify one. No default:
+    a producer states the absence rather than inheriting it."""
+    merchant_id: EntityId | None
+    """The merchant, or `None` when the source has no merchant identifier."""
     session_id: EntityId | None = None
     amount_cents: int = Field(gt=0, le=100_000_000)
     """Amount in cents. Integer, never a float: see the module docstring."""
     currency: Literal["USD"] = "USD"
-    merchant_category: MerchantCategory
+    merchant_category: MerchantCategory | None
+    """The merchant's category, or `None` when the merchant is unknown."""
     entry_mode: EntryMode
     card_country: CountryCode = "US"
     merchant_country: CountryCode = "US"
@@ -199,7 +217,7 @@ class LabelEvent(Record):
     promotion decision can use a label that would not yet have existed.
     """
 
-    schema_version: Literal[1] = SCHEMA_VERSION
+    schema_version: Literal[2] = SCHEMA_VERSION
     event_id: EntityId
     label_time: dt.datetime
     """When the outcome became known. Always later than the event time."""
@@ -222,7 +240,7 @@ class GroundTruth(Record):
     sealed regime schedule can be graded after the fact.
     """
 
-    schema_version: Literal[1] = SCHEMA_VERSION
+    schema_version: Literal[2] = SCHEMA_VERSION
     event_id: EntityId
     is_fraud: bool
     scenario: FraudScenario
@@ -277,7 +295,7 @@ class SchemaFingerprint(Record):
     fingerprint are both updated deliberately.
     """
 
-    schema_version: Literal[1] = SCHEMA_VERSION
+    schema_version: Literal[2] = SCHEMA_VERSION
     sha256: str
 
     @classmethod

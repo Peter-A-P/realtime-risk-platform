@@ -112,6 +112,35 @@ def test_a_transaction_carries_no_outcome() -> None:
     assert forbidden.isdisjoint(TransactionEvent.model_fields)
 
 
+def test_the_schema_is_at_version_two() -> None:
+    """Version 2 is the one that lets an unknown entity be `None`."""
+    assert SCHEMA_VERSION == 2
+    assert json.loads(an_event().to_json())["schema_version"] == 2
+
+
+@pytest.mark.parametrize("field", ["device_id", "merchant_id", "merchant_category"])
+def test_an_unknown_entity_is_stated_not_defaulted(field: str) -> None:
+    """A producer has to say an entity is absent; it cannot forget to send it.
+
+    `None` is accepted and round-trips. Omitting the field is refused, so a
+    producer that drops a column by mistake fails here instead of looking
+    like a source that never had one.
+    """
+    absent = an_event(**{field: None})
+    assert getattr(decode_transaction(absent.to_json()), field) is None
+
+    payload = json.loads(an_event().to_json())
+    del payload[field]
+    with pytest.raises(ValidationError):
+        decode_transaction(json.dumps(payload))
+
+
+def test_a_card_is_never_optional() -> None:
+    """Every card transaction has a card, even where the source cannot link it."""
+    with pytest.raises(ValidationError):
+        an_event(card_id=None)
+
+
 def test_ground_truth_and_labels_are_separate_types() -> None:
     assert "scenario" in GroundTruth.model_fields
     assert "scenario" not in LabelEvent.model_fields

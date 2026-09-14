@@ -50,7 +50,8 @@ section was rewritten.
 |---|---:|---|---:|---|
 | Synthetic live | 1,000/s | microsecond | 0.055% | 0 of 60,000 |
 | Synthetic, truncated to whole seconds | 1,000/s | second | 99.9% | 2.75% of one feature's values |
-| **IEEE-CIS, as published** | **0.0376/s** | second | **5.75%** | **0.053%: 312 of 590,540 rows** |
+| IEEE-CIS, grouped by `card1` | 0.0376/s | second | 5.75% | 0.053%: 312 of 590,540 rows share an instant and a `card1` |
+| **IEEE-CIS, by the ADR 17 card, remeasured 2026-09-14** | **0.0376/s** | second | **5.75%** | **0.011%: 65 of 590,540 rows served a wrong value** |
 
 ### The correction
 
@@ -90,6 +91,41 @@ instant and card:
 So on the real data the leak would have been small. It would also have been
 entirely invisible, permanent, and concentrated slightly in the rows the model
 exists to find.
+
+### Remeasured on 2026-09-14, with a card that is a card
+
+The figures above group by `card1`, and ADR 17 has since shown that `card1` is
+not a card: its busiest value holds 14,941 transactions. They also count every
+row in a group sharing an instant, including the first, which the leak cannot
+touch because nothing precedes it. Both overstate. Neither is edited out.
+
+The real-data mapper (ADR 17) defines a card as `card1` to `card6`, `addr1`
+and the account start day. The unfixed engine, kept in `tests/test_engine.py`,
+was replayed over all 590,540 mapped events and every served value compared
+with the definition, for every card:
+
+| | |
+|---|---:|
+| Values compared | 3,543,240 (6 features on this track) |
+| Values wrong | 324 |
+| Rows with at least one wrong value | **65 (0.011%)** |
+| Card and instant pairs involved | 45 |
+
+Count, sum and seconds-since-last are wrong on all 65 rows; the mean is wrong
+on 39 and the maximum on 25, where the event seen too early happened not to
+move them. The fixed engine, over the same replay on a 2 percent sample of
+cards, has 0 wrong values in 67,920.
+
+**This measurement was itself wrong once, for about an hour, and is recorded
+as such.** The first run of the sampled check stored served values by card
+and instant, so in a burst every event was compared with the value served to
+the last one. It reported 110 rows. Storing values per event gives 65, which
+is what the arithmetic says it must be: 110 rows in 45 bursts, less the first
+event of each. The check now keys by event, and
+`tests/test_ieee_cis_events.py` asserts exact counts on a burst of three so
+the overcount cannot come back. It is the same kind of mistake as the second
+catch below: correct pieces joined through a key that answers a slightly
+different question.
 
 **The offline PR-AUC inflation is not measured here**, because there is no
 model yet: model work is week 5. The plan asks for that number, so week 5

@@ -53,6 +53,13 @@ services:
   # Topics are created explicitly, never by a producer. Auto-creation gives a
   # typo its own topic and a silent zero-throughput consumer, which is a
   # failure mode this platform reports rather than absorbs.
+  #
+  # The job has to be safe to run again: `up` on a stack whose volume already
+  # holds the topics re-runs it, and `rpk topic create` exits non-zero on an
+  # existing topic. The first version did not allow for that, and the second
+  # `up` of the stack failed on it. An existing topic is left alone, but its
+  # partition count is checked, because a topic that exists with the wrong
+  # count would change which partition a card lands in.
   topics:
     image: redpandadata/redpanda:v24.3.6
     container_name: verdict-topics
@@ -64,12 +71,19 @@ services:
       - -c
       - |
         set -e
-        rpk topic create transactions --brokers redpanda:9092 \
-          --partitions 4 --replicas 1 --topic-config retention.ms=604800000
-        rpk topic create labels --brokers redpanda:9092 \
-          --partitions 1 --replicas 1 --topic-config retention.ms=2592000000
-        rpk topic create decisions --brokers redpanda:9092 \
-          --partitions 4 --replicas 1 --topic-config retention.ms=604800000
+        ensure() {
+          if rpk topic describe "$$1" --brokers redpanda:9092 >/dev/null 2>&1; then
+            found=$$(rpk topic describe "$$1" --brokers redpanda:9092 -p | grep -c '^[0-9]')
+            test "$$found" -eq "$$2" || { echo "$$1 has $$found partitions, expected $$2"; exit 1; }
+            echo "$$1 exists with $$2 partitions"
+          else
+            rpk topic create "$$1" --brokers redpanda:9092 \
+              --partitions "$$2" --replicas 1 --topic-config retention.ms="$$3"
+          fi
+        }
+        ensure transactions 4 604800000
+        ensure labels 1 2592000000
+        ensure decisions 4 604800000
         rpk topic list --brokers redpanda:9092
         test "$$(rpk cluster config get auto_create_topics_enabled -X admin.hosts=redpanda:9644)" = false
     restart: "no"

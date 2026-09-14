@@ -39,6 +39,11 @@ dependencies = [
   "pyarrow>=18,<26",
   # Reading and writing feature_store.yaml.
   "pyyaml>=6.0,<7",
+  # The Kafka-protocol client for the local stream (ADR 3). librdkafka
+  # underneath, so the latency measured is the broker's and not a pure-Python
+  # client's, and it ships Python 3.13 wheels for Windows. v2 is the current
+  # major; its consumer and admin APIs are what stream/redpanda.py calls.
+  "confluent-kafka>=2.6,<3",
 ]
 
 [project.optional-dependencies]
@@ -103,4 +108,5 @@ testpaths = ["tests"]
 addopts = "-q --strict-markers"
 markers = [
   "slow: throughput and load measurements, excluded from the fast suite",
+  "broker: needs the local Redpanda stack; skipped with a reason when no broker answers",
 ]

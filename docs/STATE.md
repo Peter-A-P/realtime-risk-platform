@@ -1,6 +1,7 @@
 # Where this project is, and what to know before touching it
 
-**Written 2026-09-13, updated the same day after the move to a new machine.** Read this first, then `PLAN.md`. It exists so that a
+**Written 2026-09-13; updated after the move to a new machine, and on 2026-09-14 after the
+real-data mapper.** Read this first, then `PLAN.md`. It exists so that a
 session starting cold knows everything a session that had been here all along
 would know: what is built, what was decided and why, what is waiting on a
 person, and the handful of things that will waste an hour if nobody mentions
@@ -13,13 +14,18 @@ judgement or an open question, it says so.
 
 ## 1. Status in one paragraph
 
-Weeks 1 to 3 of a nine-week build are done, plus the real-data track's terms
-and ingest. The event stream, the synthetic generator with a sealed regime
-schedule, the point-in-time leakage test, sixteen features computed by an
-engine written here, and one write path into both stores, with parity at 100
-percent. The competition data is downloaded, its terms are recorded, and its
-checksums are committed. 223 tests; `ruff`, `ruff format` and `mypy --strict`
-all clean. Nothing has been scored yet, so the README's headline tables are
+Weeks 1 to 3 of a nine-week build are done, and the real-data track now runs
+through the pipeline. The event stream, the synthetic generator with a sealed
+regime schedule, the point-in-time leakage test, sixteen features computed by
+an engine written here, and one write path into both stores, with parity at
+100 percent. The competition data is downloaded, its terms are recorded, its
+checksums are committed, and since 2026-09-14 its rows map onto the platform's
+events (ADR 17): 590,540 events replayed, 6 of 16 features on that track, and
+the point-in-time check clean over a 2 percent sample of cards. The wire
+schema is at version 2. Week 4 has started: the `Stream` interface exists with
+in-process and Redpanda implementations, tested against the running broker.
+286 tests; `ruff`, `ruff format` and
+`mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
 The build started on 2026-09-12, about twenty weeks ahead of its Feb 2027
@@ -39,7 +45,7 @@ measurements in section 8 were taken there and say so.
 | **No administrator rights** in the Claude session | Anything needing elevation (installers, `wsl --install`, BIOS) is Peter's to run. Ask; do not look for a way around it |
 | Python 3.13.5 at `C:\Users\peter\AppData\Local\Programs\Python\Python313\python.exe`, on PATH as `python` | No Anaconda. Do not search for conda |
 | The project venv is `.venv` in the repository root, rebuilt 2026-09-13 | Run everything as `.venv/Scripts/python.exe -m ...`. Bare `python` has no dependencies. `pip install` failed twice mid-download on a TLS record error and succeeded on the third try: retry before diagnosing |
-| The repository is under **OneDrive** | The competition data is kept outside it, at `C:\Dev\POCs\09-realtime-risk-platform\data\ieee-fraud-detection`. Pass `--directory` to `verdict data` commands (section 9) |
+| The repository is under **OneDrive** | The competition data is kept outside it, at `C:\Dev\POCs Dev\09-realtime-risk-platform\data\ieee-fraud-detection` (the folder was renamed from `POCs` to `POCs Dev` on 2026-09-14; check it is still there). Set `VERDICT_IEEE_CIS_DIR` to that path and every `verdict data` command finds it (section 9). A `.lnk` shortcut to it sits under the repository's `data/`, which git ignores |
 | **Docker Desktop 4.90.0** on WSL2, engine 29.7.2, 12 CPUs and 7.7 GB to the VM | Not on PATH in a fresh shell: prepend `C:\Program Files\Docker\Docker\resources\bin`. Needed Intel VMX turned on in the BIOS; Windows still reports `VirtualizationFirmwareEnabled: False` once the hypervisor owns it, which is not a fault |
 | The old laptop: domain-joined to PSNL.CA, a TLS proxy, no Docker possible | Only relevant if work returns to it. Python HTTPS failed there where the browser worked |
 
@@ -63,6 +69,8 @@ verdict/
                      log rather than sorting it quietly.
     ieee_cis.py      Ingest, inspect and verify the competition archive. Downloads
                      nothing; stores no Kaggle credential.
+    ieee_cis_events.py  Competition rows onto events: the card key, no device or
+                     merchant, the 2017-12-01 clock, decimal cents. ADR 17.
     generator/
       entities.py    Cards, devices, merchants and the links between them.
       scenarios.py   Card testing, account takeover, merchant collusion.
@@ -75,6 +83,14 @@ verdict/
     sinks.py         One write path to both stores. Offline first, then online.
     verify.py        Parity between the stores, and the served-value record the leakage
                      check reads.
+    replay_check.py  The point-in-time check over a replay too big to check in full:
+                     samples entities by hash and checks every row of each.
+  stream/
+    base.py          The Stream protocol: produce, consume, checkpoint. Positions are
+                     opaque; delivery is at least once; order is per key.
+    memory.py        In process, shaped like Kafka: a broker object and client handles.
+    redpanda.py      confluent-kafka. Idempotent producer; consumers assigned, not
+                     subscribed, so no rebalance delay lands in a latency number.
   store/
     features.py      FEATURE_SET: the sixteen features, as specifications not code.
                      Also the brute-force reference evaluation.
@@ -82,10 +98,10 @@ verdict/
     repo.py          Generates the Feast repository from the specifications.
     retrieval.py     Point-in-time training sets. Refuses to carry the label time.
   cli.py             verdict generate | schedule show/hash/seal/verify |
-                     data ingest/manifest/verify/inspect
+                     data ingest/manifest/verify/inspect/events/check
 ```
 
-Not yet written: `stream/` (the `Stream` protocol, Redpanda and Kinesis),
+Not yet written: `stream/kinesis.py` and `stream/parity.py` (week 7),
 `scoring/`, `models/`, `drift/`, `queue/`, `observe/`, `chaos/`,
 `deploy/terraform/`.
 
@@ -98,21 +114,30 @@ is now set in the cluster bootstrap file, and the topics job fails unless it
 reads back `false`. Producing to a missing topic was checked by hand to fail
 with `UNKNOWN_TOPIC_OR_PARTITION`.
 
+**Its second run found a second fault (2026-09-14):** the topics job exited 1
+whenever the volume already held the topics, so every `up` after the first
+failed. It now creates only missing topics and checks the partition count of
+existing ones. Verified on an existing volume, a fresh one and a forced rerun.
+If Docker Desktop is not running (it does not start on login), start it with
+`Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"`; no admin
+rights needed.
+
 ---
 
 ## 4. The decisions that are already made
 
-Seven ADRs, in `docs/adr/`. Read them before reopening anything they cover.
+Eight ADRs, in `docs/adr/`: 1 to 7 and 17. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
 | 1 | Platform, not model | Model work is timeboxed to week 5 |
 | 2 | Two tracks: real data offline, synthetic live | Every number says which track |
-| 3 | Redpanda locally, Kinesis live, one `Stream` interface | Interface not yet written |
+| 3 | Redpanda locally, Kinesis live, one `Stream` interface | Interface written 2026-09-14 with in-process and Redpanda implementations; Kinesis is week 7 |
 | 4 | **Amended.** The aggregation engine is written here | Bytewax has no Python 3.13 wheels, on any platform, up to 0.21.1. Peter chose this over pinning Python to 3.12, adding a Rust toolchain, or a Kafka-only engine |
 | 5 | Feast: registry, point-in-time join, online read | Push sources, not materialisation. **Its first online read after start-up costs about 42 ms against a 5 ms budget hop: the scorer must warm the store** |
 | 6 | Features computed once; the reference evaluation is not a second computation | One definition, two executions, and the test holds them together |
 | 7 | The leakage test is written first and never weakened | It has already caught three real faults |
+| 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Pending Peter's review**: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code
 
@@ -120,6 +145,8 @@ Seven ADRs, in `docs/adr/`. Read them before reopening anything they cover.
   was "hashed and committed before go-live and revealed on Jul 1", which
   cannot both be true of a schedule sitting in the repository in the clear.
 - **PLAN.md 2.2 and ADR 4**, the engine (week 3).
+- **PLAN.md section 5, week 2 row, and section 4**, the real-data mapper and
+  ADR 17 (2026-09-14).
 
 ---
 
@@ -165,6 +192,7 @@ standing rule.
 | 2 | ~~Docker~~ **Done 2026-09-13**, on the personal desktop. The Redpanda stack runs (section 3) | | |
 | 3 | **Kaggle forum posting.** Rule 8.B asks that publicly shared competition code be posted to the competition's own forum. Arguably spent since 2019, cheap to honour, and it publishes under Peter's name | Peter | Go-live |
 | 4 | AWS budget alarms before the first resource exists | Peter | Week 7 |
+| 5 | **Review ADR 17.** Three choices about the real data, each reversible in one function: the card key, no device, the reference date. The one most worth a second opinion is having no device at all | Peter | Before week 5 trains on the real data |
 
 Nothing else is blocked. Weeks 4, 5 and 6, including the broker-backed latency
 measurement, can be built on this machine.
@@ -185,8 +213,10 @@ OneDrive, and `verdict data verify --directory` there passes against
 | Rate | 0.0376 events per second |
 | Timestamps | `TransactionDT`, whole seconds, offset from an unstated reference |
 | Fraud | 3.499% |
-| Device (identity) coverage | 24.4% of rows |
+| Identity file coverage | 24.4% of rows, but it identifies configurations, not devices |
 | Merchant identifier | **None** |
+| Card, as ADR 17 defines it | 88.7% of rows linkable; 203,467 cards; median 1 transaction, 99th percentile 19 |
+| Features on this track | 6 of 16 (`features_on_track()`) |
 
 **The absence of a merchant is a design constraint, not a gap to fill.** Three
 of the sixteen features are merchant-keyed and cannot be computed on this
@@ -194,22 +224,24 @@ track. The agreed response is to report per track which features exist.
 Promoting `ProductCD`, a five-valued product category, into a merchant would
 make those features a measurement of a party invented here.
 
-Open design questions for the row-to-event mapper, which is the next piece of
-real-data work:
+**The mapper answered the three open questions on 2026-09-14** (ADR 17). A card
+is issuer, product, billing region and account start day; a row that cannot
+form that key gets an identifier of its own, so it has no history rather than
+a borrowed one. There is **no device**: the identity columns describe
+configurations shared by thousands of purchasers, which contradicts what this
+section used to say. The clock starts at 2017-12-01T00:00Z by published
+convention. The mapped log is written by `verdict data events` to
+`data/raw/ieee-cis-events/` (ignored), in 68 seconds.
 
-- **What is a card?** `card1` is the obvious proxy; `card1`+`addr1` is
-  tighter. Neither is a card. Whatever is chosen goes in an ADR.
-- **What is a device?** Only on the 24.4 percent of rows with identity data,
-  from `DeviceInfo` and `id_3x`. Absent is a value the platform already has a
-  sentinel for (`NO_EVENTS`, a negative number, never zero or null).
-- **What is the event time?** The offset needs a reference datetime. Any fixed
-  one works as long as it is published and never changed.
+Consequence worth knowing before week 5: the real data can show a card behaving
+unlike itself, and nothing else. Card testing and merchant collusion are graph
+patterns, and the graph is not in the file.
 
 ---
 
 ## 8. Measurements taken so far
 
-All on the build laptop, all with intervals where they are rates. Nothing
+On the build laptop unless marked, all with intervals where they are rates. Nothing
 here is a platform latency or throughput figure: nothing is scored yet.
 
 | Measurement | Result | Source |
@@ -220,12 +252,17 @@ here is a platform latency or throughput figure: nothing is scored yet.
 | Feast online read, steady state | p50 0.76 ms, p99 1.76 ms | ADR 5 |
 | Feast online read, first call | about 42 ms | ADR 5 |
 | Online/offline parity | 100% on a replay | `tests/test_parity.py` |
-| Leak impact on the real data | 312 rows of 590,540 (0.053%) | `docs/leak-caught.md` |
+| Leak impact on the real data, grouped by `card1` | 312 rows of 590,540 (0.053%) | `docs/leak-caught.md` |
+| Leak impact on the real data, ADR 17 card, unfixed engine over every card (build desktop) | 65 rows of 590,540 (0.011%) served a wrong value; 324 values; 45 card-instants | `docs/leak-caught.md` |
+| Point-in-time check, real replay, 2% of cards (build desktop) | 0 violations, 67,920 comparisons, 5,386 cards, 104 s | `verdict data check`, ADR 17 |
+| Real replay mapped to events (build desktop) | 590,540 events, 68 s | `verdict data events` |
 
-**One of these was published wrong and then corrected.** The leak's impact was
+**Two of these were published wrong and then corrected.** The leak's impact was
 first measured on a synthetic stream truncated to seconds and reported as if
 it described the competition data, overstating it by three orders of
-magnitude. `docs/leak-caught.md` carries the correction in place rather than
+magnitude. Then the sampled check that remeasured it keyed served values by
+card and instant, so a burst's events were all compared with the last one's
+value: 110 rows, where 65 is right. `docs/leak-caught.md` carries the correction in place rather than
 edited over. If a number here ever looks too good, that document is the
 precedent for what to do about it.
 
@@ -248,8 +285,14 @@ precedent for what to do about it.
 .venv/Scripts/python.exe -m verdict.cli schedule hash
 
 # the competition data, which on this machine lives outside the repository
-.venv/Scripts/python.exe -m verdict.cli data verify --directory "C:/Dev/POCs/09-realtime-risk-platform/data/ieee-fraud-detection"
-.venv/Scripts/python.exe -m verdict.cli data inspect --directory "C:/Dev/POCs/09-realtime-risk-platform/data/ieee-fraud-detection"
+export VERDICT_IEEE_CIS_DIR="C:/Dev/POCs Dev/09-realtime-risk-platform/data/ieee-fraud-detection"
+.venv/Scripts/python.exe -m verdict.cli data verify
+.venv/Scripts/python.exe -m verdict.cli data inspect
+.venv/Scripts/python.exe -m verdict.cli data events    # the mapped log, into data/
+.venv/Scripts/python.exe -m verdict.cli data check     # point-in-time check, about 2 minutes
+
+# the stream contract against the broker (skips without one)
+.venv/Scripts/python.exe -m pytest tests/test_stream.py -m broker
 
 # the local stream stack (Docker is not on PATH in a fresh shell; see section 2)
 docker compose -f deploy/compose/docker-compose.yml up -d --wait
@@ -287,9 +330,9 @@ decide what 04 claims.
 
 In the order the plan sets, with nothing blocked except where noted:
 
-1. **The IEEE-CIS row-to-event mapper**, finishing week 2's real-data half.
-   Needs the three decisions in section 7, each of which wants an ADR.
-2. **Week 4:** the `Stream` protocol and an in-process implementation, the
+1. ~~The IEEE-CIS row-to-event mapper~~ **Done 2026-09-14**, ADR 17.
+2. **Week 4, in progress.** Done: the `Stream` protocol, in-process and
+   Redpanda implementations, contract tests on the live broker. Next: the
    stream-consumer scorer with per-hop timers, decision rules, the HTTP
    endpoint for the comparison in Rule C candidate 3, and
    `docs/latency-budget.md`. ADRs 8 and 9. The published p99 waits on a real
