@@ -1,6 +1,6 @@
 # Where this project is, and what to know before touching it
 
-**Written 2026-09-13.** Read this first, then `PLAN.md`. It exists so that a
+**Written 2026-09-13, updated the same day after the move to a new machine.** Read this first, then `PLAN.md`. It exists so that a
 session starting cold knows everything a session that had been here all along
 would know: what is built, what was decided and why, what is waiting on a
 person, and the handful of things that will waste an hour if nobody mentions
@@ -29,21 +29,24 @@ slot, after a check that nothing in the portfolio blocks it.
 
 ## 2. The machine, and what it cannot do
 
-This matters more than it should, and two of the three surprises below cost
-real time before they were understood.
+**The build moved machines on 2026-09-13**, from a managed work laptop to
+Peter's personal desktop. Weeks 1 to 3 were built on the laptop; the
+measurements in section 8 were taken there and say so.
 
 | Fact | Consequence |
 |---|---|
-| Windows 11, domain-joined to **PSNL.CA** (Government of NL) | It is a managed work laptop. Installing system software is a deliberate decision, not a side effect of a build step |
-| **No administrator rights** in this session | Docker Desktop, WSL and anything needing a service cannot be installed. Do not go looking for a way around it |
-| Python 3.13.15 at `C:\Users\PeterParker\AppData\Local\Programs\Python\Python313\python.exe`, on PATH as `python` | There is no Anaconda on this machine. Do not search for conda |
-| The project venv is `.venv` in the repository root | Run everything as `.venv/Scripts/python.exe -m ...`. Bare `python` is the system interpreter and does not have the dependencies |
-| An OCIO TLS proxy (`ssl_proxy.psnl.ca`) intercepts HTTPS on this network | Python HTTPS to some hosts fails on certificate verification where the browser works. This is why 04's vendor calls run from GitHub Actions, and why the Kaggle download was done in the browser |
-| **Docker is not installed and cannot be** here | See section 6. Peter will run Docker on a personal machine; GitHub Actions is the fallback for broker tests |
+| Windows 11 Home, not domain-joined. ASUS ROG Strix G15CK, Intel i5-10400F (6 cores, 12 threads) | A personal machine. No corporate proxy |
+| **No administrator rights** in the Claude session | Anything needing elevation (installers, `wsl --install`, BIOS) is Peter's to run. Ask; do not look for a way around it |
+| Python 3.13.5 at `C:\Users\peter\AppData\Local\Programs\Python\Python313\python.exe`, on PATH as `python` | No Anaconda. Do not search for conda |
+| The project venv is `.venv` in the repository root, rebuilt 2026-09-13 | Run everything as `.venv/Scripts/python.exe -m ...`. Bare `python` has no dependencies. `pip install` failed twice mid-download on a TLS record error and succeeded on the third try: retry before diagnosing |
+| The repository is under **OneDrive** | The competition data is kept outside it, at `C:\Dev\POCs\09-realtime-risk-platform\data\ieee-fraud-detection`. Pass `--directory` to `verdict data` commands (section 9) |
+| **Docker Desktop 4.90.0** on WSL2, engine 29.7.2, 12 CPUs and 7.7 GB to the VM | Not on PATH in a fresh shell: prepend `C:\Program Files\Docker\Docker\resources\bin`. Needed Intel VMX turned on in the BIOS; Windows still reports `VirtualizationFirmwareEnabled: False` once the hypervisor owns it, which is not a fault |
+| The old laptop: domain-joined to PSNL.CA, a TLS proxy, no Docker possible | Only relevant if work returns to it. Python HTTPS failed there where the browser worked |
 
-The full test suite takes about **8 minutes**. `-m "not slow"` is about 2. The
-slow markers hold the generator throughput measurement and the two end-to-end
-Feast tests.
+The full test suite takes about **2 minutes** here with Docker stopped (220
+fast tests in 88 s, the 3 slow ones in 21 s) and **3.5 minutes** with the stack
+running, which takes memory from the host; it was about 8 on the laptop. The slow markers hold
+the generator throughput measurement and the two end-to-end Feast tests.
 
 ---
 
@@ -84,8 +87,16 @@ verdict/
 
 Not yet written: `stream/` (the `Stream` protocol, Redpanda and Kinesis),
 `scoring/`, `models/`, `drift/`, `queue/`, `observe/`, `chaos/`,
-`deploy/terraform/`. `deploy/compose/docker-compose.yml` exists but **has
-never been run**.
+`deploy/terraform/`.
+
+`deploy/compose/docker-compose.yml` **ran for the first time on 2026-09-13**:
+Redpanda healthy, `transactions` (4 partitions), `labels` (1) and `decisions`
+(4) created, the console answering on `localhost:8080`, the Kafka listener on
+`localhost:19092`. Its first run failed: `--set=redpanda.auto_create_topics_enabled=false`
+is not a `redpanda start` flag in v24.3, and the broker exited on it. Auto-creation
+is now set in the cluster bootstrap file, and the topics job fails unless it
+reads back `false`. Producing to a missing topic was checked by hand to fail
+with `UNKNOWN_TOPIC_OR_PARTITION`.
 
 ---
 
@@ -151,19 +162,22 @@ standing rule.
 | # | Item | Who | When it bites |
 |---|---|---|---|
 | 1 | **The go-live date.** It was Apr 5 2027. Starting twenty weeks early unfixes it, and the AWS account timing in the plan's action 9 was arranged around it (a free-plan account closes itself six months after opening) | Peter | Before week 7, the first week that needs an AWS account. Nothing before then costs anything |
-| 2 | **Docker**, for the Redpanda stack, the broker integration tests and an honest latency hop | Peter, on a personal machine | Week 4's published latency number. Unit tests do not need it |
+| 2 | ~~Docker~~ **Done 2026-09-13**, on the personal desktop. The Redpanda stack runs (section 3) | | |
 | 3 | **Kaggle forum posting.** Rule 8.B asks that publicly shared competition code be posted to the competition's own forum. Arguably spent since 2019, cheap to honour, and it publishes under Peter's name | Peter | Go-live |
 | 4 | AWS budget alarms before the first resource exists | Peter | Week 7 |
 
-Nothing else is blocked. Weeks 4, 5 and 6 can be built on this laptop.
+Nothing else is blocked. Weeks 4, 5 and 6, including the broker-backed latency
+measurement, can be built on this machine.
 
 ---
 
 ## 7. The real-data track, as measured
 
-Downloaded 2026-09-12 to `data/raw/ieee-fraud-detection/`, which is what
-`verdict data` commands default to. `verdict data verify` passes against
-`docs/ieee-cis-checksums.json`.
+Downloaded 2026-09-12 to `data/raw/ieee-fraud-detection/` on the laptop, which
+is what `verdict data` commands default to. Downloaded again 2026-09-13 to
+`C:\Dev\POCs\09-realtime-risk-platform\data\ieee-fraud-detection`, outside
+OneDrive, and `verdict data verify --directory` there passes against
+`docs/ieee-cis-checksums.json`: the same bytes.
 
 | | |
 |---|---|
@@ -221,8 +235,8 @@ precedent for what to do about it.
 
 ```bash
 # everything, from the repository root
-.venv/Scripts/python.exe -m pytest                 # 223 tests, about 8 minutes
-.venv/Scripts/python.exe -m pytest -m "not slow"   # about 2 minutes
+.venv/Scripts/python.exe -m pytest                 # 223 tests, 2 to 3.5 minutes
+.venv/Scripts/python.exe -m pytest -m "not slow"   # about 90 seconds
 .venv/Scripts/python.exe -m ruff format .
 .venv/Scripts/python.exe -m ruff check .
 .venv/Scripts/python.exe -m mypy verdict tests
@@ -233,9 +247,13 @@ precedent for what to do about it.
 # the sealed schedule
 .venv/Scripts/python.exe -m verdict.cli schedule hash
 
-# the competition data (defaults point at where it actually is)
-.venv/Scripts/python.exe -m verdict.cli data verify
-.venv/Scripts/python.exe -m verdict.cli data inspect
+# the competition data, which on this machine lives outside the repository
+.venv/Scripts/python.exe -m verdict.cli data verify --directory "C:/Dev/POCs/09-realtime-risk-platform/data/ieee-fraud-detection"
+.venv/Scripts/python.exe -m verdict.cli data inspect --directory "C:/Dev/POCs/09-realtime-risk-platform/data/ieee-fraud-detection"
+
+# the local stream stack (Docker is not on PATH in a fresh shell; see section 2)
+docker compose -f deploy/compose/docker-compose.yml up -d --wait
+docker compose -f deploy/compose/docker-compose.yml down -v
 ```
 
 ---
