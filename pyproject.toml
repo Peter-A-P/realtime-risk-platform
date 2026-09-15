@@ -44,6 +44,12 @@ dependencies = [
   # client's, and it ships Python 3.13 wheels for Windows. v2 is the current
   # major; its consumer and admin APIs are what stream/redpanda.py calls.
   "confluent-kafka>=2.6,<3",
+  # The synchronous scoring endpoint (verdict/scoring/http_api.py), kept for the
+  # demo and for Rule C candidate 3's comparison with the stream consumer. Feast
+  # already depends on both; they are pinned here because this project now
+  # calls them directly. Pre-1.0, so the minor is pinned for each.
+  "fastapi>=0.141,<0.142",
+  "uvicorn>=0.52,<0.53",
 ]
 
 [project.optional-dependencies]
@@ -67,6 +73,9 @@ dev = [
   # is how type checking quietly stops covering the interesting parts.
   "pandas-stubs>=2.2,<3",
   "types-PyYAML>=6.0,<7",
+  # FastAPI's test client. Starlette 1.x deprecates httpx for it in favour of
+  # httpx2, the Pydantic organisation's successor; v2 is its only major.
+  "httpx2>=2.13,<3",
 ]
 
 [project.scripts]

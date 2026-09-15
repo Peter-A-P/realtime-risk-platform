@@ -104,6 +104,28 @@ events in week 8 exercises the same path.
 - The decisions topic keeps four partitions, keyed by card. Nothing reads it
   in time order.
 
+## Addendum, 2026-09-15: one decision core, and when the ledger records
+
+The decision moved out of the consumer into `verdict/scoring/core.py`, which
+the HTTP endpoint (`http_api.py`) now shares. Rule C candidate 3 compares the
+two, and that comparison is only about transport if the decision is the same
+code on both sides; a test feeds identical events to both and compares scores,
+actions and rules.
+
+Moving it exposed an ordering fault in the first version. The ledger recorded
+an event after its decision was handed to the stream. But the engine has
+already folded the event into its windows once it has served it, so if the
+write then failed and the event came back, the engine would have counted it
+twice. The ledger now records an event immediately after the engine serves it.
+The cost is that a retried event whose decision never landed is refused as a
+duplicate: a lost decision, which a replay recovers, rather than a corrupted
+window, which nothing recovers. `tests/test_scoring.py` makes the decision
+write fail and asserts the retry is refused without reaching the engine.
+
+The HTTP endpoint differs from the consumer in the three ways its module
+docstring lists (a lock, 409 for out-of-order transactions, a flush per
+request), and those differences are the evidence the comparison is for.
+
 ## Options not taken
 
 - **Deduplicate on the decisions topic only.** Cheap, and it lets the engine

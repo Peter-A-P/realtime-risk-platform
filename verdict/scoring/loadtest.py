@@ -36,8 +36,9 @@ from verdict.events.generator.entities import EntityGraph, Population
 from verdict.events.generator.regimes import DEV_SCHEDULE
 from verdict.events.schema import DecisionEvent, TransactionEvent
 from verdict.features.engine import FeatureEngine
-from verdict.scoring.consumer import EngineFeatures, StreamScorer
-from verdict.scoring.model import StandInModel
+from verdict.scoring.consumer import StreamScorer
+from verdict.scoring.core import Decider, EngineFeatures
+from verdict.scoring.model import FixedModel, StandInModel
 from verdict.scoring.timing import HOPS, HopSample, percentile, t_interval
 from verdict.stream.base import Stream
 from verdict.stream.memory import MemoryBroker
@@ -196,8 +197,9 @@ def run_once(
     producer_stream = backend.open()
     scorer = StreamScorer(
         scorer_stream,
-        features=EngineFeatures(FeatureEngine()),
-        model=StandInModel(),
+        decider=Decider(
+            features=EngineFeatures(FeatureEngine()), models=FixedModel(StandInModel())
+        ),
         transactions_topic=topics.transactions,
         decisions_topic=topics.decisions,
         group=f"scorer-{uuid.uuid4().hex[:8]}",
@@ -205,7 +207,10 @@ def run_once(
     )
 
     def score_until_done() -> None:
-        while not (done.is_set() and scorer.stats.decided + scorer.stats.duplicates >= len(events)):
+        while not (
+            done.is_set()
+            and scorer.decider.stats.decided + scorer.decider.stats.duplicates >= len(events)
+        ):
             scorer.poll(max_records=500, timeout_seconds=0.01)
 
     thread = threading.Thread(target=score_until_done, name="scorer", daemon=True)
@@ -226,7 +231,7 @@ def run_once(
         done.set()
         thread.join(timeout=120)
         if thread.is_alive():
-            msg = f"scorer decided {scorer.stats.decided} of {len(events)} in time"
+            msg = f"scorer decided {scorer.decider.stats.decided} of {len(events)} in time"
             raise RuntimeError(msg)
     finally:
         done.set()
@@ -249,8 +254,8 @@ def run_once(
         send_rate=len(events) / send_seconds,
         end_to_end={f"p{q}": _ms(end_to_end, q) for q in (50, 95, 99)},
         hops={hop: {"p50": _ms(by_hop[hop], 50), "p99": _ms(by_hop[hop], 99)} for hop in HOPS},
-        commit={"p50": _ms(scorer.stats.commit_ns, 50), "p99": _ms(scorer.stats.commit_ns, 99)},
-        duplicates=scorer.stats.duplicates,
+        commit={"p50": _ms(scorer.commits.commit_ns, 50), "p99": _ms(scorer.commits.commit_ns, 99)},
+        duplicates=scorer.decider.stats.duplicates,
     )
 
 

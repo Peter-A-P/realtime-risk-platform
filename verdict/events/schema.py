@@ -35,6 +35,8 @@ expected loss in money.
   `decisions` topic, and included in the fingerprint. A new record type
   changes nothing an existing reader reads, so the version stays at 2; the
   fingerprint changes, deliberately, in the same commit.
+- **2, extended again** (week 4, 2026-09-15). `ShadowEvent` added, for the
+  `shadow` topic, on the same reasoning.
 """
 
 from __future__ import annotations
@@ -291,6 +293,33 @@ class DecisionEvent(Record):
         return require_utc(value)
 
 
+class ShadowEvent(Record):
+    """What a challenger would have decided, written to `shadow`, never acted on.
+
+    The challenger scores the same features the champion was served, at the
+    same moment, so the two are comparable row by row once labels arrive.
+    Promotion (week 5, ADR 11) reads these beside the decisions; nothing else
+    does, and nothing about a transaction's outcome depends on one.
+    """
+
+    schema_version: Literal[2] = SCHEMA_VERSION
+    event_id: EntityId
+    card_id: EntityId
+    model_version: str = Field(min_length=1, max_length=64)
+    score: float = Field(ge=0.0, le=1.0)
+    action: Action
+    """The action the challenger's score would have led to under the same rules."""
+    rule: str = Field(min_length=1, max_length=64)
+    champion_version: str = Field(min_length=1, max_length=64)
+    champion_action: Action
+    decided_at: dt.datetime
+
+    @field_validator("decided_at")
+    @classmethod
+    def _check_decided_at(cls, value: dt.datetime) -> dt.datetime:
+        return require_utc(value)
+
+
 def decode_transaction(raw: str | bytes) -> TransactionEvent:
     """Decode one JSON record from the stream into a `TransactionEvent`.
 
@@ -352,6 +381,7 @@ class SchemaFingerprint(Record):
             "DecisionEvent": DecisionEvent.model_json_schema(),
             "GroundTruth": GroundTruth.model_json_schema(),
             "LabelEvent": LabelEvent.model_json_schema(),
+            "ShadowEvent": ShadowEvent.model_json_schema(),
             "TransactionEvent": TransactionEvent.model_json_schema(),
         }
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))

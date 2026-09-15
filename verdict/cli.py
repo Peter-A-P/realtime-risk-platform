@@ -14,6 +14,10 @@ The real-data track adds `data ingest | manifest | verify | inspect` for the
 competition files, `data events` to map them onto the platform's events, and
 `data check` to run the point-in-time check over that replay.
 
+Week 4 adds `loadtest`, which drives the scorer at a fixed rate and reports
+latency per hop; `serve`, the synchronous endpoint for the demo; and
+`flag show | set | rollback`, the champion pointer the scorer reads per event.
+
 The rest arrive in the week that builds them.
 """
 
@@ -38,6 +42,7 @@ from verdict.events.generator.regimes import (
 )
 from verdict.events.rawlog import RawEventLog
 from verdict.events.schema import SchemaFingerprint
+from verdict.scoring.model import Model
 
 app = typer.Typer(
     name="verdict",
@@ -497,6 +502,122 @@ def loadtest(
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text + "\n", encoding="utf-8")
     typer.echo(text)
+
+
+flag_app = typer.Typer(
+    name="flag", help="The champion pointer the scorer reads per event.", no_args_is_help=True
+)
+app.add_typer(flag_app)
+
+DEFAULT_FLAG = Path("data/flags/champion.json")
+"""Runtime state, not configuration: under `data/`, which git ignores."""
+
+
+def _known_models() -> dict[str, Model]:
+    """The models this build can score with, by version.
+
+    Week 4 has one. Week 5 adds the champion and challenger, and this is where
+    they are registered.
+
+    Returns:
+        Version to model.
+    """
+    from verdict.scoring.model import StandInModel
+
+    stand_in = StandInModel()
+    return {stand_in.version: stand_in}
+
+
+@flag_app.command("show")
+def flag_show(
+    path: Annotated[Path, typer.Option(help="The flag file.")] = DEFAULT_FLAG,
+) -> None:
+    """Print the champion pointer.
+
+    Args:
+        path: The flag file.
+    """
+    from verdict.scoring.flags import FlagError, read_pointer
+
+    try:
+        typer.echo(read_pointer(path).to_json().rstrip())
+    except FlagError as error:
+        typer.echo(f"REFUSED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+
+
+@flag_app.command("set")
+def flag_set(
+    version: Annotated[str, typer.Argument(help="The model version to score with.")],
+    path: Annotated[Path, typer.Option(help="The flag file.")] = DEFAULT_FLAG,
+) -> None:
+    """Point the scorer at a model. For the drill and for applying a merged promotion.
+
+    Promotion itself is a pull request carrying the shadow evidence; this only
+    applies the decision that pull request made.
+
+    Args:
+        version: The model version.
+        path: The flag file.
+    """
+    from verdict.scoring.flags import FlagError, set_champion
+
+    try:
+        typer.echo(set_champion(path, version, _known_models()).to_json().rstrip())
+    except FlagError as error:
+        typer.echo(f"REFUSED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+
+
+@flag_app.command("rollback")
+def flag_rollback(
+    path: Annotated[Path, typer.Option(help="The flag file.")] = DEFAULT_FLAG,
+) -> None:
+    """Return the scorer to the previous champion, effective on its next event.
+
+    Args:
+        path: The flag file.
+    """
+    from verdict.scoring.flags import FlagError, rollback
+
+    try:
+        typer.echo(rollback(path).to_json().rstrip())
+    except FlagError as error:
+        typer.echo(f"REFUSED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+
+
+@app.command()
+def serve(
+    host: Annotated[str, typer.Option(help="Interface to listen on.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(help="Port to listen on.")] = 8000,
+    flag: Annotated[
+        Path | None, typer.Option(help="Follow this champion pointer; else the stand-in.")
+    ] = None,
+) -> None:
+    """Serve the synchronous scoring endpoint, for the demo.
+
+    Listens on localhost by default: nothing in this platform's scoring path
+    is meant to be publicly writable (`PLAN.md` section 8).
+
+    Args:
+        host: Interface to listen on.
+        port: Port to listen on.
+        flag: A champion pointer to follow.
+    """
+    import uvicorn
+
+    from verdict.features.engine import FeatureEngine
+    from verdict.scoring.core import Decider, EngineFeatures
+    from verdict.scoring.flags import FlaggedModels
+    from verdict.scoring.http_api import create_app
+    from verdict.scoring.model import FixedModel, ModelSource, StandInModel
+
+    models: ModelSource = (
+        FixedModel(StandInModel()) if flag is None else FlaggedModels(flag, _known_models())
+    )
+    decider = Decider(features=EngineFeatures(FeatureEngine()), models=models)
+    uvicorn.run(create_app(decider), host=host, port=port, log_level="warning")
 
 
 if __name__ == "__main__":  # pragma: no cover

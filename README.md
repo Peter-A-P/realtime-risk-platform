@@ -91,6 +91,8 @@ sixteen features it now judges, plus the mapping that puts the real data through
 | Real data onto events | [verdict/events/ieee_cis_events.py](verdict/events/ieee_cis_events.py) | A card is issuer, product, billing region and account start day. No device or merchant is invented to fill the schema, which is at version 2 so it can say so |
 | Sampled replay check | [verdict/features/replay_check.py](verdict/features/replay_check.py) | The point-in-time check over a replay too large to check in full, sampling cards rather than rows |
 | The scorer | [verdict/scoring/consumer.py](verdict/scoring/consumer.py) | A stream consumer, not an HTTP service ([ADR 8](docs/adr/0008-consumer-scoring.md)). Duplicates are stopped before the feature engine can count them twice, and transactions are checkpointed only after their decisions are on the stream. The model is a stand-in until week 5, and says so in every decision |
+| One decision core, two transports | [verdict/scoring/core.py](verdict/scoring/core.py), [http_api.py](verdict/scoring/http_api.py) | The stream consumer and the HTTP endpoint share every line of the decision, so comparing them compares transports. HTTP has to refuse what the stream never delivers: a transaction older than one already scored |
+| Rollback flag and shadow | [verdict/scoring/flags.py](verdict/scoring/flags.py) | The champion is read from a pointer on every event, so a rollback takes effect on the next one; a bad pointer is refused and scoring carries on. A challenger scores in shadow on the same features, and a challenger that fails cannot touch a decision |
 | Load test | [verdict/scoring/loadtest.py](verdict/scoring/loadtest.py) | Sends at a fixed rate and times every decision per hop, with intervals across runs. Its first published numbers wait for a quiet machine |
 | Stream interface | [verdict/stream/](verdict/stream/) | Produce, consume, checkpoint ([ADR 3](docs/adr/0003-stream-choice.md)). In-process and Redpanda implementations held to one set of contract tests: order per key, redelivery without a checkpoint, resume after one, no rewind, unknown topics refused |
 | **The feature engine** | [verdict/features/engine.py](verdict/features/engine.py) | Written here, not taken off the shelf: Bytewax has no Python 3.13 wheels ([ADR 4](docs/adr/0004-aggregation-engine.md)). Serves each event before observing it, and holds it back until time moves on |
@@ -102,7 +104,7 @@ sixteen features it now judges, plus the mapping that puts the real data through
 | Local stream stack | [deploy/compose/docker-compose.yml](deploy/compose/docker-compose.yml) | Redpanda, three topics created explicitly, auto-creation off and checked at start-up. Its first run found a start-up flag that Redpanda v24.3 rejects |
 | Decisions 1 to 8, and 17 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; what a card, device and moment are on the real data |
 
-312 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
+336 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
 
 **The leakage test caught a real leak on the day the first features were written**, which
 is what it was written a week earlier for. Two transactions sharing a timestamp saw each

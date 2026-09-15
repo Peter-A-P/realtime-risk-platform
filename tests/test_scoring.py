@@ -10,7 +10,7 @@ write decisions leaves the transactions unacknowledged.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 import pytest
 
@@ -19,12 +19,14 @@ from verdict.events.schema import (
     DecisionEvent,
     EntryMode,
     MerchantCategory,
+    ShadowEvent,
     TransactionEvent,
 )
 from verdict.features.engine import FeatureEngine
 from verdict.scoring import loadtest
-from verdict.scoring.consumer import EngineFeatures, StreamScorer
-from verdict.scoring.model import STAND_IN_VERSION, Model, StandInModel
+from verdict.scoring.consumer import StreamScorer
+from verdict.scoring.core import Decider, EngineFeatures
+from verdict.scoring.model import STAND_IN_VERSION, FixedModel, Model, StandInModel
 from verdict.scoring.rules import DecisionRules
 from verdict.scoring.timing import HOPS, HopSample, percentile, t_critical, t_interval
 from verdict.store.features import NO_EVENTS, feature_names
@@ -56,13 +58,17 @@ def a_setup(partitions: int = 1) -> tuple[MemoryBroker, MemoryStream]:
     return broker, broker.open()
 
 
-def a_scorer(stream: MemoryStream, **kwargs: object) -> StreamScorer:
-    return StreamScorer(
-        stream,
+def a_decider(ledger_size: int = 1_000_000) -> Decider:
+    return Decider(
         features=EngineFeatures(FeatureEngine()),
-        model=StandInModel(),
-        **kwargs,  # type: ignore[arg-type]
+        models=FixedModel(StandInModel()),
+        ledger_size=ledger_size,
     )
+
+
+def a_scorer(stream: MemoryStream, **kwargs: object) -> StreamScorer:
+    decider = kwargs.pop("decider", None) or a_decider()
+    return StreamScorer(stream, decider=decider, **kwargs)  # type: ignore[arg-type]
 
 
 def send(stream: MemoryStream, events: Iterable[TransactionEvent]) -> None:
@@ -94,7 +100,7 @@ def test_every_transaction_gets_exactly_one_decision() -> None:
     drain(scorer)
     decisions = decisions_on(broker)
     assert sorted(d.event_id for d in decisions) == sorted(e.event_id for e in events)
-    assert scorer.stats.decided == 50
+    assert scorer.decider.stats.decided == 50
     assert all(d.model_version == STAND_IN_VERSION for d in decisions)
 
 
@@ -115,11 +121,12 @@ def test_a_redelivered_transaction_reaches_neither_the_decisions_nor_the_engine(
             served.append(values)
             return values
 
-    scorer = StreamScorer(stream, features=Recording(FeatureEngine()), model=StandInModel())
+    decider = Decider(features=Recording(FeatureEngine()), models=FixedModel(StandInModel()))
+    scorer = StreamScorer(stream, decider=decider)
     drain(scorer)
 
     assert [d.event_id for d in decisions_on(broker)] == ["evt-1", "evt-2", "evt-3"]
-    assert scorer.stats.duplicates == 1
+    assert scorer.decider.stats.duplicates == 1
     assert [values["card_txn_count_1h"] for values in served] == [NO_EVENTS, 1.0, 2.0]
 
 
@@ -139,7 +146,7 @@ def test_decisions_are_not_checkpointed_ahead_of_being_written() -> None:
 
     restarted = a_scorer(broker.open())
     drain(restarted)
-    assert restarted.stats.decided == 5
+    assert restarted.decider.stats.decided == 5
 
 
 def test_a_restarted_scorer_resumes_after_its_last_committed_batch() -> None:
@@ -151,15 +158,42 @@ def test_a_restarted_scorer_resumes_after_its_last_committed_batch() -> None:
 
     second = a_scorer(broker.open())
     drain(second)
-    assert second.stats.decided == 4
+    assert second.decider.stats.decided == 4
+
+
+def test_a_failed_write_after_the_engine_saw_an_event_cannot_count_it_twice() -> None:
+    """The ledger records an event when the engine sees it, not when its decision lands.
+
+    If writing the decision fails and the scorer is asked about the same
+    event again, it must refuse rather than serve it a second time: the first
+    serve already put it in the windows.
+    """
+    broker, stream = a_setup()
+    send(stream, [an_event(1), an_event(2)])
+
+    class FailingProduce(MemoryStream):
+        def produce(self, topic: str, key: str, value: bytes) -> None:
+            if topic == "decisions":
+                raise StreamError("broker unavailable")
+            super().produce(topic, key, value)
+
+    decider = a_decider()
+    with pytest.raises(StreamError):
+        StreamScorer(FailingProduce(broker), decider=decider).poll()
+
+    assert decider.seen("evt-1")
+    assert decider.decide(an_event(1), 0) is None
+    third = decider.decide(an_event(3), 0)
+    assert third is not None
+    assert decider.stats.duplicates == 1
 
 
 def test_the_ledger_is_bounded() -> None:
     broker, stream = a_setup()
     send(stream, [an_event(i) for i in range(20)])
-    scorer = a_scorer(stream, ledger_size=5)
+    scorer = a_scorer(stream, decider=a_decider(ledger_size=5))
     drain(scorer)
-    assert len(scorer._ledger) == 5
+    assert scorer.decider.remembered == 5
 
 
 def test_every_decision_carries_a_complete_timing() -> None:
@@ -172,7 +206,7 @@ def test_every_decision_carries_a_complete_timing() -> None:
     for sample in samples:
         assert min(sample.features_ns, sample.model_ns, sample.decision_ns, sample.persist_ns) >= 0
         assert sample.finished_ns >= sample.started_ns
-    assert len(scorer.stats.commit_ns) == scorer.stats.batches
+    assert len(scorer.commits.commit_ns) == scorer.commits.batches
 
 
 def test_the_feature_vector_has_no_gaps() -> None:
@@ -289,3 +323,111 @@ def test_the_scorer_refuses_a_transaction_that_arrives_out_of_time_order() -> No
     send(stream, [an_event(2), an_event(1)])
     with pytest.raises(LateEventError):
         a_scorer(stream).poll()
+
+
+# --- shadow scoring -------------------------------------------------------
+
+
+class Recorder:
+    """A challenger that records what it was shown and scores a constant."""
+
+    version = "challenger-test"
+
+    def __init__(self, score: float = 0.95, *, fail: bool = False) -> None:
+        """Set the constant score, or make every call raise."""
+        self.seen: list[dict[str, float]] = []
+        self._score = score
+        self._fail = fail
+
+    def score(self, features: Mapping[str, float], event: TransactionEvent) -> float:
+        """Record the features, then score or raise."""
+        del event
+        if self._fail:
+            raise RuntimeError("challenger broke")
+        self.seen.append(dict(features))
+        return self._score
+
+
+def shadow_records_on(broker: MemoryBroker) -> list[ShadowEvent]:
+    reader = broker.open()
+    return [
+        ShadowEvent.model_validate_json(record.value)
+        for record in reader.consume("shadow", "reader", max_records=1_000)
+    ]
+
+
+def a_shadow_setup() -> tuple[MemoryBroker, MemoryStream]:
+    broker, stream = a_setup()
+    broker.create_topic("shadow", 2)
+    return broker, stream
+
+
+def test_a_shadow_changes_no_champion_decision_and_sees_the_same_features() -> None:
+    events = [an_event(i, card=f"card-{i % 2}") for i in range(20)]
+
+    plain_broker, plain_stream = a_shadow_setup()
+    send(plain_stream, events)
+    drain(a_scorer(plain_stream))
+
+    broker, stream = a_shadow_setup()
+    send(stream, events)
+    challenger = Recorder(score=0.95)
+    served: list[dict[str, float]] = []
+
+    class Recording(EngineFeatures):
+        def serve(self, event: TransactionEvent) -> dict[str, float]:
+            values = super().serve(event)
+            served.append(dict(values))
+            return values
+
+    decider = Decider(
+        features=Recording(FeatureEngine()),
+        models=FixedModel(StandInModel()),
+        shadow=FixedModel(challenger),
+    )
+    drain(StreamScorer(stream, decider=decider))
+
+    def essence(decisions: list[DecisionEvent]) -> list[tuple[str, float, Action, str]]:
+        return sorted((d.event_id, d.score, d.action, d.rule) for d in decisions)
+
+    assert essence(decisions_on(broker)) == essence(decisions_on(plain_broker))
+    assert challenger.seen == served
+    shadows = shadow_records_on(broker)
+    assert len(shadows) == 20
+    assert all(
+        s.action is Action.DECLINE and s.champion_version == STAND_IN_VERSION for s in shadows
+    )
+
+
+def test_a_failing_shadow_is_counted_and_the_champion_still_decides() -> None:
+    broker, stream = a_shadow_setup()
+    send(stream, [an_event(i) for i in range(5)])
+    decider = Decider(
+        features=EngineFeatures(FeatureEngine()),
+        models=FixedModel(StandInModel()),
+        shadow=FixedModel(Recorder(fail=True)),
+    )
+    drain(StreamScorer(stream, decider=decider))
+    assert len(decisions_on(broker)) == 5
+    assert shadow_records_on(broker) == []
+    assert decider.stats.shadow_failures == 5
+
+
+def test_shadow_time_is_kept_out_of_the_champions_hops() -> None:
+    import time as clock
+
+    class Slow(Recorder):
+        def score(self, features: Mapping[str, float], event: TransactionEvent) -> float:
+            clock.sleep(0.02)
+            return super().score(features, event)
+
+    decider = Decider(
+        features=EngineFeatures(FeatureEngine()),
+        models=FixedModel(StandInModel()),
+        shadow=FixedModel(Slow()),
+    )
+    started = clock.perf_counter_ns()
+    outcome = decider.decide(an_event(1), started)
+    assert outcome is not None
+    assert outcome.shadow_ns >= 15_000_000
+    assert outcome.model_ns + outcome.decision_ns < outcome.shadow_ns

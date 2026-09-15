@@ -87,6 +87,8 @@ services:
         ensure transactions 1 604800000
         ensure labels 1 2592000000
         ensure decisions 4 604800000
+        # What a challenger would have decided, beside the champion (week 5).
+        ensure shadow 4 604800000
         rpk topic list --brokers redpanda:9092
         test "$$(rpk cluster config get auto_create_topics_enabled -X admin.hosts=redpanda:9644)" = false
     restart: "no"

@@ -46,6 +46,43 @@ class Model(Protocol):
         ...
 
 
+class ModelSource(Protocol):
+    """Which model to score with, asked once per event.
+
+    Asked per event rather than once at start-up, because the rollback flag
+    (`flags.py`) has to take effect on the next event, not on the next
+    restart.
+    """
+
+    def current(self) -> Model:
+        """The model to use for the event about to be scored.
+
+        Returns:
+            The model.
+        """
+        ...
+
+
+class FixedModel:
+    """A model source that never changes. For tests and the load test."""
+
+    def __init__(self, model: Model) -> None:
+        """Hold one model.
+
+        Args:
+            model: The model.
+        """
+        self.model = model
+
+    def current(self) -> Model:
+        """The one model.
+
+        Returns:
+            The model given at construction.
+        """
+        return self.model
+
+
 STAND_IN_VERSION: Final = "stand-in-0"
 
 

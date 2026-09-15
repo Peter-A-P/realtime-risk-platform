@@ -25,7 +25,7 @@ the point-in-time check clean over a 2 percent sample of cards. The wire
 schema is at version 2. Week 4 has started: the `Stream` interface exists with
 in-process and Redpanda implementations, tested against the running broker,
 and the scorer consumes it (ADR 8) with a stand-in model and a load test. No
-latency figure is published yet (section 11). 312 tests; `ruff`, `ruff format` and
+latency figure is published yet (section 11). 336 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -93,8 +93,14 @@ verdict/
     redpanda.py      confluent-kafka. Idempotent producer; consumers assigned, not
                      subscribed, so no rebalance delay lands in a latency number.
   scoring/
-    consumer.py      The scorer. Ledger check, engine features, model, rules, decision;
-                     flush then checkpoint per batch. Needs a one-partition topic.
+    core.py          Decider: the one decision, shared by both transports. Ledger records
+                     an event when the engine sees it. Optional shadow model, timed apart.
+    consumer.py      The stream scorer on top of Decider: flush then checkpoint per batch.
+                     Needs a one-partition topic.
+    http_api.py      FastAPI endpoint on the same Decider. Serialised by a lock; 409 for a
+                     duplicate or an out-of-order transaction; Server-Timing header.
+    flags.py         Champion pointer file, read per event (one stat), atomic writes,
+                     rollback; a bad pointer is refused and scoring continues.
     model.py         The Model protocol and StandInModel: fixed weights, NOT trained.
     rules.py         Placeholder thresholds, until week 6's expected loss.
     timing.py        Hops, percentiles, the t interval used for every rate and latency.
@@ -105,12 +111,13 @@ verdict/
     leakage.py       The point-in-time test. Two checks. Never weakened.
     repo.py          Generates the Feast repository from the specifications.
     retrieval.py     Point-in-time training sets. Refuses to carry the label time.
-  cli.py             verdict generate | loadtest | schedule show/hash/seal/verify |
+  cli.py             verdict generate | loadtest | serve | flag show/set/rollback |
+                     schedule show/hash/seal/verify |
                      data ingest/manifest/verify/inspect/events/check
 ```
 
 Not yet written: `stream/kinesis.py` and `stream/parity.py` (week 7),
-`scoring/http.py`, `scoring/shadow.py`, `scoring/flags.py`, `models/`, `drift/`, `queue/`, `observe/`, `chaos/`,
+`scoring/promote.py` (week 5), `models/`, `drift/`, `queue/`, `observe/`, `chaos/`,
 `deploy/terraform/`.
 
 `deploy/compose/docker-compose.yml` **ran for the first time on 2026-09-13**:
@@ -285,7 +292,7 @@ precedent for what to do about it.
 
 ```bash
 # everything, from the repository root
-.venv/Scripts/python.exe -m pytest                 # 312 tests, 2.5 to 4 minutes with the broker up
+.venv/Scripts/python.exe -m pytest                 # 336 tests, 2.5 to 4 minutes with the broker up
 .venv/Scripts/python.exe -m pytest -m "not slow"   # about 90 seconds
 .venv/Scripts/python.exe -m ruff format .
 .venv/Scripts/python.exe -m ruff check .
@@ -346,7 +353,11 @@ In the order the plan sets, with nothing blocked except where noted:
 1. ~~The IEEE-CIS row-to-event mapper~~ **Done 2026-09-14**, ADR 17.
 2. **Week 4, in progress.** Done: the `Stream` protocol, in-process and
    Redpanda implementations, contract tests on the live broker; the scorer,
-   rules, stand-in model, per-hop timers and load test (ADR 8).
+   rules, stand-in model, per-hop timers and load test (ADR 8); on
+   2026-09-15 the shared decision core, the HTTP endpoint, and two week 5
+   pieces that need no model: the rollback flag and shadow scoring, with a
+   `shadow` topic in the compose file. An existing local volume needs the
+   topics job run again (`docker compose ... run --rm topics`) to create it.
    **Next, and waiting on a quiet machine:** the first published latency
    measurement, `verdict loadtest --stream redpanda --runs 5 --out
    docs/latency-week4.json`, then ADR 9 and `docs/latency-budget.md` from it.
