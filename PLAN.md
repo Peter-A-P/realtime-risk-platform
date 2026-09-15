@@ -146,10 +146,18 @@ event; the drill flips it and measures the time to the previous champion serving
 
 ### 2.6 Drift triggers a candidate, a person promotes it
 
-Evidently computes PSI and KS per feature and on the score distribution daily. Two
-consecutive days above threshold open a retraining job; the job trains a candidate, runs
+PSI and KS are computed per feature and on the score distribution daily, against a fixed
+reference window. Two consecutive days above threshold open a retraining job; the job trains a candidate, runs
 it in shadow, and opens a pull request with the evidence tables. Merging the pull request
 is the approval gate. Nothing retrains itself into production.
+
+**Amended 2026-09-15, in the same commit as the code.** This section said Evidently
+computes the statistics. They are written in `verdict/drift/stats.py` instead: each is a
+few lines, a hand-worked test holds each, this platform's `NO_EVENTS` sentinel needs its
+own PSI bin, and a library whose main value is its reports would add weight for two
+numbers a day. ADR 12 records the trade and the thresholds, which are published
+conventions fixed before any drift was seen, and may not be tuned against the
+development schedule's regimes any more than against the sealed ones.
 
 ### 2.7 The queue is ranked by expected loss
 
@@ -223,7 +231,9 @@ verdict/
   scoring/     consumer.py (stream consumer scorer with per-hop timers), rules.py (decision rules),
                core.py (the decision, shared by both transports), flags.py (champion pointer, read per event),
                http_api.py (sync endpoint for demo and comparison; shadow scoring lives in core.py)
-  drift/       monitors.py (Evidently PSI, KS; daily), trigger.py, retrain.py, approval.py (opens the PR with evidence)
+  drift/       stats.py (PSI with a sentinel bin, two-sample KS), monitors.py (fixed reference, daily
+               verdicts), trigger.py (same quantity, two consecutive days), retrain.py, approval.py
+               (opens the PR with evidence; week 6)
   review_queue/  ranking.py: expected loss, the fixed-capacity day simulation, and the paired comparison
                with CIs (built ahead, 2026-09-15). Named `review_queue` because `queue` shadows the
                standard library; the plan's three files are one module until they need to be three
@@ -264,7 +274,7 @@ against the AWS API).
 | Week 3 (built 2026-09-12) | Dataflow: velocity, entity-graph, session features; dual sink; parity test; first leak caught (expected) and recorded | **Done.** 16 features computed by the engine written here (ADR 4 amended: Bytewax has no Python 3.13 wheels); parity 100% online against offline through real Feast; the leakage test passes on all 16 features against a brute-force recomputation. **The predicted leak happened and was caught**: two events sharing a timestamp saw each other. Measured against the competition data once it arrived, that is 312 rows of 590,540, a twentieth of one percent, slightly enriched for fraud. `docs/leak-caught.md` records it, and carries a correction: the first published version of the measurement described a synthetic stream truncated to seconds and overstated the real impact by three orders of magnitude. The offline PR-AUC inflation is measured in week 5, when a model exists to measure it with |
 | Week 4 (started 2026-09-14) | Stream-consumer scorer, ONNX champion, decision rules, per-hop timers; HTTP endpoint for comparison; first local load test; latency budget published; ADRs 8, 9 | p99 and hop breakdown in `docs/latency-budget.md`. **In progress.** Built so far: the `Stream` protocol (`produce`, `consume`, `checkpoint`) with an in-process and a Redpanda implementation, held to one contract suite that runs against the live broker; and the Compose stack's first real runs, which found two faults and fixed them. Then the scorer (`verdict/scoring/`, ADR 8): duplicates stopped before the engine, checkpoints after durable decisions, per-hop timers, placeholder rules, and a stand-in model behind the model interface, because the ONNX champion is week 5's. The `transactions` topic moves to one partition to match the one live shard, since the engine needs time order. The load test runs on both streams. Then, on 2026-09-15, while another project's training held the CPU: the decision moved into one core shared by the consumer and a new HTTP endpoint (`http_api.py`), so Rule C candidate 3 compares transports rather than two scorers; and two week 5 pieces that need no model were built early, the champion pointer read per event with its rollback (`flags.py`, the plan's "rollback flag honoured within one event" test) and shadow scoring on the same features with its own `shadow` topic. Not yet: the first published measurement and ADR 9, which wait for a machine not shared with another project's training job, and the comparison run itself |
 | Week 5 | Champion training on IEEE-CIS and on replay; FT-Transformer challenger; shadow scoring; promotion function; rollback flag and drill; ADRs 10, 11 | Champion/challenger table with CIs; drill timed five times. **Built ahead on 2026-09-15, because none of it needs a model:** shadow scoring, the rollback flag, and the promotion gate with ADR 11. What remains is the models, the calibration, the evidence table filled from a real shadow window, and the timed drill |
-| Week 6 | Drift monitors, trigger, retraining job, approval pull request; expected-loss queue and evaluation; ADRs 12, 13 | Queue evaluation table; a retraining PR opened end to end on a forced shift. **Built ahead on 2026-09-15:** the queue's ranking, simulation and paired comparison, with ADR 13. What remains is running it on a calibrated champion's scores, the stated prices, and all of the drift work |
+| Week 6 | Drift monitors, trigger, retraining job, approval pull request; expected-loss queue and evaluation; ADRs 12, 13 | Queue evaluation table; a retraining PR opened end to end on a forced shift. **Built ahead on 2026-09-15:** the queue's ranking, simulation and paired comparison, with ADR 13. What remains is running it on a calibrated champion's scores and the stated prices. **The drift monitors and trigger were also built ahead, with ADR 12**; what remains of drift is the retraining job, its pull request, and the end-to-end test on a forced shift |
 | Week 7 | Kinesis path with aggregation; Redpanda/Kinesis parity; Terraform for the live stack; AWS budget alarms (plan repository action 9); Grafana dashboards; ADRs 14, 15 | Stack up and down on AWS on one command each; parity across paths |
 | Week 8 | Chaos tests and `failure-modes.md`; load test on the live instance; cost per million events; hardening; ADR 16 | Every chaos scenario has observed behaviour and a fix; loadtest results with CIs |
 | Week 9 | 72-hour dry live run; README; runbook; ADR review | Dry run clean; go-live checklist ticked |

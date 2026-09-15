@@ -25,7 +25,7 @@ the point-in-time check clean over a 2 percent sample of cards. The wire
 schema is at version 2. Week 4 has started: the `Stream` interface exists with
 in-process and Redpanda implementations, tested against the running broker,
 and the scorer consumes it (ADR 8) with a stand-in model and a load test. No
-latency figure is published yet (section 11). 365 tests; `ruff`, `ruff format` and
+latency figure is published yet (section 11). 390 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -104,6 +104,11 @@ verdict/
   models/
     promote.py       The promotion gate: paired bootstrap on labelled shadow rows, PR-AUC
                      and decision cost, non-inferiority on the bound. Never promotes.
+  drift/
+    stats.py         PSI (reference deciles, NO_EVENTS in its own bin) and two-sample KS.
+    monitors.py      Fixed reference; daily verdict per feature and score; thresholds are
+                     conventions and must not be tuned against any schedule.
+    trigger.py       Same quantity drifted two consecutive days, none open: RetrainRequest.
   review_queue/
     ranking.py       Expected loss, the hourly day simulation, score vs expected-loss
                      comparison paired by day. Named so it does not shadow stdlib queue.
@@ -123,7 +128,7 @@ verdict/
 ```
 
 Not yet written: `stream/kinesis.py` and `stream/parity.py` (week 7),
-`models/` training and export (week 5), `drift/` (week 6), `drift/`, `queue/`, `observe/`, `chaos/`,
+`models/` training and export (week 5), `drift/retrain.py` and `approval.py` (week 6), `drift/`, `queue/`, `observe/`, `chaos/`,
 `deploy/terraform/`.
 
 `deploy/compose/docker-compose.yml` **ran for the first time on 2026-09-13**:
@@ -151,7 +156,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Eleven ADRs, in `docs/adr/`: 1 to 8, 11, 13 and 17. Read them before reopening anything they cover.
+Twelve ADRs, in `docs/adr/`: 1 to 8, 11 to 13, and 17. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -164,6 +169,7 @@ Eleven ADRs, in `docs/adr/`: 1 to 8, 11, 13 and 17. Read them before reopening a
 | 7 | The leakage test is written first and never weakened | It has already caught three real faults |
 | 8 | The scorer is a stream consumer: at least once, duplicates stopped before the engine, checkpoint after durable decisions, features served from the engine in process | **`transactions` has one partition** because the engine needs time order; more needs a reorder buffer whose hold time is latency |
 | 11 | Shadow on the champion's own features, timed apart, unable to break scoring; promotion only if the interval bound clears the margin, on labels that had arrived, with at least 50 frauds; rollback by a pointer read per event | Margins and prices are placeholders until the champion's variability is measured |
+| 12 | Drift: PSI and KS against a fixed reference; PSI 0.25, KS statistic 0.10 with p below 0.01, 500 values minimum; same quantity two consecutive days | **Amends PLAN.md 2.6**: no Evidently. **The thresholds must not be tuned against the development schedule**, or the sealed schedule grades nothing |
 | 13 | The queue ranks by expected loss; simulated a day at a time in hourly steps with expiry; paired by day | At fixed capacity the prices cannot reorder the queue, and a test says so. Scores must be calibrated before a result is published |
 | 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Pending Peter's review**: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
@@ -300,7 +306,7 @@ precedent for what to do about it.
 
 ```bash
 # everything, from the repository root
-.venv/Scripts/python.exe -m pytest                 # 365 tests, 2.5 to 4 minutes with the broker up
+.venv/Scripts/python.exe -m pytest                 # 390 tests, 2.5 to 4 minutes with the broker up
 .venv/Scripts/python.exe -m pytest -m "not slow"   # about 90 seconds
 .venv/Scripts/python.exe -m ruff format .
 .venv/Scripts/python.exe -m ruff check .
@@ -371,7 +377,8 @@ In the order the plan sets, with nothing blocked except where noted:
    their own first draft before any test ran against real data, and both
    flaws are in the ADRs: a decision cost that let a decline-everything model
    cost nothing, and an expiry check that expired every item before review
-   when the wait limit was under an hour.
+   when the wait limit was under an hour. Then the drift monitors and trigger
+   (ADR 12), which amend PLAN.md 2.6 by not using Evidently.
    **Next, and waiting on a quiet machine:** the first published latency
    measurement, `verdict loadtest --stream redpanda --runs 5 --out
    docs/latency-week4.json`, then ADR 9 and `docs/latency-budget.md` from it.
