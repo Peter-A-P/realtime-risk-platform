@@ -18,6 +18,12 @@ than for convenience:
   the first latency measurement of every run. There is one scorer per group
   here, so there is nothing to balance. The group still exists: it is where
   checkpoints are committed and where a restarted consumer resumes from.
+- **Retriable broker errors are retried, to a deadline.** A broker that has
+  just started, or has just moved a group's coordinator, answers offset
+  requests with `NOT_COORDINATOR` or `COORDINATOR_LOAD_IN_PROGRESS` for a few
+  seconds. Kafka marks those retriable, and the first version of this client
+  treated them as fatal; a CI run that started its tests a moment after the
+  broker found it. Anything not marked retriable still fails at once.
 - **Topic existence is checked once per topic, before the first send.**
   Auto-creation is off, and the Kafka protocol's own answer to a send to a
   missing topic is a delivery failure after the message timeout, which is
@@ -26,8 +32,9 @@ than for convenience:
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING, Any, Final
+import time
+from collections.abc import Callable, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Final, TypeVar
 
 from verdict.stream.base import Position, Record, StreamError, UnknownTopicError
 
@@ -36,6 +43,52 @@ if TYPE_CHECKING:  # pragma: no cover - import cost, not behaviour
 
 DEFAULT_BOOTSTRAP: Final = "localhost:19092"
 """The host-facing listener the compose stack publishes."""
+
+RETRY_DEADLINE_SECONDS: Final = 30.0
+"""How long a retriable error is retried before it is reported."""
+
+T = TypeVar("T")
+
+
+def retrying(
+    action: Callable[[], T],
+    what: str,
+    *,
+    deadline_seconds: float = RETRY_DEADLINE_SECONDS,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> T:
+    """Run a broker call, retrying only errors the broker marks retriable.
+
+    Args:
+        action: The call.
+        what: What it is doing, for the error message.
+        deadline_seconds: How long to keep retrying.
+        sleep: How to wait between attempts; tests pass a fake.
+        clock: A monotonic clock; tests pass a fake.
+
+    Returns:
+        What the call returned.
+
+    Raises:
+        StreamError: If the error is not retriable, or the deadline passes.
+    """
+    from confluent_kafka import KafkaException
+
+    deadline = clock() + deadline_seconds
+    backoff = 0.1
+    while True:
+        try:
+            return action()
+        except KafkaException as error:
+            detail = error.args[0] if error.args else None
+            retriable = bool(getattr(detail, "retriable", lambda: False)())
+            if not retriable or clock() + backoff > deadline:
+                qualifier = "after retrying" if retriable else "and it is not retriable"
+                msg = f"{what} failed {qualifier}: {detail}"
+                raise StreamError(msg) from error
+            sleep(backoff)
+            backoff = min(backoff * 2, 2.0)
 
 
 class RedpandaStream:
@@ -201,7 +254,14 @@ class RedpandaStream:
             }
         )
         wanted = [TopicPartition(topic, index) for index in range(count)]
-        committed = consumer.committed(wanted, timeout=10)
+        try:
+            committed = retrying(
+                lambda: consumer.committed(wanted, timeout=10),
+                f"reading {group}'s committed offsets on {topic}",
+            )
+        except StreamError:
+            consumer.close()
+            raise
         assignment = [
             TopicPartition(topic, tp.partition, tp.offset if tp.offset >= 0 else OFFSET_BEGINNING)
             for tp in committed
@@ -271,7 +331,11 @@ class RedpandaStream:
         ]
         if not offsets:
             return
-        self._consumer(topic, group).commit(offsets=offsets, asynchronous=False)
+        consumer = self._consumer(topic, group)
+        retrying(
+            lambda: consumer.commit(offsets=offsets, asynchronous=False),
+            f"committing {group}'s offsets on {topic}",
+        )
         for tp in offsets:
             self._committed[(topic, group, tp.partition)] = tp.offset
 

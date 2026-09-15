@@ -20,7 +20,7 @@ import pytest
 
 from verdict.stream import Position, Record, Stream, StreamError, UnknownTopicError
 from verdict.stream.memory import MemoryBroker, partition_for
-from verdict.stream.redpanda import DEFAULT_BOOTSTRAP, RedpandaStream, broker_reachable
+from verdict.stream.redpanda import DEFAULT_BOOTSTRAP, RedpandaStream, broker_reachable, retrying
 
 PARTITIONS = 3
 
@@ -226,3 +226,83 @@ def test_the_memory_broker_refuses_a_duplicate_or_empty_topic() -> None:
 
 def test_positions_order_within_a_partition() -> None:
     assert Position("0", "1") < Position("0", "2")
+
+
+# --- the Redpanda client's retries, without a broker ------------------------
+
+
+class FakeClock:
+    """A monotonic clock that only moves when the code under test sleeps."""
+
+    def __init__(self) -> None:
+        """Start at zero."""
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    def sleep(self, seconds: float) -> None:
+        """Advance the clock instead of waiting."""
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+    def monotonic(self) -> float:
+        """Read the clock."""
+        return self.now
+
+
+def a_kafka_error(code: int, *, retriable: bool) -> Exception:
+    from confluent_kafka import KafkaError, KafkaException
+
+    return KafkaException(KafkaError(code, "from the test", retriable=retriable))
+
+
+def test_a_coordinator_still_loading_is_retried_until_it_answers() -> None:
+    """The CI failure of 2026-09-15: NOT_COORDINATOR from a broker a moment old."""
+    from confluent_kafka import KafkaError
+
+    clock = FakeClock()
+    attempts = 0
+
+    def committed() -> str:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise a_kafka_error(KafkaError.NOT_COORDINATOR, retriable=True)
+        return "offsets"
+
+    result = retrying(committed, "reading offsets", sleep=clock.sleep, clock=clock.monotonic)
+    assert result == "offsets"
+    assert attempts == 3
+    assert clock.sleeps == [0.1, 0.2]
+
+
+def test_an_error_the_broker_does_not_mark_retriable_fails_at_once() -> None:
+    from confluent_kafka import KafkaError
+
+    clock = FakeClock()
+
+    def denied() -> None:
+        raise a_kafka_error(KafkaError.TOPIC_AUTHORIZATION_FAILED, retriable=False)
+
+    with pytest.raises(StreamError, match="not retriable"):
+        retrying(denied, "reading offsets", sleep=clock.sleep, clock=clock.monotonic)
+    assert clock.sleeps == []
+
+
+def test_a_retriable_error_that_never_clears_is_reported_at_the_deadline() -> None:
+    from confluent_kafka import KafkaError
+
+    clock = FakeClock()
+
+    def forever() -> None:
+        raise a_kafka_error(KafkaError.COORDINATOR_LOAD_IN_PROGRESS, retriable=True)
+
+    with pytest.raises(StreamError, match="after retrying"):
+        retrying(
+            forever,
+            "reading offsets",
+            deadline_seconds=10.0,
+            sleep=clock.sleep,
+            clock=clock.monotonic,
+        )
+    assert sum(clock.sleeps) <= 10.0
+    assert max(clock.sleeps) == 2.0
