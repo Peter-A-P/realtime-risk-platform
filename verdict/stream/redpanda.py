@@ -21,9 +21,13 @@ than for convenience:
 - **Retriable broker errors are retried, to a deadline.** A broker that has
   just started, or has just moved a group's coordinator, answers offset
   requests with `NOT_COORDINATOR` or `COORDINATOR_LOAD_IN_PROGRESS` for a few
-  seconds. Kafka marks those retriable, and the first version of this client
-  treated them as fatal; a CI run that started its tests a moment after the
-  broker found it. Anything not marked retriable still fails at once.
+  seconds. The Kafka protocol lists those as retriable, and the first version
+  of this client treated them as fatal; a CI run that started its tests a
+  moment after the broker found it. The second version trusted librdkafka's
+  `retriable()` flag, which is not set on errors from reading committed
+  offsets, and the next CI run found that. So an error is retried if the flag
+  is set or its code is one the protocol specification lists as transient
+  (`TRANSIENT_CODES`). Anything else still fails at once.
 - **Topic existence is checked once per topic, before the first send.**
   Auto-creation is off, and the Kafka protocol's own answer to a send to a
   missing topic is a delivery failure after the message timeout, which is
@@ -46,6 +50,29 @@ DEFAULT_BOOTSTRAP: Final = "localhost:19092"
 
 RETRY_DEADLINE_SECONDS: Final = 30.0
 """How long a retriable error is retried before it is reported."""
+
+
+def _transient_codes() -> frozenset[int]:
+    """Error codes the Kafka protocol lists as retriable, that a client meets in practice.
+
+    Returns:
+        The codes.
+    """
+    from confluent_kafka import KafkaError
+
+    return frozenset(
+        {
+            KafkaError.NOT_COORDINATOR,
+            KafkaError.COORDINATOR_LOAD_IN_PROGRESS,
+            KafkaError.COORDINATOR_NOT_AVAILABLE,
+            KafkaError.LEADER_NOT_AVAILABLE,
+            KafkaError.NOT_LEADER_FOR_PARTITION,
+            KafkaError.REQUEST_TIMED_OUT,
+            KafkaError._TIMED_OUT,
+            KafkaError._TRANSPORT,
+        }
+    )
+
 
 T = TypeVar("T")
 
@@ -82,7 +109,9 @@ def retrying(
             return action()
         except KafkaException as error:
             detail = error.args[0] if error.args else None
-            retriable = bool(getattr(detail, "retriable", lambda: False)())
+            flagged = bool(getattr(detail, "retriable", lambda: False)())
+            code = getattr(detail, "code", lambda: None)()
+            retriable = flagged or code in _transient_codes()
             if not retriable or clock() + backoff > deadline:
                 qualifier = "after retrying" if retriable else "and it is not retriable"
                 msg = f"{what} failed {qualifier}: {detail}"

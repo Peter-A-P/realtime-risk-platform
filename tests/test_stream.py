@@ -275,6 +275,26 @@ def test_a_coordinator_still_loading_is_retried_until_it_answers() -> None:
     assert clock.sleeps == [0.1, 0.2]
 
 
+def test_not_coordinator_is_retried_even_when_librdkafka_does_not_flag_it() -> None:
+    """The CI failure after the first fix: the code is retriable, the flag was false."""
+    from confluent_kafka import KafkaError
+
+    clock = FakeClock()
+    attempts = 0
+
+    def committed() -> str:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 2:
+            raise a_kafka_error(KafkaError.NOT_COORDINATOR, retriable=False)
+        return "offsets"
+
+    assert retrying(committed, "reading offsets", sleep=clock.sleep, clock=clock.monotonic) == (
+        "offsets"
+    )
+    assert attempts == 2
+
+
 def test_an_error_the_broker_does_not_mark_retriable_fails_at_once() -> None:
     from confluent_kafka import KafkaError
 
