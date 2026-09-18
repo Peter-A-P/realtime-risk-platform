@@ -146,10 +146,18 @@ event; the drill flips it and measures the time to the previous champion serving
 
 ### 2.6 Drift triggers a candidate, a person promotes it
 
-Evidently computes PSI and KS per feature and on the score distribution daily. Two
-consecutive days above threshold open a retraining job; the job trains a candidate, runs
+PSI and KS are computed per feature and on the score distribution daily, against a fixed
+reference window. Two consecutive days above threshold open a retraining job; the job trains a candidate, runs
 it in shadow, and opens a pull request with the evidence tables. Merging the pull request
 is the approval gate. Nothing retrains itself into production.
+
+**Amended 2026-09-15, in the same commit as the code.** This section said Evidently
+computes the statistics. They are written in `verdict/drift/stats.py` instead: each is a
+few lines, a hand-worked test holds each, this platform's `NO_EVENTS` sentinel needs its
+own PSI bin, and a library whose main value is its reports would add weight for two
+numbers a day. ADR 12 records the trade and the thresholds, which are published
+conventions fixed before any drift was seen, and may not be tuned against the
+development schedule's regimes any more than against the sealed ones.
 
 ### 2.7 The queue is ranked by expected loss
 
@@ -209,20 +217,30 @@ Nothing raw is committed; loaders verify checksums; every licence is recorded.
 ```
 verdict/
   events/      schema.py (pydantic, JSON on the wire, versioned), generator/ (entities, scenarios,
-               regimes.py with the sealed schedule, seeds), replay.py (IEEE-CIS in time order)
+               regimes.py with the sealed schedule, seeds), replay.py (raw log in time order),
+               ieee_cis.py (ingest, verify, inspect), ieee_cis_events.py (IEEE-CIS rows onto events)
   stream/      base.py (Stream protocol: produce, consume, checkpoint), redpanda.py, kinesis.py
-               (record aggregation and deaggregation), parity.py (same replay, both paths, identical features)
+               (record aggregation and deaggregation), memory.py (in process, for tests and replays),
+               probe.py (a measuring instrument, not the platform: what the path to the broker costs,
+               added in week 4; see ADR 9), parity.py (same replay, both paths, identical features)
   features/    aggregators.py (windowed aggregations, bounded state, amortised constant time),
                engine.py (per-entity state; serves each event before observing it, and holds an event back
                until time moves on so same-instant events cannot see each other), sinks.py (one write path
                to both stores), verify.py (parity, and the served-value record the leakage check reads)
   store/       feast/ (feature repo), retrieval.py (point-in-time joins), leakage_test.py (the test in 2.3)
   models/      train.py (XGBoost champion), challenger.py (FT-Transformer, PyTorch), export.py (ONNX),
-               registry.py (MLflow), promote.py (non-inferiority on the shadow window)
+               registry.py (MLflow), promote.py (non-inferiority on the shadow window; built ahead, 2026-09-15)
   scoring/     consumer.py (stream consumer scorer with per-hop timers), rules.py (decision rules),
-               shadow.py, flags.py (champion pointer, read per event), http.py (sync endpoint for demo and comparison)
-  drift/       monitors.py (Evidently PSI, KS; daily), trigger.py, retrain.py, approval.py (opens the PR with evidence)
-  queue/       expected_loss.py, simulate.py (fixed capacity replay), evaluate.py (money caught per analyst-hour, CIs)
+               core.py (the decision, shared by both transports), flags.py (champion pointer, read per event),
+               http_api.py (sync endpoint for demo and comparison; shadow scoring lives in core.py),
+               loadtest.py (the stream half of the load test, producer in its own process on a broker),
+               httpload.py (the HTTP half, endpoint in its own process; added in week 4)
+  drift/       stats.py (PSI with a sentinel bin, two-sample KS), monitors.py (fixed reference, daily
+               verdicts), trigger.py (same quantity, two consecutive days), retrain.py, approval.py
+               (opens the PR with evidence; week 6)
+  review_queue/  ranking.py: expected loss, the fixed-capacity day simulation, and the paired comparison
+               with CIs (built ahead, 2026-09-15). Named `review_queue` because `queue` shadows the
+               standard library; the plan's three files are one module until they need to be three
   observe/     OpenTelemetry spans and Prometheus metrics; Grafana provisioning
   chaos/       redis_down, stream_throttle, consumer_lag, clock_skew, poison_event, duplicates, out_of_order, schema_change
   cli.py       verdict up | down | replay | loadtest | parity | drift-report | queue-eval | rollback-drill
@@ -235,7 +253,8 @@ docs/
                0005-feature-store, 0006-features-computed-once, 0007-leakage-test-first,
                0008-consumer-scoring, 0009-latency-budget, 0010-label-delay, 0011-shadow-and-promotion,
                0012-drift-thresholds-and-approval, 0013-queue-ranking, 0014-live-in-one-region,
-               0015-spot-and-recovery, 0016-teardown-and-repeatability
+               0015-spot-and-recovery, 0016-teardown-and-repeatability,
+               0017-real-data-event-mapping (added in week 4; numbered after the planned set)
   failure-modes.md   the chaos results, observed behaviour and fix, one section per failure
   data.md, latency-budget.md, runbook.md
 loadtest/      rate ramps with the generator; k6 for the HTTP comparison; results with CIs
@@ -255,11 +274,11 @@ against the AWS API).
 | Dates | Built | Done when |
 |---|---|---|
 | Week 1 (built 2026-09-12) | Repository, event schema, generator with entities, scenarios and the regime schedule (hash committed); Redpanda Compose; raw event log; ADRs 1 to 4 | **Done**, except the Compose stack, which is written but unrun: Docker is not installed on the build laptop. 12,219 events/s generated and logged (8,790 to 15,648, five runs of 500,000), against a target of 1,000; hashes in `docs/generator-hashes.json`; ADRs 1 to 4 written |
-| Week 2 (built 2026-09-12) | Feast repository and offline store; IEEE-CIS replay in time order; **leakage test written, no features yet**; training pipeline skeleton; ADRs 5 to 7 | **Done, except the IEEE-CIS replay.** The leakage test runs green on the empty feature set and red on each of three planted leaks (window includes the current event, window peeks forward, training join uses the label time); Feast repository generated from the feature definitions, with push and point-in-time retrieval proven end to end; raw-log replay refuses an out-of-order log; ADRs 5 to 7 written; 149 tests. The IEEE-CIS replay is still outstanding, but no longer blocked on the terms: those were read and recorded on 2026-09-12 (`docs/data.md`, quoting sections 7.A, 7.B and 8.B). Non-commercial use is permitted and results may be published; the data and any row-level derivative may not be, which is now enforced by `.gitignore` and `tests/test_data_terms.py`, and which puts the real-data track permanently off the live AWS stack. The archive was downloaded on 2026-09-12 and `verdict data inspect` answered the open questions from the file rather than from memory of a 2019 schema: 590,540 transactions over 182 days at 0.0376 events per second, 3.499% fraud, whole-second timestamps, device data on 24.4% of rows, and **no merchant identifier at all**, so three of the sixteen features cannot be computed on this track and the honest response is to report per track which exist. The row-to-event mapper is what remains. The training pipeline skeleton moves to week 3 |
+| Week 2 (built 2026-09-12) | Feast repository and offline store; IEEE-CIS replay in time order; **leakage test written, no features yet**; training pipeline skeleton; ADRs 5 to 7 | **Done, except the IEEE-CIS replay.** The leakage test runs green on the empty feature set and red on each of three planted leaks (window includes the current event, window peeks forward, training join uses the label time); Feast repository generated from the feature definitions, with push and point-in-time retrieval proven end to end; raw-log replay refuses an out-of-order log; ADRs 5 to 7 written; 149 tests. The IEEE-CIS replay is still outstanding, but no longer blocked on the terms: those were read and recorded on 2026-09-12 (`docs/data.md`, quoting sections 7.A, 7.B and 8.B). Non-commercial use is permitted and results may be published; the data and any row-level derivative may not be, which is now enforced by `.gitignore` and `tests/test_data_terms.py`, and which puts the real-data track permanently off the live AWS stack. The archive was downloaded on 2026-09-12 and `verdict data inspect` answered the open questions from the file rather than from memory of a 2019 schema: 590,540 transactions over 182 days at 0.0376 events per second, 3.499% fraud, whole-second timestamps, device data on 24.4% of rows, and **no merchant identifier at all**, so three of the sixteen features cannot be computed on this track and the honest response is to report per track which exist. **The row-to-event mapper was built on 2026-09-14** (`verdict/events/ieee_cis_events.py`, ADR 17), which closes the week. Measured rather than assumed, the file holds no device either: its identity columns describe configurations shared by thousands of purchasers. So a card is issuer, product, billing region and account start day (88.7% of rows, 203,467 cards), there is no device or merchant, the wire schema moves to version 2 so an event can say so, and 6 of the 16 features exist on this track. The point-in-time check ran over the whole replay with 0 violations in 67,920 comparisons on a 2% sample of cards. The training pipeline skeleton moves to week 3 |
 | Week 3 (built 2026-09-12) | Dataflow: velocity, entity-graph, session features; dual sink; parity test; first leak caught (expected) and recorded | **Done.** 16 features computed by the engine written here (ADR 4 amended: Bytewax has no Python 3.13 wheels); parity 100% online against offline through real Feast; the leakage test passes on all 16 features against a brute-force recomputation. **The predicted leak happened and was caught**: two events sharing a timestamp saw each other. Measured against the competition data once it arrived, that is 312 rows of 590,540, a twentieth of one percent, slightly enriched for fraud. `docs/leak-caught.md` records it, and carries a correction: the first published version of the measurement described a synthetic stream truncated to seconds and overstated the real impact by three orders of magnitude. The offline PR-AUC inflation is measured in week 5, when a model exists to measure it with |
-| Week 4 | Stream-consumer scorer, ONNX champion, decision rules, per-hop timers; HTTP endpoint for comparison; first local load test; latency budget published; ADRs 8, 9 | p99 and hop breakdown in `docs/latency-budget.md` |
-| Week 5 | Champion training on IEEE-CIS and on replay; FT-Transformer challenger; shadow scoring; promotion function; rollback flag and drill; ADRs 10, 11 | Champion/challenger table with CIs; drill timed five times |
-| Week 6 | Drift monitors, trigger, retraining job, approval pull request; expected-loss queue and evaluation; ADRs 12, 13 | Queue evaluation table; a retraining PR opened end to end on a forced shift |
+| Week 4 (started 2026-09-14) | Stream-consumer scorer, ONNX champion, decision rules, per-hop timers; HTTP endpoint for comparison; first local load test; latency budget published; ADRs 8, 9 | p99 and hop breakdown in `docs/latency-budget.md`. **In progress.** Built so far: the `Stream` protocol (`produce`, `consume`, `checkpoint`) with an in-process and a Redpanda implementation, held to one contract suite that runs against the live broker; and the Compose stack's first real runs, which found two faults and fixed them. Then the scorer (`verdict/scoring/`, ADR 8): duplicates stopped before the engine, checkpoints after durable decisions, per-hop timers, placeholder rules, and a stand-in model behind the model interface, because the ONNX champion is week 5's. The `transactions` topic moves to one partition to match the one live shard, since the engine needs time order. The load test runs on both streams. Then, on 2026-09-15, while another project's training held the CPU: the decision moved into one core shared by the consumer and a new HTTP endpoint (`http_api.py`), so Rule C candidate 3 compares transports rather than two scorers; and two week 5 pieces that need no model were built early, the champion pointer read per event with its rollback (`flags.py`, the plan's "rollback flag honoured within one event" test) and shadow scoring on the same features with its own `shadow` topic. Then, on 2026-09-17, the latency work: the untuned baselines first, as this section requires, then the search for the 59 ms that was not the scorer. ADR 9 and `docs/latency-budget.md` record what it found. Three of the four costs belong to the measuring host rather than to the platform, and each is now measured on its own: the process's timer resolution (48.44 ms against 3.74 ms at p50 on the produce-to-acknowledgement path), the load producer sharing the scorer's interpreter (70.57 ms against 8.64 ms at p50, twelve shuffled runs), and Docker Desktop's port forwarder on Windows, which adds about 41 ms to some connections, fixed for the connection's life and unchanged by every client setting tried; `verdict/stream/probe.py` measures it against the same client run inside the broker's own network. The fourth is the platform's: one flush and one synchronous checkpoint per batch, whatever the batch holds, which sets a throughput ceiling and produces the latency as a standing queue. The load test changed with it, and now runs its producer in a separate process on a broker and reports whether a queue stood. On 2026-09-18 the HTTP half of the transport comparison was built (`httpload.py`, `verdict http-loadtest`): it starts the endpoint in its own process, offers the same events at the same rate over a stated number of connections, and reports what waited for a connection and what was refused. Not yet: the end-to-end table in `docs/latency-budget.md` and the comparison run itself, both of which need an idle host (the runs taken on 2026-09-17 were discarded, not published, because project 12 was training) |
+| Week 5 | Champion training on IEEE-CIS and on replay; FT-Transformer challenger; shadow scoring; promotion function; rollback flag and drill; ADRs 10, 11 | Champion/challenger table with CIs; drill timed five times. **Built ahead on 2026-09-15, because none of it needs a model:** shadow scoring, the rollback flag, and the promotion gate with ADR 11. What remains is the models, the calibration, the evidence table filled from a real shadow window, and the timed drill |
+| Week 6 | Drift monitors, trigger, retraining job, approval pull request; expected-loss queue and evaluation; ADRs 12, 13 | Queue evaluation table; a retraining PR opened end to end on a forced shift. **Built ahead on 2026-09-15:** the queue's ranking, simulation and paired comparison, with ADR 13. What remains is running it on a calibrated champion's scores and the stated prices. **The drift monitors and trigger were also built ahead, with ADR 12**; what remains of drift is the retraining job, its pull request, and the end-to-end test on a forced shift |
 | Week 7 | Kinesis path with aggregation; Redpanda/Kinesis parity; Terraform for the live stack; AWS budget alarms (plan repository action 9); Grafana dashboards; ADRs 14, 15 | Stack up and down on AWS on one command each; parity across paths |
 | Week 8 | Chaos tests and `failure-modes.md`; load test on the live instance; cost per million events; hardening; ADR 16 | Every chaos scenario has observed behaviour and a fix; loadtest results with CIs |
 | Week 9 | 72-hour dry live run; README; runbook; ADR review | Dry run clean; go-live checklist ticked |

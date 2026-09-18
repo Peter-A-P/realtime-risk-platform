@@ -10,6 +10,14 @@ generator needs and the ones that make the sealed schedule checkable:
 - `schedule seal` takes the commitment for the live window;
 - `schedule verify` checks a revealed secret against a commitment.
 
+The real-data track adds `data ingest | manifest | verify | inspect` for the
+competition files, `data events` to map them onto the platform's events, and
+`data check` to run the point-in-time check over that replay.
+
+Week 4 adds `loadtest`, which drives the scorer at a fixed rate and reports
+latency per hop; `serve`, the synchronous endpoint for the demo; and
+`flag show | set | rollback`, the champion pointer the scorer reads per event.
+
 The rest arrive in the week that builds them.
 """
 
@@ -23,7 +31,7 @@ from typing import Annotated
 
 import typer
 
-from verdict.events import ieee_cis
+from verdict.events import ieee_cis, ieee_cis_events
 from verdict.events.generator.driver import Generator, GeneratorConfig
 from verdict.events.generator.entities import EntityGraph, Population
 from verdict.events.generator.regimes import (
@@ -34,6 +42,7 @@ from verdict.events.generator.regimes import (
 )
 from verdict.events.rawlog import RawEventLog
 from verdict.events.schema import SchemaFingerprint
+from verdict.scoring.model import Model
 
 app = typer.Typer(
     name="verdict",
@@ -46,6 +55,14 @@ schedule_app = typer.Typer(
     name="schedule", help="The regime schedule and its seal.", no_args_is_help=True
 )
 app.add_typer(schedule_app)
+
+DATA_ENV = "VERDICT_IEEE_CIS_DIR"
+"""Where the competition files are, when not at the default.
+
+The files may not live in the repository's own tree: this one is under a
+synced folder on the build machine, and a gigabyte of licensed data has no
+business being synced. Every `data` command reads this before its default.
+"""
 
 data_app = typer.Typer(
     name="data", help="The real-data track's files and what is in them.", no_args_is_help=True
@@ -214,7 +231,7 @@ def schedule_verify(
 @data_app.command("ingest")
 def data_ingest(
     archive: Annotated[Path, typer.Option(help="The downloaded competition archive.")],
-    out: Annotated[Path, typer.Option(help="Where to extract it.")] = (
+    out: Annotated[Path, typer.Option(help="Where to extract it.", envvar=DATA_ENV)] = (
         ieee_cis.DEFAULT_DESTINATION
     ),
 ) -> None:
@@ -247,9 +264,9 @@ def data_ingest(
 
 @data_app.command("manifest")
 def data_manifest(
-    directory: Annotated[Path, typer.Option(help="Where the files already are.")] = (
-        ieee_cis.DEFAULT_DESTINATION
-    ),
+    directory: Annotated[
+        Path, typer.Option(help="Where the files already are.", envvar=DATA_ENV)
+    ] = (ieee_cis.DEFAULT_DESTINATION),
     archive: Annotated[Path | None, typer.Option(help="The archive, if kept.")] = None,
 ) -> None:
     """Record a hash of files that were extracted outside this tool.
@@ -280,7 +297,7 @@ def data_manifest(
 
 @data_app.command("verify")
 def data_verify(
-    directory: Annotated[Path, typer.Option(help="Where the files are.")] = (
+    directory: Annotated[Path, typer.Option(help="Where the files are.", envvar=DATA_ENV)] = (
         ieee_cis.DEFAULT_DESTINATION
     ),
 ) -> None:
@@ -310,9 +327,9 @@ def data_verify(
 
 @data_app.command("inspect")
 def data_inspect(
-    directory: Annotated[Path, typer.Option(help="Where the files were extracted.")] = (
-        ieee_cis.DEFAULT_DESTINATION
-    ),
+    directory: Annotated[
+        Path, typer.Option(help="Where the files were extracted.", envvar=DATA_ENV)
+    ] = (ieee_cis.DEFAULT_DESTINATION),
     full: Annotated[bool, typer.Option(help="Print every column, not just the findings.")] = False,
 ) -> None:
     """Report what the competition files contain.
@@ -347,6 +364,397 @@ def data_inspect(
             for column in schema.columns
         ]
     typer.echo(json.dumps(report, indent=2))
+
+
+@data_app.command("events")
+def data_events(
+    out: Annotated[Path, typer.Option(help="Where to write the event log, under data/.")] = Path(
+        "data/raw/ieee-cis-events"
+    ),
+    directory: Annotated[
+        Path, typer.Option(help="Where the competition files are.", envvar=DATA_ENV)
+    ] = ieee_cis.DEFAULT_DESTINATION,
+) -> None:
+    """Map the competition's transactions onto the platform's events.
+
+    Writes a transaction log and a label log, and prints counts only. The
+    logs are a row-by-row copy of licensed data and stay under `data/`.
+
+    Args:
+        out: Where to write the logs.
+        directory: Where the competition files are.
+    """
+    report = ieee_cis_events.write_event_log(ieee_cis_events.iter_records(directory), out)
+    typer.echo(report.to_json())
+
+
+@data_app.command("check")
+def data_check(
+    directory: Annotated[
+        Path, typer.Option(help="Where the competition files are.", envvar=DATA_ENV)
+    ] = ieee_cis.DEFAULT_DESTINATION,
+    per_mille: Annotated[int, typer.Option(help="Cards per thousand checked in full.")] = 20,
+) -> None:
+    """Run the point-in-time check over the real-data replay.
+
+    Every feature this track can compute is served by the engine for every
+    event, and for a deterministic sample of cards every row is compared with
+    the definition recomputed from that card's history. Prints counts only.
+
+    Args:
+        directory: Where the competition files are.
+        per_mille: Cards per thousand to check.
+
+    Raises:
+        typer.Exit: With code 1 if any served value disagrees with the
+            definition.
+    """
+    from verdict.features.replay_check import check_replay
+
+    specs = ieee_cis_events.features_on_track()
+    started = time.perf_counter()
+    events = (record.event for record in ieee_cis_events.iter_records(directory))
+    result = check_replay(events, specs, per_mille=per_mille)
+    typer.echo(
+        json.dumps(
+            {
+                "track": "real data (IEEE-CIS), offline",
+                "events_replayed": result.events,
+                "features": [spec.name for spec in specs],
+                "cards_sampled": result.entities_sampled,
+                "rows_of_sampled_cards": result.events_kept,
+                "comparisons": result.report.rows_checked,
+                "violations": len(result.report.violations),
+                "seconds": round(time.perf_counter() - started, 1),
+                "summary": result.report.summary(),
+            },
+            indent=2,
+        )
+    )
+    if not result.report.clean:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def loadtest(
+    stream: Annotated[str, typer.Option(help="memory, or redpanda for the compose broker.")] = (
+        "memory"
+    ),
+    rate: Annotated[float, typer.Option(help="Transactions sent per second.")] = 1000.0,
+    events: Annotated[int, typer.Option(help="Transactions per run.")] = 20_000,
+    runs: Annotated[int, typer.Option(help="Runs, for the interval. At least 2.")] = 5,
+    warmup: Annotated[int, typer.Option(help="Decisions per run left out.")] = 1_000,
+    out: Annotated[Path | None, typer.Option(help="Also write the report here.")] = None,
+) -> None:
+    """Drive the scorer at a fixed rate and report latency per hop.
+
+    Synthetic live track only. The model is the week 4 stand-in, and the
+    report says so in its own fields.
+
+    Args:
+        stream: Which stream to run on.
+        rate: Target sends per second.
+        events: Transactions per run.
+        runs: How many runs.
+        warmup: Decisions per run excluded from the statistics.
+        out: Where to write the JSON report, if anywhere.
+
+    Raises:
+        typer.BadParameter: If the stream is not one this build knows.
+    """
+    import platform
+    from dataclasses import asdict
+
+    from verdict.scoring import loadtest as load
+
+    match stream:
+        case "memory":
+            backend = load.memory_backend()
+        case "redpanda":
+            backend = load.redpanda_backend()
+        case _:
+            msg = f"unknown stream {stream!r}; use memory or redpanda"
+            raise typer.BadParameter(msg)
+
+    sent = load.generate_events(events, rate=rate)
+    results = [load.run_once(backend, sent, rate=rate, warmup=warmup) for _ in range(runs)]
+    report = {
+        "track": "synthetic live, local",
+        "stream": backend.name,
+        "model": "stand-in-0 (not trained; see verdict/scoring/model.py)",
+        "features": "served by the in-process engine",
+        "load_producer_ran_in": results[0].producer,
+        "rate_target_per_second": rate,
+        "events_per_run": events,
+        "warmup_decisions_excluded": warmup,
+        "runs": runs,
+        "host": {
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+            "python": platform.python_version(),
+            "system": f"{platform.system()} {platform.release()}",
+        },
+        "measured_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "summary": load.summarise(results),
+        "per_run": [asdict(result) for result in results],
+    }
+    text = json.dumps(report, indent=2)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+    typer.echo(text)
+
+
+@app.command(name="http-loadtest")
+def http_loadtest(
+    rate: Annotated[float, typer.Option(help="Transactions offered per second.")] = 1000.0,
+    events: Annotated[int, typer.Option(help="Transactions per run.")] = 20_000,
+    runs: Annotated[int, typer.Option(help="Runs, for the interval. At least 2.")] = 5,
+    warmup: Annotated[int, typer.Option(help="Exchanges per run left out.")] = 1_000,
+    connections: Annotated[int, typer.Option(help="Connections carrying the load.")] = 1,
+    stream: Annotated[str, typer.Option(help="Where the endpoint writes: none or redpanda.")] = (
+        "none"
+    ),
+    port: Annotated[int, typer.Option(help="Port the endpoint listens on.")] = 8099,
+    durable: Annotated[bool, typer.Option(help="Flush each decision before responding.")] = True,
+    out: Annotated[Path | None, typer.Option(help="Also write the report here.")] = None,
+) -> None:
+    """Drive the HTTP endpoint at a fixed rate, the other half of Rule C candidate 3.
+
+    Starts the endpoint in its own process, loads it from this one, and stops
+    it. The report carries the same statistics as `loadtest` so that the two
+    transports can be set beside each other, plus what is particular to this
+    one: how long a transaction waited for a free connection, and what the
+    endpoint refused.
+
+    Synthetic live track only, with the week 4 stand-in model.
+
+    Args:
+        rate: Target transactions offered per second.
+        events: Transactions per run.
+        runs: How many runs.
+        warmup: Exchanges per run excluded from the statistics.
+        connections: How many connections carry the load. One cannot exceed
+            one transaction per round trip; several deliver out of order, and
+            the engine refuses what arrives late.
+        stream: Where the endpoint writes decisions.
+        port: The port to listen on.
+        durable: Whether the endpoint flushes each decision before responding.
+        out: Where to write the JSON report, if anywhere.
+
+    Raises:
+        typer.BadParameter: If the stream is not one this build knows.
+    """
+    import platform
+    from dataclasses import asdict
+
+    from verdict.scoring import httpload
+    from verdict.scoring import loadtest as load
+
+    if stream not in {"none", "redpanda"}:
+        msg = f"unknown stream {stream!r}; use none or redpanda"
+        raise typer.BadParameter(msg)
+
+    sent = load.generate_events(events, rate=rate)
+    results = []
+    for run in range(runs):
+        # A fresh endpoint per run, on its own port. The decider's ledger and
+        # the engine's windows are per process, and every run sends the same
+        # transactions: a shared server would refuse the second run entirely
+        # as already decided. The stream test makes fresh topics and a fresh
+        # group per run for the same reason.
+        with httpload.a_server(port=port + run, stream=stream, durable=durable) as base:
+            results.append(
+                httpload.run_once(base, sent, rate=rate, warmup=warmup, connections=connections)
+            )
+    report = {
+        "track": "synthetic live, local",
+        "transport": "http",
+        "endpoint_writes_to": stream,
+        "endpoint_flushes_before_responding": durable,
+        "connections": connections,
+        "model": "stand-in-0 (not trained; see verdict/scoring/model.py)",
+        "features": "served by the in-process engine",
+        "rate_target_per_second": rate,
+        "events_per_run": events,
+        "warmup_exchanges_excluded": warmup,
+        "runs": runs,
+        "host": {
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+            "python": platform.python_version(),
+            "system": f"{platform.system()} {platform.release()}",
+        },
+        "measured_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "summary": httpload.summarise(results),
+        "per_run": [asdict(result) for result in results],
+    }
+    text = json.dumps(report, indent=2)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+    typer.echo(text)
+
+
+@app.command(name="flush-probe")
+def flush_probe(
+    bootstrap: Annotated[str | None, typer.Option(help="Broker address.")] = None,
+    connections: Annotated[int, typer.Option(help="Producers opened, one after another.")] = 10,
+    out: Annotated[Path | None, typer.Option(help="Also write the report here.")] = None,
+) -> None:
+    """Time the scorer's flush on a series of fresh producer connections.
+
+    Not part of the platform: a measuring instrument for the path between
+    this host and the broker. `verdict/stream/probe.py` says what it found
+    and how to run the same thing from inside the broker's network, which is
+    the comparison that makes the number mean anything.
+
+    Args:
+        bootstrap: Broker address. Defaults to the compose stack's.
+        connections: How many producers to open in turn.
+        out: Where to write the JSON report, if anywhere.
+    """
+    import platform
+    from dataclasses import asdict
+
+    from verdict.stream import probe as flushes
+    from verdict.stream.redpanda import DEFAULT_BOOTSTRAP
+
+    address = bootstrap or DEFAULT_BOOTSTRAP
+    results = flushes.flush_by_connection(address, connections=connections)
+    report = {
+        "track": "synthetic live, local",
+        "bootstrap": address,
+        "host": {
+            "machine": platform.machine(),
+            "python": platform.python_version(),
+            "system": f"{platform.system()} {platform.release()}",
+        },
+        "measured_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "summary": flushes.summarise(results),
+        "per_connection": [asdict(result) for result in results],
+    }
+    text = json.dumps(report, indent=2)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+    typer.echo(text)
+
+
+flag_app = typer.Typer(
+    name="flag", help="The champion pointer the scorer reads per event.", no_args_is_help=True
+)
+app.add_typer(flag_app)
+
+DEFAULT_FLAG = Path("data/flags/champion.json")
+"""Runtime state, not configuration: under `data/`, which git ignores."""
+
+
+def _known_models() -> dict[str, Model]:
+    """The models this build can score with, by version.
+
+    Week 4 has one. Week 5 adds the champion and challenger, and this is where
+    they are registered.
+
+    Returns:
+        Version to model.
+    """
+    from verdict.scoring.model import StandInModel
+
+    stand_in = StandInModel()
+    return {stand_in.version: stand_in}
+
+
+@flag_app.command("show")
+def flag_show(
+    path: Annotated[Path, typer.Option(help="The flag file.")] = DEFAULT_FLAG,
+) -> None:
+    """Print the champion pointer.
+
+    Args:
+        path: The flag file.
+    """
+    from verdict.scoring.flags import FlagError, read_pointer
+
+    try:
+        typer.echo(read_pointer(path).to_json().rstrip())
+    except FlagError as error:
+        typer.echo(f"REFUSED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+
+
+@flag_app.command("set")
+def flag_set(
+    version: Annotated[str, typer.Argument(help="The model version to score with.")],
+    path: Annotated[Path, typer.Option(help="The flag file.")] = DEFAULT_FLAG,
+) -> None:
+    """Point the scorer at a model. For the drill and for applying a merged promotion.
+
+    Promotion itself is a pull request carrying the shadow evidence; this only
+    applies the decision that pull request made.
+
+    Args:
+        version: The model version.
+        path: The flag file.
+    """
+    from verdict.scoring.flags import FlagError, set_champion
+
+    try:
+        typer.echo(set_champion(path, version, _known_models()).to_json().rstrip())
+    except FlagError as error:
+        typer.echo(f"REFUSED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+
+
+@flag_app.command("rollback")
+def flag_rollback(
+    path: Annotated[Path, typer.Option(help="The flag file.")] = DEFAULT_FLAG,
+) -> None:
+    """Return the scorer to the previous champion, effective on its next event.
+
+    Args:
+        path: The flag file.
+    """
+    from verdict.scoring.flags import FlagError, rollback
+
+    try:
+        typer.echo(rollback(path).to_json().rstrip())
+    except FlagError as error:
+        typer.echo(f"REFUSED: {error}", err=True)
+        raise typer.Exit(code=1) from error
+
+
+@app.command()
+def serve(
+    host: Annotated[str, typer.Option(help="Interface to listen on.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(help="Port to listen on.")] = 8000,
+    flag: Annotated[
+        Path | None, typer.Option(help="Follow this champion pointer; else the stand-in.")
+    ] = None,
+) -> None:
+    """Serve the synchronous scoring endpoint, for the demo.
+
+    Listens on localhost by default: nothing in this platform's scoring path
+    is meant to be publicly writable (`PLAN.md` section 8).
+
+    Args:
+        host: Interface to listen on.
+        port: Port to listen on.
+        flag: A champion pointer to follow.
+    """
+    import uvicorn
+
+    from verdict.features.engine import FeatureEngine
+    from verdict.scoring.core import Decider, EngineFeatures
+    from verdict.scoring.flags import FlaggedModels
+    from verdict.scoring.http_api import create_app
+    from verdict.scoring.model import FixedModel, ModelSource, StandInModel
+
+    models: ModelSource = (
+        FixedModel(StandInModel()) if flag is None else FlaggedModels(flag, _known_models())
+    )
+    decider = Decider(features=EngineFeatures(FeatureEngine()), models=models)
+    uvicorn.run(create_app(decider), host=host, port=port, log_level="warning")
 
 
 if __name__ == "__main__":  # pragma: no cover

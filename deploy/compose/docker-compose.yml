@@ -30,7 +30,13 @@ services:
       - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
       - --rpc-addr=redpanda:33145
       - --advertise-rpc-addr=redpanda:33145
-      - --set=redpanda.auto_create_topics_enabled=false
+    # Auto-creation is a cluster property, so it is set in the bootstrap file
+    # the cluster reads on first start. `--set` is not a `redpanda start` flag
+    # in v24.3: rpk passes it through and the broker exits on it, which is how
+    # the first run of this file found it.
+    configs:
+      - source: redpanda-bootstrap
+        target: /etc/redpanda/.bootstrap.yaml
     ports:
       # 19092 is the host-facing listener; in-network services use 9092.
       - "19092:19092"
@@ -47,6 +53,13 @@ services:
   # Topics are created explicitly, never by a producer. Auto-creation gives a
   # typo its own topic and a silent zero-throughput consumer, which is a
   # failure mode this platform reports rather than absorbs.
+  #
+  # The job has to be safe to run again: `up` on a stack whose volume already
+  # holds the topics re-runs it, and `rpk topic create` exits non-zero on an
+  # existing topic. The first version did not allow for that, and the second
+  # `up` of the stack failed on it. An existing topic is left alone, but its
+  # partition count is checked, because a topic that exists with the wrong
+  # count would change which partition a card lands in.
   topics:
     image: redpandadata/redpanda:v24.3.6
     container_name: verdict-topics
@@ -58,13 +71,26 @@ services:
       - -c
       - |
         set -e
-        rpk topic create transactions --brokers redpanda:9092 \
-          --partitions 4 --replicas 1 --topic-config retention.ms=604800000
-        rpk topic create labels --brokers redpanda:9092 \
-          --partitions 1 --replicas 1 --topic-config retention.ms=2592000000
-        rpk topic create decisions --brokers redpanda:9092 \
-          --partitions 4 --replicas 1 --topic-config retention.ms=604800000
+        ensure() {
+          if rpk topic describe "$$1" --brokers redpanda:9092 >/dev/null 2>&1; then
+            found=$$(rpk topic describe "$$1" --brokers redpanda:9092 -p | grep -c '^[0-9]')
+            test "$$found" -eq "$$2" || { echo "$$1 has $$found partitions, expected $$2"; exit 1; }
+            echo "$$1 exists with $$2 partitions"
+          else
+            rpk topic create "$$1" --brokers redpanda:9092 \
+              --partitions "$$2" --replicas 1 --topic-config retention.ms="$$3"
+          fi
+        }
+        # One partition, like the one Kinesis shard live: the feature engine
+        # needs transactions in time order, and one partition is the only
+        # layout that gives it without a reorder buffer (ADR 8).
+        ensure transactions 1 604800000
+        ensure labels 1 2592000000
+        ensure decisions 4 604800000
+        # What a challenger would have decided, beside the champion (week 5).
+        ensure shadow 4 604800000
         rpk topic list --brokers redpanda:9092
+        test "$$(rpk cluster config get auto_create_topics_enabled -X admin.hosts=redpanda:9644)" = false
     restart: "no"
 
   console:
@@ -79,6 +105,11 @@ services:
       - "8080:8080"
     environment:
       KAFKA_BROKERS: redpanda:9092
+
+configs:
+  redpanda-bootstrap:
+    content: |
+      auto_create_topics_enabled: false
 
 volumes:
   redpanda-data:

@@ -8,7 +8,7 @@ it is, what it is used for, and the terms it comes under.
 
 | Source | Used for | Terms recorded | Downloaded |
 |---|---|---|:--:|
-| IEEE-CIS Fraud Detection | Real-data offline track | **Yes, 2026-09-12** | **Yes, 2026-09-12** |
+| IEEE-CIS Fraud Detection | Real-data offline track | **Yes, 2026-09-12** | **Yes, 2026-09-12**; again 2026-09-13 on the build desktop, same checksums |
 | `verdict` generator (own) | Synthetic live track | Written here, published with the repository | n/a |
 | Sparkov generator | Reference for categories and amounts | Reference only, no data used | No |
 | ULB credit-card fraud | Fallback for the real-data track | ODbL | No |
@@ -40,10 +40,18 @@ them rather than around them:
   response is to report per track which features exist, not to promote
   `ProductCD` (a five-valued product category) into a merchant and then
   measure an entity-graph feature against something invented here.
-- **Device features cover a quarter of the rows.** The identity file is a
-  subset, so device-keyed features are present for 24.4 percent of
-  transactions and absent for the rest. Absent is a value the platform already
-  has a sentinel for.
+- **There is no device either, which was not known on 2026-09-12.** The
+  identity file covers 24.4 percent of transactions, and this document first
+  said device-keyed features would exist for that share. Measured as keys on
+  2026-09-14, its columns turn out to describe configurations rather than
+  devices: fingerprints with over a hundred transactions hold 55 percent of
+  the rows that have one, and `DeviceInfo` alone is `Windows` on 40 percent.
+  A device feature keyed on that counts how popular a browser is, so the
+  mapper names no device. ADR 17 has the measurements.
+- **No column is a card.** `card1` to `card6` describe an issuer and a
+  product. The mapper's card is those columns with `addr1` and the day the
+  account started, which behaves like a card; 11.3 percent of rows cannot
+  form it and have no visible history. ADR 17 again.
 - **The clock is whole seconds and the stream is sparse.** 0.0376 events per
   second means same-instant collisions are uncommon: 5.75 percent of rows
   share a timestamp with another row, and only 0.053 percent share both a
@@ -166,12 +174,18 @@ data, which is "Competition Code" as the rules define it.
 ### What the loader does about all this
 
 - Downloads nothing on its own. The account holder downloads the archive from
-  the competition's Data tab into `data/ieee-cis/`, which is gitignored. No
+  the competition's Data tab into `data/raw/ieee-fraud-detection/`, which is
+  gitignored, or anywhere outside the repository named by the
+  `VERDICT_IEEE_CIS_DIR` environment variable. No
   Kaggle API token is stored anywhere in this project.
 - Verifies a checksum on what it finds, so a truncated or substituted file is
   an error rather than a strange model.
 - Fails loudly if the columns are not the ones recorded here, rather than
   silently mapping a renamed field to the wrong feature.
+- Maps rows onto events (`verdict data events`) into `data/`, and prints
+  counts only. The event log is a row-by-row copy and is ignored like the
+  raw files; so are any error messages that name a card identifier, which
+  are printed to the local terminal and nowhere else.
 
 ## `verdict` generator (own)
 

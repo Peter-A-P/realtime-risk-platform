@@ -17,6 +17,26 @@ serialised as JSON. Three rules hold the schema together:
 Money is an integer count of cents. Floating-point dollars accumulate error in
 exactly the aggregations this platform computes, and the review queue ranks by
 expected loss in money.
+
+## Version history
+
+- **1** (week 1). Every transaction named a card, a device and a merchant.
+- **2** (week 4, 2026-09-14). `device_id`, `merchant_id` and
+  `merchant_category` may be `None`, and must be stated either way: none of
+  them has a default. The real-data track has no merchant identifier at all
+  and nothing that identifies a device (ADR 17), and a transaction whose
+  entity is unknown now says so rather than carrying an identifier invented
+  to fill the field. An invented merchant shared by every row would make each
+  merchant-keyed feature a count of the whole data set. A version 1 reader
+  would fail on a `None`, which is what makes this a breaking change. No
+  version 1 record is kept anywhere that matters: the development logs are
+  regenerated from a seed.
+- **2, extended** (week 4, 2026-09-14). `DecisionEvent` added, for the
+  `decisions` topic, and included in the fingerprint. A new record type
+  changes nothing an existing reader reads, so the version stays at 2; the
+  fingerprint changes, deliberately, in the same commit.
+- **2, extended again** (week 4, 2026-09-15). `ShadowEvent` added, for the
+  `shadow` topic, on the same reasoning.
 """
 
 from __future__ import annotations
@@ -29,7 +49,7 @@ from typing import Annotated, Final, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-SCHEMA_VERSION: Final = 1
+SCHEMA_VERSION: Final = 2
 """Major version of the wire schema. A breaking change increments this."""
 
 
@@ -157,20 +177,24 @@ class TransactionEvent(Record):
     acquirer would know at the moment the transaction is presented.
     """
 
-    schema_version: Literal[1] = SCHEMA_VERSION
+    schema_version: Literal[2] = SCHEMA_VERSION
     event_id: EntityId
     """Idempotency key. Decisions are keyed on it, so at-least-once delivery
     of the same event produces the same decision exactly once."""
     event_time: dt.datetime
     """When the transaction was presented, timezone-aware UTC."""
     card_id: EntityId
-    device_id: EntityId
-    merchant_id: EntityId
+    device_id: EntityId | None
+    """The device, or `None` when the source cannot identify one. No default:
+    a producer states the absence rather than inheriting it."""
+    merchant_id: EntityId | None
+    """The merchant, or `None` when the source has no merchant identifier."""
     session_id: EntityId | None = None
     amount_cents: int = Field(gt=0, le=100_000_000)
     """Amount in cents. Integer, never a float: see the module docstring."""
     currency: Literal["USD"] = "USD"
-    merchant_category: MerchantCategory
+    merchant_category: MerchantCategory | None
+    """The merchant's category, or `None` when the merchant is unknown."""
     entry_mode: EntryMode
     card_country: CountryCode = "US"
     merchant_country: CountryCode = "US"
@@ -199,7 +223,7 @@ class LabelEvent(Record):
     promotion decision can use a label that would not yet have existed.
     """
 
-    schema_version: Literal[1] = SCHEMA_VERSION
+    schema_version: Literal[2] = SCHEMA_VERSION
     event_id: EntityId
     label_time: dt.datetime
     """When the outcome became known. Always later than the event time."""
@@ -222,12 +246,78 @@ class GroundTruth(Record):
     sealed regime schedule can be graded after the fact.
     """
 
-    schema_version: Literal[1] = SCHEMA_VERSION
+    schema_version: Literal[2] = SCHEMA_VERSION
     event_id: EntityId
     is_fraud: bool
     scenario: FraudScenario
     regime: str
     """Name of the regime in force when the event was generated."""
+
+
+class Action(StrEnum):
+    """What a decision does with a transaction."""
+
+    APPROVE = "approve"
+    REVIEW = "review"
+    """Approved for now and placed in the review queue (week 6)."""
+    DECLINE = "decline"
+
+
+class DecisionEvent(Record):
+    """What the scorer decided about one transaction, as written to `decisions`.
+
+    Keyed on `event_id` like everything else, which is what makes decisions
+    idempotent: a consumer of this topic that sees the same `event_id` twice
+    has seen one decision twice, not two decisions (ADR 8).
+
+    It carries the score and the rule that fired, and not the features. The
+    features are in the offline store, keyed the same way; copying them here
+    would make a second place they live.
+    """
+
+    schema_version: Literal[2] = SCHEMA_VERSION
+    event_id: EntityId
+    card_id: EntityId
+    action: Action
+    score: float = Field(ge=0.0, le=1.0)
+    """The model's score, a probability-like number in [0, 1]."""
+    rule: str = Field(min_length=1, max_length=64)
+    """The name of the rule that decided, so a decision can be explained."""
+    model_version: str = Field(min_length=1, max_length=64)
+    decided_at: dt.datetime
+    """When the decision was made, timezone-aware UTC, on the scorer's clock."""
+
+    @field_validator("decided_at")
+    @classmethod
+    def _check_decided_at(cls, value: dt.datetime) -> dt.datetime:
+        return require_utc(value)
+
+
+class ShadowEvent(Record):
+    """What a challenger would have decided, written to `shadow`, never acted on.
+
+    The challenger scores the same features the champion was served, at the
+    same moment, so the two are comparable row by row once labels arrive.
+    Promotion (week 5, ADR 11) reads these beside the decisions; nothing else
+    does, and nothing about a transaction's outcome depends on one.
+    """
+
+    schema_version: Literal[2] = SCHEMA_VERSION
+    event_id: EntityId
+    card_id: EntityId
+    model_version: str = Field(min_length=1, max_length=64)
+    score: float = Field(ge=0.0, le=1.0)
+    action: Action
+    """The action the challenger's score would have led to under the same rules."""
+    rule: str = Field(min_length=1, max_length=64)
+    champion_version: str = Field(min_length=1, max_length=64)
+    champion_action: Action
+    decided_at: dt.datetime
+
+    @field_validator("decided_at")
+    @classmethod
+    def _check_decided_at(cls, value: dt.datetime) -> dt.datetime:
+        return require_utc(value)
 
 
 def decode_transaction(raw: str | bytes) -> TransactionEvent:
@@ -277,7 +367,7 @@ class SchemaFingerprint(Record):
     fingerprint are both updated deliberately.
     """
 
-    schema_version: Literal[1] = SCHEMA_VERSION
+    schema_version: Literal[2] = SCHEMA_VERSION
     sha256: str
 
     @classmethod
@@ -288,8 +378,10 @@ class SchemaFingerprint(Record):
             The fingerprint of this build's wire schema.
         """
         payload = {
+            "DecisionEvent": DecisionEvent.model_json_schema(),
             "GroundTruth": GroundTruth.model_json_schema(),
             "LabelEvent": LabelEvent.model_json_schema(),
+            "ShadowEvent": ShadowEvent.model_json_schema(),
             "TransactionEvent": TransactionEvent.model_json_schema(),
         }
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))

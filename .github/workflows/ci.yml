@@ -44,7 +44,18 @@ jobs:
         run: mypy verdict tests
 
       - name: Tests
-        run: pytest -q -m "not slow"
+        run: pytest -q -m "not slow and not broker"
+
+      - name: Stream contract on Redpanda
+        # The same compose file the laptop runs, so a broken stack fails here
+        # rather than on the next person's first `up`. Brought up twice: the
+        # second `up` is the restart that once failed on existing topics.
+        run: |
+          docker compose -f deploy/compose/docker-compose.yml up -d --wait redpanda
+          docker compose -f deploy/compose/docker-compose.yml run --rm topics
+          docker compose -f deploy/compose/docker-compose.yml run --rm topics
+          pytest -q -m broker
+          docker compose -f deploy/compose/docker-compose.yml down -v
 
       - name: Throughput
         # Separated so a slow runner reads as a throughput result rather than
