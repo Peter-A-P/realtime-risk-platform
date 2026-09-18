@@ -241,7 +241,8 @@ verdict/
   review_queue/  ranking.py: expected loss, the fixed-capacity day simulation, and the paired comparison
                with CIs (built ahead, 2026-09-15). Named `review_queue` because `queue` shadows the
                standard library; the plan's three files are one module until they need to be three
-  observe/     OpenTelemetry spans and Prometheus metrics; Grafana provisioning
+  observe/     OpenTelemetry spans and Prometheus metrics; Grafana provisioning. metrics.py built
+               ahead (2026-09-18), served by `verdict score`, the scorer as a service (scoring/service.py)
   chaos/       redis_down, stream_throttle, consumer_lag, clock_skew, poison_event, duplicates, out_of_order, schema_change
   cli.py       verdict up | down | replay | loadtest | parity | drift-report | queue-eval | rollback-drill
 deploy/

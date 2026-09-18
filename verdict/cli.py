@@ -505,6 +505,90 @@ def loadtest(
     typer.echo(text)
 
 
+@app.command()
+def score(
+    bootstrap: Annotated[str | None, typer.Option(help="Broker address.")] = None,
+    group: Annotated[str, typer.Option(help="Consumer group, where progress is kept.")] = (
+        "scorer"
+    ),
+    flag: Annotated[
+        Path | None, typer.Option(help="Follow this champion pointer; else the stand-in.")
+    ] = None,
+    metrics_port: Annotated[
+        int, typer.Option(help="Serve Prometheus metrics on this port; 0 for none.")
+    ] = 9108,
+    metrics_host: Annotated[str, typer.Option(help="Interface the metrics listen on.")] = (
+        "127.0.0.1"
+    ),
+) -> None:
+    """Run the stream scorer until interrupted: the platform's decision path.
+
+    Consumes `transactions` from the local broker, writes `decisions`, sets
+    aside what it cannot decide on `dead-letter`, and checkpoints after every
+    durable batch (ADR 8). Ctrl+C, or SIGTERM where the platform delivers it,
+    stops it after the batch in hand. Metrics listen on localhost by default:
+    nothing about the scoring path is meant to be public (`PLAN.md` section 8).
+
+    A scorer that starts cold serves every card "no history" until its
+    windows refill; ADR 8 records that as a known gap until the live stack's
+    recovery work.
+
+    Args:
+        bootstrap: Broker address. Defaults to the compose stack's.
+        group: The consumer group.
+        flag: A champion pointer to follow.
+        metrics_port: Where to serve metrics, or 0 for nowhere.
+        metrics_host: The interface metrics listen on.
+    """
+    import signal
+    import threading
+
+    from prometheus_client import start_http_server
+
+    from verdict.features.engine import FeatureEngine
+    from verdict.observe.metrics import ScorerMetrics
+    from verdict.scoring import service
+    from verdict.scoring.consumer import StreamScorer
+    from verdict.scoring.core import Decider, EngineFeatures
+    from verdict.scoring.flags import FlaggedModels
+    from verdict.scoring.model import FixedModel, ModelSource, StandInModel
+    from verdict.stream.redpanda import DEFAULT_BOOTSTRAP, RedpandaStream
+
+    models: ModelSource = (
+        FixedModel(StandInModel()) if flag is None else FlaggedModels(flag, _known_models())
+    )
+    metrics = ScorerMetrics()
+    stream = RedpandaStream(bootstrap or DEFAULT_BOOTSTRAP)
+    scorer = StreamScorer(
+        stream,
+        decider=Decider(features=EngineFeatures(FeatureEngine()), models=models),
+        group=group,
+        on_decided=metrics.on_decided,
+    )
+    if metrics_port:
+        start_http_server(metrics_port, addr=metrics_host, registry=metrics.registry)
+    stop = threading.Event()
+
+    def ask_to_stop(signum: int, frame: object) -> None:
+        del signum, frame
+        stop.set()
+
+    signal.signal(signal.SIGINT, ask_to_stop)
+    signal.signal(signal.SIGTERM, ask_to_stop)
+    typer.echo(
+        f"scoring from {stream.bootstrap} as group {group!r}"
+        + (f", metrics on {metrics_host}:{metrics_port}" if metrics_port else "")
+    )
+    try:
+        summary = service.run(scorer, stop=stop, metrics=metrics)
+    finally:
+        stream.close()
+    typer.echo(
+        f"stopped after {summary.polls} polls: {summary.decided} decided, "
+        f"{summary.records} records read, set aside {summary.set_aside or 'none'}"
+    )
+
+
 @app.command(name="http-loadtest")
 def http_loadtest(
     rate: Annotated[float, typer.Option(help="Transactions offered per second.")] = 1000.0,

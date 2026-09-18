@@ -28,7 +28,7 @@ and the scorer consumes it (ADR 8) with a stand-in model and a load test.
 Week 4's latency work found where the time goes and published that (ADR 9,
 `docs/latency-budget.md`): three of the four costs belong to the measuring
 host, and the end-to-end figure still waits for a quiet machine (section 11).
-408 tests; `ruff`, `ruff format` and
+413 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -468,6 +468,17 @@ In the order the plan sets, with nothing blocked except where noted:
    fifty in a row stops the scorer instead. ADR 8's addendum and the first
    section of `docs/failure-modes.md`, which PLAN.md's week 8 row names, carry
    it.
+
+   Then the scorer as a service, which did not exist: nothing ran the stream
+   consumer except the load test. `verdict score` (`scoring/service.py`) polls
+   until stopped and checks the stop only between batches, so a batch in hand
+   is always decided and checkpointed; `observe/metrics.py` serves Prometheus
+   metrics on localhost:9108 by default. Building it found a leak: the
+   scorer's per-batch timing lists, kept for the load test's percentiles,
+   never shrank, about a gigabyte a day at the live rate. The service drains
+   them into histograms (`CommitStats.drain`). `prometheus-client` is now a
+   direct pin. No Prometheus or Grafana container yet; a scrape of
+   `127.0.0.1:9108/metrics` is the check.
 
    Note the local stack cannot support the 50 ms claim whatever the machine is
    doing: the forwarder alone costs more than the budget on most connections,

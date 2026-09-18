@@ -50,6 +50,11 @@ dependencies = [
   # calls them directly. Pre-1.0, so the minor is pinned for each.
   "fastapi>=0.141,<0.142",
   "uvicorn>=0.52,<0.53",
+  # The scorer's metrics (verdict/observe/metrics.py), scraped by Prometheus.
+  # Feast already depends on it; pinned here because this project now calls it
+  # directly. Pre-1.0, so the minor is pinned: the exposition format and the
+  # registry API have both changed between minors.
+  "prometheus-client>=0.24,<0.25",
 ]
 
 [project.optional-dependencies]

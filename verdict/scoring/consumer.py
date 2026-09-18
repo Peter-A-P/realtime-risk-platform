@@ -111,6 +111,22 @@ class CommitStats:
     flush_ns: list[int] = field(default_factory=list)
     checkpoint_ns: list[int] = field(default_factory=list)
 
+    def drain(self) -> tuple[list[int], list[int], list[int]]:
+        """Hand over the timings recorded so far, and forget them.
+
+        The lists grow by three entries a batch. That is what the load test
+        wants, since it computes percentiles over a whole run; a service that
+        ran for months would hold roughly a gigabyte a day at the live rate.
+        The service drains them into its metrics after every poll
+        (`observe/metrics.py`). `batches` keeps counting.
+
+        Returns:
+            Commit, flush and checkpoint times, in nanoseconds.
+        """
+        taken = (self.commit_ns, self.flush_ns, self.checkpoint_ns)
+        self.commit_ns, self.flush_ns, self.checkpoint_ns = [], [], []
+        return taken
+
 
 class DeadLetterRunError(StreamError):
     """Raised when too many records in a row could not be decided."""
@@ -226,7 +242,11 @@ class StreamScorer:
         try:
             event = decode_transaction(record.value)
         except UnknownSchemaVersionError as error:
-            self._set_aside(record, "unknown-schema-version", str(error))
+            # No version at all means not JSON, or not a versioned record:
+            # garbage, not a producer on a newer schema, and the person reading
+            # the dead-letter topic needs to tell those apart.
+            reason = "undecodable" if error.found is None else "unknown-schema-version"
+            self._set_aside(record, reason, str(error))
             return
         except (UnicodeDecodeError, ValidationError) as error:
             self._set_aside(record, "undecodable", str(error))
