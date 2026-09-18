@@ -27,7 +27,7 @@ Intervals follow the week 1 measurement: a statistic computed per run, and a
 from __future__ import annotations
 
 import contextlib
-import platform
+import sys
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import Final
@@ -84,23 +84,27 @@ def fine_grained_timers() -> Iterator[bool]:
     the difference cannot be mistaken for a platform property.
 
     On Linux, where the live stack runs, there is nothing to ask for and this
-    does nothing.
+    does nothing. The branch is written as `if sys.platform == "win32"` with
+    the Linux case in its `else`, rather than as an early return, because a
+    type checker reads `sys.platform` and analyses only the branch for the
+    platform it was asked about: `ctypes.WinDLL` exists on Windows and nowhere
+    else, and CI checks types on Linux.
 
     Yields:
         Whether a finer timer was requested.
     """
-    if platform.system() != "Windows":
-        yield False
-        return
-    import ctypes
+    if sys.platform == "win32":
+        import ctypes
 
-    winmm = ctypes.WinDLL("winmm")
-    granted = winmm.timeBeginPeriod(1) == 0
-    try:
-        yield granted
-    finally:
-        if granted:
-            winmm.timeEndPeriod(1)
+        winmm = ctypes.WinDLL("winmm")
+        granted = winmm.timeBeginPeriod(1) == 0
+        try:
+            yield granted
+        finally:
+            if granted:
+                winmm.timeEndPeriod(1)
+    else:
+        yield False
 
 
 @dataclass(frozen=True, slots=True)

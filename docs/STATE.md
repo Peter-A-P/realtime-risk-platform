@@ -220,6 +220,20 @@ AWS stack, because the live window is public. `docs/data.md` has the clauses.
 pull request carrying the shadow evidence. That is week 5 onward, but it is a
 standing rule.
 
+**`mypy` here is not the `mypy` CI runs.** This machine is Windows and CI is
+Linux, and mypy analyses only the branch for the platform it is asked about.
+`fine_grained_timers` calls `ctypes.WinDLL`, which exists on Windows and
+nowhere else; a clean local run passed it and CI failed on it. Before pushing,
+run both:
+
+    .venv/Scripts/python.exe -m mypy verdict tests
+    .venv/Scripts/python.exe -m mypy --platform linux verdict tests
+
+Platform-specific code goes in `if sys.platform == "win32": ... else: ...`,
+never behind an early return: mypy prunes the branch it is not checking, but
+with `warn_unreachable` on it still reports whatever follows a return as
+unreachable.
+
 ---
 
 ## 6. What is waiting on a person
