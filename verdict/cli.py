@@ -483,6 +483,7 @@ def loadtest(
         "stream": backend.name,
         "model": "stand-in-0 (not trained; see verdict/scoring/model.py)",
         "features": "served by the in-process engine",
+        "load_producer_ran_in": results[0].producer,
         "rate_target_per_second": rate,
         "events_per_run": events,
         "warmup_decisions_excluded": warmup,
@@ -496,6 +497,51 @@ def loadtest(
         "measured_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         "summary": load.summarise(results),
         "per_run": [asdict(result) for result in results],
+    }
+    text = json.dumps(report, indent=2)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+    typer.echo(text)
+
+
+@app.command(name="flush-probe")
+def flush_probe(
+    bootstrap: Annotated[str | None, typer.Option(help="Broker address.")] = None,
+    connections: Annotated[int, typer.Option(help="Producers opened, one after another.")] = 10,
+    out: Annotated[Path | None, typer.Option(help="Also write the report here.")] = None,
+) -> None:
+    """Time the scorer's flush on a series of fresh producer connections.
+
+    Not part of the platform: a measuring instrument for the path between
+    this host and the broker. `verdict/stream/probe.py` says what it found
+    and how to run the same thing from inside the broker's network, which is
+    the comparison that makes the number mean anything.
+
+    Args:
+        bootstrap: Broker address. Defaults to the compose stack's.
+        connections: How many producers to open in turn.
+        out: Where to write the JSON report, if anywhere.
+    """
+    import platform
+    from dataclasses import asdict
+
+    from verdict.stream import probe as flushes
+    from verdict.stream.redpanda import DEFAULT_BOOTSTRAP
+
+    address = bootstrap or DEFAULT_BOOTSTRAP
+    results = flushes.flush_by_connection(address, connections=connections)
+    report = {
+        "track": "synthetic live, local",
+        "bootstrap": address,
+        "host": {
+            "machine": platform.machine(),
+            "python": platform.python_version(),
+            "system": f"{platform.system()} {platform.release()}",
+        },
+        "measured_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "summary": flushes.summarise(results),
+        "per_connection": [asdict(result) for result in results],
     }
     text = json.dumps(report, indent=2)
     if out is not None:

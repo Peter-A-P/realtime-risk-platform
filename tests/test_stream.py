@@ -326,3 +326,47 @@ def test_a_retriable_error_that_never_clears_is_reported_at_the_deadline() -> No
         )
     assert sum(clock.sleeps) <= 10.0
     assert max(clock.sleeps) == 2.0
+
+
+# --- the flush probe, which is a measuring instrument, not the platform -----
+
+
+def test_the_probe_reports_the_two_paths_apart_rather_than_averaging_them() -> None:
+    """A mean across connections would land where no connection ever is."""
+    from verdict.stream.probe import ConnectionFlushes, summarise
+
+    def a_connection(number: int, p50: float) -> ConnectionFlushes:
+        return ConnectionFlushes(
+            connection=number,
+            p50=p50,
+            p95=p50 * 1.1,
+            fastest=p50 * 0.8,
+            slowest=p50 * 1.5,
+            path="slow" if p50 > 25.0 else "fast",
+        )
+
+    summary = summarise([a_connection(1, 6.0), a_connection(2, 47.0), a_connection(3, 48.0)])
+    assert summary["connections"] == 3
+    assert summary["by_path"]["fast"] == {"connections": 1, "median_flush_p50_ms": 6.0}
+    assert summary["by_path"]["slow"] == {"connections": 2, "median_flush_p50_ms": 47.5}
+
+
+def test_the_probe_refuses_to_summarise_nothing() -> None:
+    from verdict.stream.probe import summarise
+
+    with pytest.raises(ValueError, match="no connections"):
+        summarise([])
+
+
+@pytest.mark.broker
+def test_the_flush_probe_measures_every_connection_it_opens() -> None:
+    from verdict.stream.probe import flush_by_connection, summarise
+
+    if not broker_reachable():
+        pytest.skip(f"no broker at {DEFAULT_BOOTSTRAP}; start deploy/compose to run these")
+    results = flush_by_connection(connections=2, batches=3, batch_size=5)
+    assert [result.connection for result in results] == [1, 2]
+    for result in results:
+        assert 0.0 < result.fastest <= result.p50 <= result.slowest
+        assert result.path in {"fast", "slow"}
+    assert summarise(results)["connections"] == 2

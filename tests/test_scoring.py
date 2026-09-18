@@ -10,6 +10,9 @@ write decisions leaves the transactions unacknowledged.
 from __future__ import annotations
 
 import datetime as dt
+import subprocess
+import sys
+import time
 from collections.abc import Iterable, Mapping
 
 import pytest
@@ -207,6 +210,9 @@ def test_every_decision_carries_a_complete_timing() -> None:
         assert min(sample.features_ns, sample.model_ns, sample.decision_ns, sample.persist_ns) >= 0
         assert sample.finished_ns >= sample.started_ns
     assert len(scorer.commits.commit_ns) == scorer.commits.batches
+    assert (
+        len(scorer.commits.flush_ns) == len(scorer.commits.checkpoint_ns) == scorer.commits.batches
+    )
 
 
 def test_the_feature_vector_has_no_gaps() -> None:
@@ -310,9 +316,30 @@ def test_a_small_load_test_decides_everything_and_reports_every_hop() -> None:
         assert result.measured == 500
         assert set(result.hops) == set(HOPS)
         assert result.end_to_end["p50"] <= result.end_to_end["p99"]
+        assert set(result.backlog) == {"early_p50", "late_p50"}
+        assert result.producer == "the scorer's process"
         assert result.duplicates == 0
     summary = loadtest.summarise(results)
     assert summary["end_to_end_ms"]["p99"]["runs"] == 2
+    assert summary["backlog_ms"]["late_p50"]["runs"] == 2
+
+
+def test_the_clock_the_load_test_joins_two_processes_on_is_one_clock() -> None:
+    """The producer times its sends in its own process; the scorer times decisions here.
+
+    The join is only meaningful if `perf_counter_ns` reads the same counter in
+    both, which is a property of the host, not of Python. So it is measured
+    rather than assumed: a child's reading has to fall between two of ours.
+    """
+    before = time.perf_counter_ns()
+    child = subprocess.run(
+        [sys.executable, "-c", "import time; print(time.perf_counter_ns())"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    after = time.perf_counter_ns()
+    assert before < int(child.stdout.strip()) < after
 
 
 def test_the_scorer_refuses_a_transaction_that_arrives_out_of_time_order() -> None:

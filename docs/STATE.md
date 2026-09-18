@@ -24,8 +24,11 @@ events (ADR 17): 590,540 events replayed, 6 of 16 features on that track, and
 the point-in-time check clean over a 2 percent sample of cards. The wire
 schema is at version 2. Week 4 has started: the `Stream` interface exists with
 in-process and Redpanda implementations, tested against the running broker,
-and the scorer consumes it (ADR 8) with a stand-in model and a load test. No
-latency figure is published yet (section 11). 390 tests; `ruff`, `ruff format` and
+and the scorer consumes it (ADR 8) with a stand-in model and a load test.
+Week 4's latency work found where the time goes and published that (ADR 9,
+`docs/latency-budget.md`): three of the four costs belong to the measuring
+host, and the end-to-end figure still waits for a quiet machine (section 11).
+395 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -156,7 +159,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Twelve ADRs, in `docs/adr/`: 1 to 8, 11 to 13, and 17. Read them before reopening anything they cover.
+Thirteen ADRs, in `docs/adr/`: 1 to 9, 11 to 13, and 17. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -168,6 +171,7 @@ Twelve ADRs, in `docs/adr/`: 1 to 8, 11 to 13, and 17. Read them before reopenin
 | 6 | Features computed once; the reference evaluation is not a second computation | One definition, two executions, and the test holds them together |
 | 7 | The leakage test is written first and never weakened | It has already caught three real faults |
 | 8 | The scorer is a stream consumer: at least once, duplicates stopped before the engine, checkpoint after durable decisions, features served from the engine in process | **`transactions` has one partition** because the engine needs time order; more needs a reorder buffer whose hold time is latency |
+| 9 | The latency budget stands as PLAN.md 2.4 states it; every cost that belongs to the measuring host is measured on its own and published, never subtracted quietly; the 50 ms figure is claimed from the live stack, not from here | Three host costs found and measured: the process's timer resolution, the load producer sharing the scorer's interpreter, and Docker Desktop's port forwarder (about 41 ms on some connections, fixed per connection, unchanged by every client setting tried). The platform's own cost is the per-batch flush and checkpoint, which is a throughput ceiling before it is a latency one |
 | 11 | Shadow on the champion's own features, timed apart, unable to break scoring; promotion only if the interval bound clears the margin, on labels that had arrived, with at least 50 frauds; rollback by a pointer read per event | Margins and prices are placeholders until the champion's variability is measured |
 | 12 | Drift: PSI and KS against a fixed reference; PSI 0.25, KS statistic 0.10 with p below 0.01, 500 values minimum; same quantity two consecutive days | **Amends PLAN.md 2.6**: no Evidently. **The thresholds must not be tuned against the development schedule**, or the sealed schedule grades nothing |
 | 13 | The queue ranks by expected loss; simulated a day at a time in hourly steps with expiry; paired by day | At fixed capacity the prices cannot reorder the queue, and a test says so. Scores must be calibrated before a result is published |
@@ -290,6 +294,11 @@ here is a platform latency or throughput figure: nothing is scored yet.
 | Leak impact on the real data, ADR 17 card, unfixed engine over every card (build desktop) | 65 rows of 590,540 (0.011%) served a wrong value; 324 values; 45 card-instants | `docs/leak-caught.md` |
 | Point-in-time check, real replay, 2% of cards (build desktop) | 0 violations, 67,920 comparisons, 5,386 cards, 104 s | `verdict data check`, ADR 17 |
 | Real replay mapped to events (build desktop) | 590,540 events, 68 s | `verdict data events` |
+| Scorer hops at p99, through Redpanda | features 0.340, model 0.003, rules 0.065, hand-off 0.048 ms | `docs/latency-week4-redpanda-untuned.json` |
+| Produce to acknowledgement, default Windows timer vs 1 ms | 48.44 ms vs 3.74 ms at p50 | ADR 9 |
+| Send to receive, producer in its own process vs in the scorer's thread | 8.64 ms vs 70.57 ms at p50, 12 shuffled runs | ADR 9 |
+| Flush, from the Windows host | 47.72 ms at p50 on 9 of 12 connections, 7.10 ms on 3 | `docs/latency-week4-flush-host.json` |
+| Flush, from inside the broker's Docker network | 3.99 ms at p50 on 10 of 10 connections | `docs/latency-week4-flush-in-network.json` |
 
 **Two of these were published wrong and then corrected.** The leak's impact was
 first measured on a synthetic stream truncated to seconds and reported as if
@@ -379,18 +388,33 @@ In the order the plan sets, with nothing blocked except where noted:
    cost nothing, and an expiry check that expired every item before review
    when the wait limit was under an hour. Then the drift monitors and trigger
    (ADR 12), which amend PLAN.md 2.6 by not using Evidently.
-   **Next, and waiting on a quiet machine:** the first published latency
-   measurement, `verdict loadtest --stream redpanda --runs 5 --out
-   docs/latency-week4.json`, then ADR 9 and `docs/latency-budget.md` from it.
-   On 2026-09-14 project 08's neural training (`headroom neural`) held most of
-   the CPU, and 08's own log already retracted one timing taken that way. A
-   functional run that day, not to be published, showed the shape: every
-   scorer hop under a millisecond at p99, and send-to-start (`ingest`) around
-   50 ms at p50 and 190 ms at p99 through Redpanda against about 2 ms on the
-   in-process stream. Measure first, untuned, as the plan requires; then test
-   one change at a time (the client's Nagle and fetch settings are the first
-   suspects) and publish the before and after. Then the HTTP endpoint for
-   the comparison in Rule C candidate 3.
+   On 2026-09-17 the latency work ran: the untuned baselines were taken
+   first, as the plan requires, and are kept
+   (`docs/latency-week4-{memory,redpanda}-untuned.json`). Then the 59 ms that
+   was not the scorer was tracked down. **ADR 9 and `docs/latency-budget.md`
+   are written**; three of the four costs belong to the measuring host (the
+   process's timer resolution, the load producer sharing the scorer's
+   interpreter, and Docker Desktop's port forwarder), and the fourth is the
+   platform's own per-batch flush and checkpoint, which is a throughput
+   ceiling before it is a latency one. The load test changed with it: on a
+   broker the producer now runs in its own process, joined by event id; the
+   pacing loop yields instead of spinning; and every run reports where its
+   producer ran, whether a queue stood, and what its batches held.
+   `verdict/stream/probe.py` and `verdict flush-probe` are the instrument
+   that found the forwarder, and it is meant to be run twice, once from the
+   host and once from inside the broker's network, which the module's
+   docstring gives the command for.
+   **Still waiting on a quiet machine:** the end-to-end table in
+   `docs/latency-budget.md`, which needs
+   `verdict loadtest --stream memory --out docs/latency-week4-memory.json` and
+   the same with `--stream redpanda`, on an idle host. The runs taken on
+   2026-09-17 were discarded rather than published: project 12 was training a
+   model, and the in-process backend, which touches no network at all, gave a
+   p99 between 20 ms and 288 ms across five runs of one configuration. A p50
+   survives that; a p99 does not. Then the HTTP endpoint for the comparison in
+   Rule C candidate 3. Note the local stack cannot support the 50 ms claim
+   whatever the machine is doing: the forwarder alone costs more than the
+   budget on most connections, which is why the figure is the live stack's.
 3. **Week 5:** champion on IEEE-CIS and on replay, FT-Transformer challenger,
    shadow scoring, promotion function, rollback drill. ADRs 10 and 11. This is
    also where the leak's offline PR-AUC inflation gets measured, by training

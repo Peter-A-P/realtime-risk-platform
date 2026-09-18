@@ -1,0 +1,122 @@
+{
+  "track": "synthetic live, local",
+  "bootstrap": "localhost:19092",
+  "host": {
+    "machine": "AMD64",
+    "python": "3.13.5",
+    "system": "Windows 11"
+  },
+  "measured_at": "2026-09-17T23:48:41+00:00",
+  "summary": {
+    "connections": 12,
+    "slow_flush_threshold_ms": 25.0,
+    "by_path": {
+      "fast": {
+        "connections": 3,
+        "median_flush_p50_ms": 7.098
+      },
+      "slow": {
+        "connections": 9,
+        "median_flush_p50_ms": 47.724
+      }
+    }
+  },
+  "per_connection": [
+    {
+      "connection": 1,
+      "p50": 47.5439,
+      "p95": 50.81175499999999,
+      "fastest": 45.1087,
+      "slowest": 130.9425,
+      "path": "slow"
+    },
+    {
+      "connection": 2,
+      "p50": 48.6,
+      "p95": 63.75200499999995,
+      "fastest": 7.3541,
+      "slowest": 270.0941,
+      "path": "slow"
+    },
+    {
+      "connection": 3,
+      "p50": 8.62275,
+      "p95": 18.390289999999993,
+      "fastest": 4.988,
+      "slowest": 27.0693,
+      "path": "fast"
+    },
+    {
+      "connection": 4,
+      "p50": 48.34015,
+      "p95": 60.16680999999999,
+      "fastest": 44.8872,
+      "slowest": 153.1861,
+      "path": "slow"
+    },
+    {
+      "connection": 5,
+      "p50": 49.0372,
+      "p95": 72.08431,
+      "fastest": 6.4663,
+      "slowest": 89.5626,
+      "path": "slow"
+    },
+    {
+      "connection": 6,
+      "p50": 7.097849999999999,
+      "p95": 13.220804999999997,
+      "fastest": 4.7543,
+      "slowest": 59.8186,
+      "path": "fast"
+    },
+    {
+      "connection": 7,
+      "p50": 47.646100000000004,
+      "p95": 51.581145,
+      "fastest": 44.7358,
+      "slowest": 53.8269,
+      "path": "slow"
+    },
+    {
+      "connection": 8,
+      "p50": 6.5198,
+      "p95": 11.101405,
+      "fastest": 4.2389,
+      "slowest": 17.4582,
+      "path": "fast"
+    },
+    {
+      "connection": 9,
+      "p50": 47.724450000000004,
+      "p95": 50.85715,
+      "fastest": 44.3612,
+      "slowest": 52.5431,
+      "path": "slow"
+    },
+    {
+      "connection": 10,
+      "p50": 47.7134,
+      "p95": 51.466975,
+      "fastest": 45.7941,
+      "slowest": 53.2101,
+      "path": "slow"
+    },
+    {
+      "connection": 11,
+      "p50": 48.33625,
+      "p95": 54.681675,
+      "fastest": 46.1455,
+      "slowest": 130.659,
+      "path": "slow"
+    },
+    {
+      "connection": 12,
+      "p50": 47.71425,
+      "p95": 52.067634999999996,
+      "fastest": 45.0162,
+      "slowest": 57.8345,
+      "path": "slow"
+    }
+  ]
+}

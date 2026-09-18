@@ -58,11 +58,20 @@ class CommitStats:
 
     Attributes:
         batches: Batches committed.
-        commit_ns: Time spent in flush and checkpoint, one entry per batch.
+        commit_ns: Time spent in flush and checkpoint together, per batch.
+        flush_ns: Of that, time waiting for the decisions to be acknowledged.
+        checkpoint_ns: Of that, time committing the transactions' offsets.
+
+    The two are kept apart because they are different costs with different
+    fixes: a flush waits for the broker to acknowledge writes this scorer
+    made, and a checkpoint is a round trip to the group coordinator that
+    could be made less often without losing a decision.
     """
 
     batches: int = 0
     commit_ns: list[int] = field(default_factory=list)
+    flush_ns: list[int] = field(default_factory=list)
+    checkpoint_ns: list[int] = field(default_factory=list)
 
 
 class StreamScorer:
@@ -121,10 +130,14 @@ class StreamScorer:
             self._handle(record.value)
         committed = time.perf_counter_ns()
         self.stream.flush()
+        flushed = time.perf_counter_ns()
         self.stream.checkpoint(
             self.transactions_topic, self.group, [record.position for record in records]
         )
-        self.commits.commit_ns.append(time.perf_counter_ns() - committed)
+        done = time.perf_counter_ns()
+        self.commits.commit_ns.append(done - committed)
+        self.commits.flush_ns.append(flushed - committed)
+        self.commits.checkpoint_ns.append(done - flushed)
         self.commits.batches += 1
         return len(records)
 

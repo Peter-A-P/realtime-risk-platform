@@ -1,0 +1,99 @@
+{
+  "bootstrap": "redpanda:9092",
+  "summary": {
+    "connections": 10,
+    "slow_flush_threshold_ms": 25.0,
+    "by_path": {
+      "fast": {
+        "connections": 10,
+        "median_flush_p50_ms": 3.993
+      },
+      "slow": {
+        "connections": 0,
+        "median_flush_p50_ms": null
+      }
+    }
+  },
+  "per_connection": [
+    {
+      "connection": 1,
+      "p50": 4.007049,
+      "p95": 5.563203799999999,
+      "fastest": 2.698235,
+      "slowest": 6.837295,
+      "path": "fast"
+    },
+    {
+      "connection": 2,
+      "p50": 3.913641,
+      "p95": 5.2455411,
+      "fastest": 2.212193,
+      "slowest": 6.526368,
+      "path": "fast"
+    },
+    {
+      "connection": 3,
+      "p50": 4.011049,
+      "p95": 5.271492799999998,
+      "fastest": 2.261097,
+      "slowest": 10.105679,
+      "path": "fast"
+    },
+    {
+      "connection": 4,
+      "p50": 3.94684,
+      "p95": 5.4567564,
+      "fastest": 2.279396,
+      "slowest": 11.215168,
+      "path": "fast"
+    },
+    {
+      "connection": 5,
+      "p50": 3.9786435,
+      "p95": 5.4642067999999995,
+      "fastest": 1.596838,
+      "slowest": 40.368383,
+      "path": "fast"
+    },
+    {
+      "connection": 6,
+      "p50": 3.810229,
+      "p95": 5.714918699999999,
+      "fastest": 2.159686,
+      "slowest": 10.141575,
+      "path": "fast"
+    },
+    {
+      "connection": 7,
+      "p50": 4.0772425000000005,
+      "p95": 7.9267858999999925,
+      "fastest": 2.673425,
+      "slowest": 34.270281,
+      "path": "fast"
+    },
+    {
+      "connection": 8,
+      "p50": 4.2659585,
+      "p95": 5.497706799999999,
+      "fastest": 2.081175,
+      "slowest": 11.265947,
+      "path": "fast"
+    },
+    {
+      "connection": 9,
+      "p50": 4.2501075,
+      "p95": 7.027405549999995,
+      "fastest": 2.649223,
+      "slowest": 13.381125,
+      "path": "fast"
+    },
+    {
+      "connection": 10,
+      "p50": 3.888127,
+      "p95": 5.02630735,
+      "fastest": 2.320895,
+      "slowest": 5.389353,
+      "path": "fast"
+    }
+  ]
+}

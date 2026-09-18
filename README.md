@@ -55,6 +55,35 @@ feature engine. Counts from the file; build desktop, Python 3.13.5.
 A count of violations is not a rate, so it carries no interval: it is zero for the sample
 checked, and the sample is fixed by a hash of the card identifier rather than chosen.
 
+**What has been measured (week 4, latency: where the time goes)**
+
+Not the latency figure, which is the live stack's and is week 7's. The first local runs
+put a decision at about 60 ms while every step the scorer takes stayed under 0.4 ms at
+the 99th percentile, so week 4 went to finding the other 59. Three of the four costs turn
+out to belong to the measuring host, and each is measured on its own rather than
+subtracted quietly ([ADR 9](docs/adr/0009-latency-budget.md),
+[docs/latency-budget.md](docs/latency-budget.md)).
+
+| Cost | Measured as | Whose |
+|---|---|---|
+| The process's timer resolution | produce to acknowledgement 48.44 ms at p50 on a default Windows timer, 3.74 ms holding a 1 ms one | the host's |
+| The load producer in the scorer's own interpreter | send to receive 8.64 ms at p50 from its own process, 70.57 ms from a thread beside the scorer; 12 shuffled runs | the harness's |
+| Docker Desktop's port forwarder on Windows | flush 47.72 ms at p50 on 9 of 12 host connections and 7.10 ms on the other 3, against 3.99 ms on 10 of 10 connections from inside the broker's network | the host's |
+| Flush and checkpoint, once per batch | tens of ms per batch whatever the batch holds, which is a throughput ceiling before it is a latency one | **the platform's** |
+
+The scorer's own work, per hop at p99: features 0.340 ms, model 0.003 ms, rules 0.065 ms,
+hand-off 0.048 ms. The end-to-end table stays empty: the runs that would fill it were
+taken while another project on the same machine was training a model, and a 99th
+percentile does not survive that.
+
+**One approach tried and rejected: tuning the Kafka client.** The 47 ms looked like a
+client setting, and `linger.ms=0` and `fetch.wait.max.ms=5` each appeared to fix it in a
+first pass. Run three or more times each in shuffled order, every setting tried, including
+`acks=1` without idempotence, disabling Nagle, a single partition, and the broker's write
+caching, showed both the fast and the slow behaviour in about the same proportion as the
+shipped settings. The first result was run order. What the setting sweep could not do, the
+comparison against the same client inside the broker's network did in one run.
+
 **Live window, Apr 5 to Jun 30 2027**
 
 | Sustained events/s | Uptime % | Interruptions recovered | Drift triggers / retrains approved | Champion vs challenger PR-AUC (95% CI) | Cost per million events |
@@ -96,7 +125,8 @@ sixteen features it now judges, plus the mapping that puts the real data through
 | Promotion gate | [verdict/models/promote.py](verdict/models/promote.py) | Non-inferiority on the interval bound, never the point estimate, from a paired bootstrap on the labelled shadow window; labels that had not arrived are not evidence; a challenger that declines everything is refused. It writes the pull request's evidence table and never promotes ([ADR 11](docs/adr/0011-shadow-and-promotion.md)) |
 | Review queue | [verdict/review_queue/ranking.py](verdict/review_queue/ranking.py) | Expected-loss ranking against score ranking at fixed analyst capacity, simulated a day at a time, paired by day ([ADR 13](docs/adr/0013-queue-ranking.md)). No policy can read the label, and a test proves the prices cannot reorder the queue |
 | Drift monitors and trigger | [verdict/drift/](verdict/drift/) | PSI and KS per feature and on the score, against a fixed reference, with the "no history" sentinel binned on its own. Thresholds are published conventions fixed before any drift was seen; a retraining request needs the same quantity drifted two days running ([ADR 12](docs/adr/0012-drift-thresholds-and-approval.md)) |
-| Load test | [verdict/scoring/loadtest.py](verdict/scoring/loadtest.py) | Sends at a fixed rate and times every decision per hop, with intervals across runs. Its first published numbers wait for a quiet machine |
+| Load test | [verdict/scoring/loadtest.py](verdict/scoring/loadtest.py) | Sends at a fixed rate and times every decision per hop, with intervals across runs. On a broker the load producer runs in its own process, joined to the scorer's timings by event id, because in a thread beside the scorer it was most of what the test measured. Every run says where its producer ran, whether a queue stood, and what its batches held. Its first published numbers wait for a quiet machine |
+| Flush probe | [verdict/stream/probe.py](verdict/stream/probe.py) | A measuring instrument, not the platform: times the scorer's flush on a series of fresh connections, from the host and from inside the broker's network. It is what found the 41 ms the host's port forwarder adds to some connections ([ADR 9](docs/adr/0009-latency-budget.md)) |
 | Stream interface | [verdict/stream/](verdict/stream/) | Produce, consume, checkpoint ([ADR 3](docs/adr/0003-stream-choice.md)). In-process and Redpanda implementations held to one set of contract tests: order per key, redelivery without a checkpoint, resume after one, no rewind, unknown topics refused |
 | **The feature engine** | [verdict/features/engine.py](verdict/features/engine.py) | Written here, not taken off the shelf: Bytewax has no Python 3.13 wheels ([ADR 4](docs/adr/0004-aggregation-engine.md)). Serves each event before observing it, and holds it back until time moves on |
 | Windowed aggregations | [verdict/features/aggregators.py](verdict/features/aggregators.py) | Bounded state, amortised constant time, checked against brute force with property-based tests |
@@ -105,9 +135,9 @@ sixteen features it now judges, plus the mapping that puts the real data through
 | Sixteen feature definitions | [verdict/store/features.py](verdict/store/features.py) | A feature is a specification, not code: card velocity, device and merchant entity-graph counts, session aggregates. The window is `[t - w, t)`, and an event is never part of its own features |
 | Feature store | [verdict/store/repo.py](verdict/store/repo.py) | Feast, generated from the definitions, push sources rather than materialisation |
 | Local stream stack | [deploy/compose/docker-compose.yml](deploy/compose/docker-compose.yml) | Redpanda, three topics created explicitly, auto-creation off and checked at start-up. Its first run found a start-up flag that Redpanda v24.3 rejects |
-| Decisions 1 to 8, 11 to 13, and 17 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; shadow and promotion; drift thresholds; queue ranking; what a card, device and moment are on the real data |
+| Decisions 1 to 9, 11 to 13, and 17 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; the latency budget and what the host costs; shadow and promotion; drift thresholds; queue ranking; what a card, device and moment are on the real data |
 
-390 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
+395 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
 
 **The leakage test caught a real leak on the day the first features were written**, which
 is what it was written a week earlier for. Two transactions sharing a timestamp saw each

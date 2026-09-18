@@ -26,7 +26,9 @@ Intervals follow the week 1 measurement: a statistic computed per run, and a
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import contextlib
+import platform
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import Final
 
@@ -62,6 +64,43 @@ A table rather than scipy, which this project does not otherwise need. Degrees
 of freedom between listed values use the next smaller listed one, which widens
 the interval slightly, never narrows it.
 """
+
+
+@contextlib.contextmanager
+def fine_grained_timers() -> Iterator[bool]:
+    """Ask Windows for a 1 ms timer while measuring or serving, if it is Windows.
+
+    Windows gives each process a timer whose resolution defaults to about
+    15.6 ms, and since Windows 10 version 2004 that resolution is per process:
+    another process asking for a finer timer does not grant one here. Every
+    wait a client makes, including the one inside the Kafka client's flush,
+    is rounded up to the next tick.
+
+    The cost of not asking is not small and it is not noise. Measured on
+    2026-09-17, on this project's own load test: the time from producing a
+    record to its acknowledgement was 48 ms at p50 without this and 3.7 ms
+    with it, against the same broker, with nothing else changed. The first
+    figure is a timer artefact, and `docs/latency-budget.md` reports both so
+    the difference cannot be mistaken for a platform property.
+
+    On Linux, where the live stack runs, there is nothing to ask for and this
+    does nothing.
+
+    Yields:
+        Whether a finer timer was requested.
+    """
+    if platform.system() != "Windows":
+        yield False
+        return
+    import ctypes
+
+    winmm = ctypes.WinDLL("winmm")
+    granted = winmm.timeBeginPeriod(1) == 0
+    try:
+        yield granted
+    finally:
+        if granted:
+            winmm.timeEndPeriod(1)
 
 
 @dataclass(frozen=True, slots=True)
