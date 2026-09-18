@@ -444,6 +444,9 @@ def loadtest(
     events: Annotated[int, typer.Option(help="Transactions per run.")] = 20_000,
     runs: Annotated[int, typer.Option(help="Runs, for the interval. At least 2.")] = 5,
     warmup: Annotated[int, typer.Option(help="Decisions per run left out.")] = 1_000,
+    bootstrap: Annotated[
+        str | None, typer.Option(help="Broker address, for redpanda. Defaults to the host's.")
+    ] = None,
     out: Annotated[Path | None, typer.Option(help="Also write the report here.")] = None,
 ) -> None:
     """Drive the scorer at a fixed rate and report latency per hop.
@@ -457,6 +460,8 @@ def loadtest(
         events: Transactions per run.
         runs: How many runs.
         warmup: Decisions per run excluded from the statistics.
+        bootstrap: The broker's address. From inside the compose network it
+            is `redpanda:9092`, which avoids the host's port forwarder (ADR 9).
         out: Where to write the JSON report, if anywhere.
 
     Raises:
@@ -471,7 +476,7 @@ def loadtest(
         case "memory":
             backend = load.memory_backend()
         case "redpanda":
-            backend = load.redpanda_backend()
+            backend = load.redpanda_backend(bootstrap)
         case _:
             msg = f"unknown stream {stream!r}; use memory or redpanda"
             raise typer.BadParameter(msg)
@@ -484,6 +489,7 @@ def loadtest(
         "model": "stand-in-0 (not trained; see verdict/scoring/model.py)",
         "features": "served by the in-process engine",
         "load_producer_ran_in": results[0].producer,
+        "bootstrap": bootstrap if stream == "redpanda" else None,
         "rate_target_per_second": rate,
         "events_per_run": events,
         "warmup_decisions_excluded": warmup,

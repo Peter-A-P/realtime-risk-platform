@@ -428,6 +428,21 @@ In the order the plan sets, with nothing blocked except where noted:
    a free connection, and what the endpoint refused. A fresh endpoint runs per
    run, on its own port, because the ledger and the engine's windows are per
    process and every run sends the same transactions.
+   **A second attempt on 2026-09-18 was also taken on a shared machine**: the
+   runs were gated on project 12's `sun_fit.py` finishing, and its
+   `finishline backtest` started two minutes before the first run and held
+   40 to 60 percent of the CPU throughout. The reports are kept in
+   `docs/provisional/2026-09-18/` with a note, and `docs/latency-budget.md`
+   has a section on what survives: inside the broker's network the scorer's
+   flush is about 2 ms against about 55 ms through the forwarder; the
+   in-process stream's Windows tail (p99 323 ms) is 17.5 ms in a Linux
+   container; HTTP over 2, 4 and 8 connections refused 25.8, 28.7 and 10.5
+   percent as out of order. Open: mid-run stalls inside the network (p95 133
+   to 845 ms) that are neither the commit nor a queue; the broker's
+   five-second `rpk` health check on `--smp=1 --overprovisioned` is the
+   candidate to A/B on an idle host. `verdict loadtest` now takes
+   `--bootstrap`, and the container command in `docs/latency-budget.md` is
+   checked. **Gate the next attempt on total CPU, not a process name.**
    **Still waiting on a quiet machine:** the end-to-end table in
    `docs/latency-budget.md`, which needs
    `verdict loadtest --stream memory --out docs/latency-week4-memory.json` and
