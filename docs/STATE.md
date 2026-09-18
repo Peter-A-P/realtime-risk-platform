@@ -28,7 +28,7 @@ and the scorer consumes it (ADR 8) with a stand-in model and a load test.
 Week 4's latency work found where the time goes and published that (ADR 9,
 `docs/latency-budget.md`): three of the four costs belong to the measuring
 host, and the end-to-end figure still waits for a quiet machine (section 11).
-395 tests; `ruff`, `ruff format` and
+398 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -418,17 +418,38 @@ In the order the plan sets, with nothing blocked except where noted:
    that found the forwarder, and it is meant to be run twice, once from the
    host and once from inside the broker's network, which the module's
    docstring gives the command for.
+   On 2026-09-18 the HTTP half of Rule C candidate 3 was built:
+   `verdict/scoring/httpload.py` and `verdict http-loadtest`. It starts the
+   endpoint in its own process, offers the same generated events at the same
+   rate over a stated number of connections, and reports the same statistics
+   as the stream test plus two of its own: how long a transaction waited for
+   a free connection, and what the endpoint refused. A fresh endpoint runs per
+   run, on its own port, because the ledger and the engine's windows are per
+   process and every run sends the same transactions.
    **Still waiting on a quiet machine:** the end-to-end table in
    `docs/latency-budget.md`, which needs
    `verdict loadtest --stream memory --out docs/latency-week4-memory.json` and
-   the same with `--stream redpanda`, on an idle host. The runs taken on
-   2026-09-17 were discarded rather than published: project 12 was training a
-   model, and the in-process backend, which touches no network at all, gave a
-   p99 between 20 ms and 288 ms across five runs of one configuration. A p50
-   survives that; a p99 does not. Then the HTTP endpoint for the comparison in
-   Rule C candidate 3. Note the local stack cannot support the 50 ms claim
-   whatever the machine is doing: the forwarder alone costs more than the
-   budget on most connections, which is why the figure is the live stack's.
+   the same with `--stream redpanda`, on an idle host; and the transport
+   comparison, which is `verdict http-loadtest --rate 1000 --connections N`
+   for N of 1, 2, 4 and 8 beside the stream run at the same rate. The runs
+   taken on 2026-09-17 were discarded rather than published: project 12 was
+   training a model, and the in-process backend, which touches no network at
+   all, gave a p99 between 20 ms and 288 ms across five runs of one
+   configuration. A p50 survives that; a p99 does not.
+
+   A functional check on 2026-09-18, at 500/s on a busy machine and **not a
+   result**, showed the shape the comparison is likely to have, and it is
+   structural rather than load-dependent: one connection decided 100 percent
+   of transactions; two or more decided about three quarters, the rest
+   refused with 409 as arriving after later ones; and adding connections made
+   throughput worse rather than better, 500/s at one, two and four
+   connections falling to 395/s at eight, because the endpoint serialises on
+   the engine's lock and extra connections only add queueing. That is ADR 8's
+   argument for a stream consumer, measured.
+
+   Note the local stack cannot support the 50 ms claim whatever the machine is
+   doing: the forwarder alone costs more than the budget on most connections,
+   which is why the figure is the live stack's.
 3. **Week 5:** champion on IEEE-CIS and on replay, FT-Transformer challenger,
    shadow scoring, promotion function, rollback drill. ADRs 10 and 11. This is
    also where the leak's offline PR-AUC inflation gets measured, by training

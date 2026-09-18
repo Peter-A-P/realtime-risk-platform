@@ -505,6 +505,97 @@ def loadtest(
     typer.echo(text)
 
 
+@app.command(name="http-loadtest")
+def http_loadtest(
+    rate: Annotated[float, typer.Option(help="Transactions offered per second.")] = 1000.0,
+    events: Annotated[int, typer.Option(help="Transactions per run.")] = 20_000,
+    runs: Annotated[int, typer.Option(help="Runs, for the interval. At least 2.")] = 5,
+    warmup: Annotated[int, typer.Option(help="Exchanges per run left out.")] = 1_000,
+    connections: Annotated[int, typer.Option(help="Connections carrying the load.")] = 1,
+    stream: Annotated[str, typer.Option(help="Where the endpoint writes: none or redpanda.")] = (
+        "none"
+    ),
+    port: Annotated[int, typer.Option(help="Port the endpoint listens on.")] = 8099,
+    durable: Annotated[bool, typer.Option(help="Flush each decision before responding.")] = True,
+    out: Annotated[Path | None, typer.Option(help="Also write the report here.")] = None,
+) -> None:
+    """Drive the HTTP endpoint at a fixed rate, the other half of Rule C candidate 3.
+
+    Starts the endpoint in its own process, loads it from this one, and stops
+    it. The report carries the same statistics as `loadtest` so that the two
+    transports can be set beside each other, plus what is particular to this
+    one: how long a transaction waited for a free connection, and what the
+    endpoint refused.
+
+    Synthetic live track only, with the week 4 stand-in model.
+
+    Args:
+        rate: Target transactions offered per second.
+        events: Transactions per run.
+        runs: How many runs.
+        warmup: Exchanges per run excluded from the statistics.
+        connections: How many connections carry the load. One cannot exceed
+            one transaction per round trip; several deliver out of order, and
+            the engine refuses what arrives late.
+        stream: Where the endpoint writes decisions.
+        port: The port to listen on.
+        durable: Whether the endpoint flushes each decision before responding.
+        out: Where to write the JSON report, if anywhere.
+
+    Raises:
+        typer.BadParameter: If the stream is not one this build knows.
+    """
+    import platform
+    from dataclasses import asdict
+
+    from verdict.scoring import httpload
+    from verdict.scoring import loadtest as load
+
+    if stream not in {"none", "redpanda"}:
+        msg = f"unknown stream {stream!r}; use none or redpanda"
+        raise typer.BadParameter(msg)
+
+    sent = load.generate_events(events, rate=rate)
+    results = []
+    for run in range(runs):
+        # A fresh endpoint per run, on its own port. The decider's ledger and
+        # the engine's windows are per process, and every run sends the same
+        # transactions: a shared server would refuse the second run entirely
+        # as already decided. The stream test makes fresh topics and a fresh
+        # group per run for the same reason.
+        with httpload.a_server(port=port + run, stream=stream, durable=durable) as base:
+            results.append(
+                httpload.run_once(base, sent, rate=rate, warmup=warmup, connections=connections)
+            )
+    report = {
+        "track": "synthetic live, local",
+        "transport": "http",
+        "endpoint_writes_to": stream,
+        "endpoint_flushes_before_responding": durable,
+        "connections": connections,
+        "model": "stand-in-0 (not trained; see verdict/scoring/model.py)",
+        "features": "served by the in-process engine",
+        "rate_target_per_second": rate,
+        "events_per_run": events,
+        "warmup_exchanges_excluded": warmup,
+        "runs": runs,
+        "host": {
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+            "python": platform.python_version(),
+            "system": f"{platform.system()} {platform.release()}",
+        },
+        "measured_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "summary": httpload.summarise(results),
+        "per_run": [asdict(result) for result in results],
+    }
+    text = json.dumps(report, indent=2)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+    typer.echo(text)
+
+
 @app.command(name="flush-probe")
 def flush_probe(
     bootstrap: Annotated[str | None, typer.Option(help="Broker address.")] = None,

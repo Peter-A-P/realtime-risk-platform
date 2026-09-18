@@ -154,3 +154,49 @@ def test_without_a_stream_the_demo_still_decides() -> None:
     client = TestClient(create_app(a_decider()))
     assert post(client, an_event(1)).status_code == 200
     assert client.get("/healthz").json() == {"ok": True, "decided": 1}
+
+
+# --- the load client for the comparison ------------------------------------
+
+
+def test_the_load_client_reads_the_endpoint_s_own_timing_back() -> None:
+    from verdict.scoring.httpload import parse_server_timing
+
+    header = "queue;dur=0.250, features;dur=1.500, model;dur=0.010, decision;dur=0.030, "
+    header += "persist;dur=4.000"
+    assert parse_server_timing(header) == {
+        "queue": 250_000.0,
+        "features": 1_500_000.0,
+        "model": 10_000.0,
+        "decision": 30_000.0,
+        "persist": 4_000_000.0,
+    }
+
+
+def test_the_load_client_ignores_timings_it_does_not_recognise() -> None:
+    """A proxy may add its own entries, and a hop may arrive without a duration."""
+    from verdict.scoring.httpload import parse_server_timing
+
+    assert parse_server_timing(None) == {}
+    assert parse_server_timing("cdn-cache;desc=HIT, features;dur=2.000, model") == {
+        "features": 2_000_000.0
+    }
+    assert parse_server_timing("features;dur=not-a-number") == {}
+
+
+@pytest.mark.slow
+def test_a_small_http_load_run_measures_every_exchange_it_offered() -> None:
+    """The client, the server it starts, and the join between them, end to end."""
+    from verdict.scoring import httpload, loadtest
+
+    events = loadtest.generate_events(200, rate=200.0)
+    with httpload.a_server(port=8137) as base:
+        result = httpload.run_once(base, events, rate=200.0, warmup=20, connections=2)
+    assert result.sent == 200
+    assert result.measured == 180
+    assert result.connections == 2
+    assert sum(result.answered.values()) == 180
+    assert result.end_to_end["p50"] <= result.end_to_end["p99"]
+    for hop in httpload.SERVER_HOPS:
+        assert result.server[hop]["p50"] >= 0.0
+    assert set(result.backlog) == {"early_p50", "late_p50"}
