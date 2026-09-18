@@ -6,8 +6,8 @@ the training-versus-production mismatch that quietly breaks most deployed models
 platform around the model is what organisations are actually missing, and this one runs
 live where a hiring manager can watch it.
 
-**Status: building, weeks 1 to 3 of 9 done.** The plan is in [PLAN.md](PLAN.md): a nine-week
-build, then three months live at risk.peterparker.ca. Nothing is scored yet, so the
+**Status: building; the event generator is done.** The plan is in [PLAN.md](PLAN.md): build
+first, then run live at risk.peterparker.ca. Nothing is scored yet, so the
 headline tables below are still empty, and they stay empty until the thing they describe
 has actually run.
 
@@ -23,7 +23,7 @@ Not yet measured. The build fills the first table; the live window fills the sec
 |---|---|---|---|---|---|
 | _not yet_ | | | | | |
 
-**What has been measured (week 1, synthetic live track)**
+**What has been measured so far (synthetic live track)**
 
 The event generator only. Nothing here is a platform latency or throughput figure, because
 nothing is being scored yet. Build laptop, Windows 11, Python 3.13.15; five runs of 500,000
@@ -109,7 +109,7 @@ explain every choice with its public sources.
 
 ## Part of a portfolio
 
-One of fifteen projects built over twelve months. This is the systems project: scale, latency
+One of fifteen projects. This is the systems project: scale, latency
 and operations evidence, where the others are about measurement, causal inference,
 retrieval, fine-tuning and compliance.
 
