@@ -6,9 +6,9 @@ the training-versus-production mismatch that quietly breaks most deployed models
 platform around the model is what organisations are actually missing, and this one runs
 live where a hiring manager can watch it.
 
-**Status: building, weeks 1 to 3 of 9 done, and the real data now runs through the
-pipeline.** The plan is in [PLAN.md](PLAN.md): a nine-week
-build, then three months live at risk.peterparker.ca. Nothing is scored yet, so the
+**Status: building, and the real data now runs through the pipeline.** The plan is in
+[PLAN.md](PLAN.md): build first, then run live at risk.peterparker.ca. Nothing is scored
+yet, so the
 headline tables below are still empty, and they stay empty until the thing they describe
 has actually run.
 
@@ -24,7 +24,7 @@ Not yet measured. The build fills the first table; the live window fills the sec
 |---|---|---|---|---|---|
 | _not yet_ | | | | | |
 
-**What has been measured (week 1, synthetic live track)**
+**What has been measured: the synthetic live track**
 
 The event generator only. Nothing here is a platform latency or throughput figure, because
 nothing is being scored yet. Build laptop, Windows 11, Python 3.13.15; five runs of 500,000
@@ -55,11 +55,11 @@ feature engine. Counts from the file; build desktop, Python 3.13.5.
 A count of violations is not a rate, so it carries no interval: it is zero for the sample
 checked, and the sample is fixed by a hash of the card identifier rather than chosen.
 
-**What has been measured (week 4, latency: where the time goes)**
+**What has been measured: latency, and where the time goes**
 
-Not the latency figure, which is the live stack's and is week 7's. The first local runs
+Not the latency figure, which is the live stack's and comes later. The first local runs
 put a decision at about 60 ms while every step the scorer takes stayed under 0.4 ms at
-the 99th percentile, so week 4 went to finding the other 59. Three of the four costs turn
+the 99th percentile, so the work went to finding the other 59. Three of the four costs turn
 out to belong to the measuring host, and each is measured on its own rather than
 subtracted quietly ([ADR 9](docs/adr/0009-latency-budget.md),
 [docs/latency-budget.md](docs/latency-budget.md)).
@@ -106,8 +106,8 @@ comparison against the same client inside the broker's network did in one run.
 
 ## What exists so far
 
-Weeks 1 to 3 of nine: the event stream, the test that judges every feature, and the
-sixteen features it now judges, plus the mapping that puts the real data through all three.
+The event stream, the test that judges every feature, and the sixteen features it now
+judges, plus the mapping that puts the real data through all three.
 
 | Piece | Where | Note |
 |---|---|---|
@@ -119,7 +119,7 @@ sixteen features it now judges, plus the mapping that puts the real data through
 | Replay, in time order | [verdict/events/replay.py](verdict/events/replay.py) | Refuses an out-of-order log rather than sorting it quietly |
 | Real data onto events | [verdict/events/ieee_cis_events.py](verdict/events/ieee_cis_events.py) | A card is issuer, product, billing region and account start day. No device or merchant is invented to fill the schema, which is at version 2 so it can say so |
 | Sampled replay check | [verdict/features/replay_check.py](verdict/features/replay_check.py) | The point-in-time check over a replay too large to check in full, sampling cards rather than rows |
-| The scorer | [verdict/scoring/consumer.py](verdict/scoring/consumer.py) | A stream consumer, not an HTTP service ([ADR 8](docs/adr/0008-consumer-scoring.md)). Duplicates are stopped before the feature engine can count them twice, and transactions are checkpointed only after their decisions are on the stream. The model is a stand-in until week 5, and says so in every decision |
+| The scorer | [verdict/scoring/consumer.py](verdict/scoring/consumer.py) | A stream consumer, not an HTTP service ([ADR 8](docs/adr/0008-consumer-scoring.md)). Duplicates are stopped before the feature engine can count them twice, and transactions are checkpointed only after their decisions are on the stream. The model is a stand-in until the real one is trained, and says so in every decision |
 | One decision core, two transports | [verdict/scoring/core.py](verdict/scoring/core.py), [http_api.py](verdict/scoring/http_api.py) | The stream consumer and the HTTP endpoint share every line of the decision, so comparing them compares transports. HTTP has to refuse what the stream never delivers: a transaction older than one already scored |
 | Rollback flag and shadow | [verdict/scoring/flags.py](verdict/scoring/flags.py) | The champion is read from a pointer on every event, so a rollback takes effect on the next one; a bad pointer is refused and scoring carries on. A challenger scores in shadow on the same features, and a challenger that fails cannot touch a decision |
 | Promotion gate | [verdict/models/promote.py](verdict/models/promote.py) | Non-inferiority on the interval bound, never the point estimate, from a paired bootstrap on the labelled shadow window; labels that had not arrived are not evidence; a challenger that declines everything is refused. It writes the pull request's evidence table and never promotes ([ADR 11](docs/adr/0011-shadow-and-promotion.md)) |
@@ -172,7 +172,7 @@ explain every choice with its public sources.
 
 ## Part of a portfolio
 
-One of fifteen projects built over twelve months. This is the systems project: scale, latency
+One of fifteen projects. This is the systems project: scale, latency
 and operations evidence, where the others are about measurement, causal inference,
 retrieval, fine-tuning and compliance.
 
