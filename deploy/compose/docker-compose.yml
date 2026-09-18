@@ -89,6 +89,9 @@ services:
         ensure decisions 4 604800000
         # What a challenger would have decided, beside the champion (week 5).
         ensure shadow 4 604800000
+        # Records the scorer could not decide, bytes untouched, with the reason.
+        # One partition: it is read by a person, and thirty days gives them time.
+        ensure dead-letter 1 2592000000
         rpk topic list --brokers redpanda:9092
         test "$$(rpk cluster config get auto_create_topics_enabled -X admin.hosts=redpanda:9644)" = false
     restart: "no"

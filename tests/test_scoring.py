@@ -9,7 +9,9 @@ write decisions leaves the transactions unacknowledged.
 
 from __future__ import annotations
 
+import base64
 import datetime as dt
+import json
 import subprocess
 import sys
 import time
@@ -58,6 +60,7 @@ def a_setup(partitions: int = 1) -> tuple[MemoryBroker, MemoryStream]:
     broker = MemoryBroker()
     broker.create_topic("transactions", partitions)
     broker.create_topic("decisions", 2)
+    broker.create_topic("dead-letter", 1)
     return broker, broker.open()
 
 
@@ -319,6 +322,7 @@ def test_a_small_load_test_decides_everything_and_reports_every_hop() -> None:
         assert set(result.backlog) == {"early_p50", "late_p50"}
         assert result.producer == "the scorer's process"
         assert result.duplicates == 0
+        assert result.set_aside == {}
     summary = loadtest.summarise(results)
     assert summary["end_to_end_ms"]["p99"]["runs"] == 2
     assert summary["backlog_ms"]["late_p50"]["runs"] == 2
@@ -342,14 +346,86 @@ def test_the_clock_the_load_test_joins_two_processes_on_is_one_clock() -> None:
     assert before < int(child.stdout.strip()) < after
 
 
-def test_the_scorer_refuses_a_transaction_that_arrives_out_of_time_order() -> None:
-    """Why the transaction topic has one partition: the engine will not guess."""
-    from verdict.features.engine import LateEventError
+def dead_letters_on(broker: MemoryBroker) -> list[dict[str, str]]:
+    reader = broker.open()
+    out: list[dict[str, str]] = []
+    while batch := reader.consume("dead-letter", "reader", max_records=1_000):
+        out.extend(json.loads(record.value) for record in batch)
+    return out
+
+
+def test_a_transaction_that_arrives_out_of_time_order_is_set_aside_not_served() -> None:
+    """Why the transaction topic has one partition: the engine will not guess.
+
+    The late event is refused by the engine, goes to the dead-letter topic with
+    the reason, and gets no decision; the scorer carries on with the next one.
+    """
+    broker, stream = a_setup()
+    send(stream, [an_event(2), an_event(1), an_event(3)])
+    scorer = a_scorer(stream)
+    drain(scorer)
+    assert [d.event_id for d in decisions_on(broker)] == ["evt-2", "evt-3"]
+    [letter] = dead_letters_on(broker)
+    assert letter["reason"] == "late"
+    assert "evt-1" in letter["detail"]
+    assert scorer.dead_letters == {"late": 1}
+
+
+def test_one_malformed_record_is_set_aside_and_the_scorer_carries_on() -> None:
+    """The fault this was built for: one bad message used to stop the scorer for good.
+
+    It was never checkpointed, so every restart read it again and stopped
+    again. Now it is set aside with its bytes untouched and checkpointed past.
+    """
+    broker, stream = a_setup()
+    send(stream, [an_event(1)])
+    stream.produce("transactions", "card-1", b"\xff{not json")
+    send(stream, [an_event(2)])
+    scorer = a_scorer(stream)
+    drain(scorer)
+    assert [d.event_id for d in decisions_on(broker)] == ["evt-1", "evt-2"]
+    [letter] = dead_letters_on(broker)
+    assert letter["reason"] == "undecodable"
+    assert base64.b64decode(letter["value_base64"]) == b"\xff{not json"
+
+    restarted = a_scorer(broker.open())
+    assert restarted.poll() == 0
+
+
+def test_a_record_from_a_newer_schema_is_set_aside_with_its_version() -> None:
+    broker, stream = a_setup()
+    stream.produce("transactions", "card-1", json.dumps({"schema_version": 3}).encode())
+    send(stream, [an_event(1)])
+    scorer = a_scorer(stream)
+    drain(scorer)
+    [letter] = dead_letters_on(broker)
+    assert letter["reason"] == "unknown-schema-version"
+    assert scorer.decider.stats.decided == 1
+
+
+def test_a_run_of_records_that_cannot_be_decided_stops_the_scorer() -> None:
+    """A run of them is a bad deployment upstream, and setting it all aside is worse."""
+    from verdict.scoring.consumer import DeadLetterRunError
 
     broker, stream = a_setup()
-    send(stream, [an_event(2), an_event(1)])
-    with pytest.raises(LateEventError):
-        a_scorer(stream).poll()
+    for _ in range(6):
+        stream.produce("transactions", "card-1", json.dumps({"schema_version": 3}).encode())
+    scorer = a_scorer(stream, max_consecutive_dead_letters=5)
+    with pytest.raises(DeadLetterRunError, match="6 records in a row"):
+        scorer.poll()
+
+
+def test_a_good_record_resets_the_count_of_records_set_aside() -> None:
+    broker, stream = a_setup()
+    bad = json.dumps({"schema_version": 3}).encode()
+    for index in range(1, 4):
+        stream.produce("transactions", "card-1", bad)
+        stream.produce("transactions", "card-1", bad)
+        send(stream, [an_event(index)])
+    scorer = a_scorer(stream, max_consecutive_dead_letters=2)
+    drain(scorer)
+    assert scorer.decider.stats.decided == 3
+    assert scorer.dead_letters == {"unknown-schema-version": 6}
 
 
 # --- shadow scoring -------------------------------------------------------

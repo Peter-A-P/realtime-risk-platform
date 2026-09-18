@@ -16,7 +16,6 @@ from collections.abc import Sequence
 import pytest
 
 from verdict.events.schema import TransactionEvent
-from verdict.features.engine import LateEventError
 from verdict.scoring import loadtest
 from verdict.stream.base import Record
 from verdict.stream.memory import MemoryBroker, MemoryStream
@@ -39,6 +38,7 @@ def a_memory_path(
     broker = MemoryBroker()
     broker.create_topic("transactions", 1)
     broker.create_topic("decisions", 4)
+    broker.create_topic("dead-letter", 1)
     return broker, stream_type(broker)
 
 
@@ -163,19 +163,24 @@ class Reordering(MemoryStream):
         return records
 
 
-def test_a_stream_that_reorders_is_refused_rather_than_served(
-    replay: list[TransactionEvent],
-) -> None:
-    """Out of order is not a quiet disagreement: the engine refuses the late event."""
-    _, stream = a_memory_path(Reordering)
-    with pytest.raises(LateEventError):
-        through(
-            "reordering",
-            stream,
-            replay,
-            transactions_topic="transactions",
-            decisions_topic="decisions",
-        )
+def test_a_stream_that_reorders_is_caught(replay: list[TransactionEvent]) -> None:
+    """The engine refuses each late event, so it is set aside with no decision.
+
+    Parity reports those as missing: a path that decided fewer transactions
+    than the reference is not identical to it.
+    """
+    broker, stream = a_memory_path(Reordering)
+    path = through(
+        "reordering",
+        stream,
+        replay,
+        transactions_topic="transactions",
+        decisions_topic="decisions",
+        reader=broker.open(),
+    )
+    report = compare(reference(replay), path)
+    assert not report.clean
+    assert {d.what for d in report.disagreements} >= {"missing"}
 
 
 @pytest.mark.broker
@@ -189,6 +194,8 @@ def test_redpanda_is_identical_to_no_stream(replay: list[TransactionEvent]) -> N
     transactions, decisions = f"parity-transactions-{suffix}", f"parity-decisions-{suffix}"
     admin.create_topic(transactions, 1)
     admin.create_topic(decisions, 4)
+    dead = f"parity-dead-letter-{suffix}"
+    admin.create_topic(dead, 1)
     stream, reader = RedpandaStream(), RedpandaStream()
     try:
         path = through(
@@ -197,6 +204,7 @@ def test_redpanda_is_identical_to_no_stream(replay: list[TransactionEvent]) -> N
             replay,
             transactions_topic=transactions,
             decisions_topic=decisions,
+            dead_letter_topic=dead,
             reader=reader,
         )
     finally:
@@ -204,6 +212,7 @@ def test_redpanda_is_identical_to_no_stream(replay: list[TransactionEvent]) -> N
         reader.close()
         admin.delete_topic(transactions)
         admin.delete_topic(decisions)
+        admin.delete_topic(dead)
         admin.close()
     report = compare(reference(replay), path)
     assert report.clean, report.summary()

@@ -28,7 +28,7 @@ and the scorer consumes it (ADR 8) with a stand-in model and a load test.
 Week 4's latency work found where the time goes and published that (ADR 9,
 `docs/latency-budget.md`): three of the four costs belong to the measuring
 host, and the end-to-end figure still waits for a quiet machine (section 11).
-404 tests; `ruff`, `ruff format` and
+408 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -458,6 +458,16 @@ In the order the plan sets, with nothing blocked except where noted:
    delay (about 200 ms polling, about 70 ms with enhanced fan-out) is larger
    than the whole 50 ms budget. The client is not written until Peter picks
    an option.
+
+   Also on 2026-09-18, a real defect fixed: one record the scorer could not
+   decide (not a transaction, a newer schema version, or late in event time)
+   raised before the checkpoint, so every restart read it again and stopped
+   again, a permanent outage from one message. Reproduced, then fixed: such a
+   record now goes to a `dead-letter` topic (added to the compose topics job;
+   **an existing local volume needs the topics job run again**) and a run of
+   fifty in a row stops the scorer instead. ADR 8's addendum and the first
+   section of `docs/failure-modes.md`, which PLAN.md's week 8 row names, carry
+   it.
 
    Note the local stack cannot support the 50 ms claim whatever the machine is
    doing: the forwarder alone costs more than the budget on most connections,

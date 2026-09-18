@@ -101,10 +101,11 @@ run reports the rate it actually achieved either way.
 
 @dataclass(frozen=True, slots=True)
 class Topics:
-    """A pair of topics for one run, and how to remove them."""
+    """A run's topics, and how to remove them."""
 
     transactions: str
     decisions: str
+    dead_letter: str
     teardown: Callable[[], None]
 
 
@@ -185,9 +186,12 @@ def memory_backend() -> Backend:
 
     def topics() -> Topics:
         suffix = uuid.uuid4().hex[:8]
-        names = Topics(f"transactions-{suffix}", f"decisions-{suffix}", lambda: None)
+        names = Topics(
+            f"transactions-{suffix}", f"decisions-{suffix}", f"dead-letter-{suffix}", lambda: None
+        )
         broker.create_topic(names.transactions, 1)
         broker.create_topic(names.decisions, 4)
+        broker.create_topic(names.dead_letter, 1)
         return names
 
     def send(names: Topics, events: list[TransactionEvent], rate: float) -> Sent:
@@ -221,15 +225,18 @@ def redpanda_backend(bootstrap: str | None = None) -> Backend:
         admin = RedpandaStream(address)
         suffix = uuid.uuid4().hex[:8]
         transactions, decisions = f"load-transactions-{suffix}", f"load-decisions-{suffix}"
+        dead_letter = f"load-dead-letter-{suffix}"
         admin.create_topic(transactions, 1)
         admin.create_topic(decisions, 4)
+        admin.create_topic(dead_letter, 1)
 
         def teardown() -> None:
             admin.delete_topic(transactions)
             admin.delete_topic(decisions)
+            admin.delete_topic(dead_letter)
             admin.close()
 
-        return Topics(transactions, decisions, teardown)
+        return Topics(transactions, decisions, dead_letter, teardown)
 
     def send(names: Topics, events: list[TransactionEvent], rate: float) -> Sent:
         return send_from_a_subprocess(address, names.transactions, len(events), rate)
@@ -325,6 +332,9 @@ class RunResult:
         flush: p50 and p99 of the flush alone.
         checkpoint: p50 and p99 of the offset commit alone.
         duplicates: Transactions the scorer skipped as already decided.
+        set_aside: Transactions sent to the dead-letter topic, by reason. A
+            run with any is not comparable to one without: they were never
+            decided, so they are not in the latency figures either.
     """
 
     sent: int
@@ -341,6 +351,7 @@ class RunResult:
     flush: dict[str, float]
     checkpoint: dict[str, float]
     duplicates: int
+    set_aside: dict[str, int]
 
 
 def _ms(values_ns: list[int], q: float) -> float:
@@ -381,6 +392,7 @@ def run_once(
         ),
         transactions_topic=topics.transactions,
         decisions_topic=topics.decisions,
+        dead_letter_topic=topics.dead_letter,
         group=f"scorer-{uuid.uuid4().hex[:8]}",
         on_decided=on_decided,
     )
@@ -388,7 +400,10 @@ def run_once(
     def score_until_done() -> None:
         while not (
             done.is_set()
-            and scorer.decider.stats.decided + scorer.decider.stats.duplicates >= len(events)
+            and scorer.decider.stats.decided
+            + scorer.decider.stats.duplicates
+            + sum(scorer.dead_letters.values())
+            >= len(events)
         ):
             scorer.poll(max_records=500, timeout_seconds=0.01)
 
@@ -444,6 +459,7 @@ def run_once(
             "p99": _ms(scorer.commits.checkpoint_ns, 99),
         },
         duplicates=scorer.decider.stats.duplicates,
+        set_aside=dict(scorer.dead_letters),
     )
 
 

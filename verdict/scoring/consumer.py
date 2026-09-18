@@ -26,6 +26,22 @@ engine would refuse them as late, correctly. Scaling past one partition needs
 a reorder buffer with a watermark, whose hold time is latency, and ADR 8
 says what that costs before anyone builds it.
 
+**A record that cannot be decided is set aside, not retried forever.** A
+record that is not a transaction this build can read, or that arrives after
+the stream has moved past its time, goes to the dead-letter topic with its
+bytes untouched and the reason, and the scorer moves on. Before this, one such
+record stopped the scorer, and because it was never checkpointed, every
+restart read it again and stopped again: one malformed message was a
+permanent outage. A dead letter is flushed before the checkpoint that passes
+it, exactly as a decision is, so it cannot be lost. But a run of them is not
+a bad record, it is a bad deployment (a producer that moved to a schema
+version this scorer cannot read, say), and quietly setting the whole stream
+aside would be worse than stopping. So after `max_consecutive_dead_letters`
+in a row the scorer stops and says why. Anything else that goes wrong while
+deciding is a bug, affects every record alike, and still stops the scorer at
+once. ADR 8's addendum of 2026-09-18 records the choice, including what it
+costs: a dead-lettered transaction gets no decision.
+
 The ledger is in memory and bounded. It stops duplicates within a process's
 lifetime; after a restart the engine's state is gone as well, which is the
 larger problem and is the online store's to solve (rebuilt by replay, ADR 8).
@@ -33,19 +49,41 @@ larger problem and is the online store's to solve (rebuilt by replay, ADR 8).
 
 from __future__ import annotations
 
+import base64
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Final
 
-from verdict.events.schema import DecisionEvent, TransactionEvent, decode_transaction
+from pydantic import ValidationError
+
+from verdict.events.schema import (
+    DecisionEvent,
+    TransactionEvent,
+    UnknownSchemaVersionError,
+    decode_transaction,
+)
+from verdict.features.engine import LateEventError
 from verdict.scoring.core import Decider
 from verdict.scoring.timing import HopSample
-from verdict.stream.base import Stream
+from verdict.stream.base import Record, Stream, StreamError
 
 TRANSACTIONS_TOPIC: Final = "transactions"
 DECISIONS_TOPIC: Final = "decisions"
 SHADOW_TOPIC: Final = "shadow"
+DEAD_LETTER_TOPIC: Final = "dead-letter"
+
+MAX_CONSECUTIVE_DEAD_LETTERS: Final = 50
+"""How many records in a row may be set aside before the scorer stops.
+
+A placeholder, chosen to be far more than any one bad message produces and
+far fewer than a systemic fault would: at the live rate it is 50 ms of stream.
+It is a guard, not a tuned threshold, and it says so when it trips.
+"""
+
+DETAIL_LIMIT: Final = 500
+"""How much of an error's text a dead letter keeps."""
 SCORER_GROUP: Final = "scorer"
 
 Decided = Callable[[TransactionEvent, DecisionEvent, HopSample], None]
@@ -74,6 +112,39 @@ class CommitStats:
     checkpoint_ns: list[int] = field(default_factory=list)
 
 
+class DeadLetterRunError(StreamError):
+    """Raised when too many records in a row could not be decided."""
+
+
+def dead_letter_payload(record: Record, reason: str, detail: str) -> bytes:
+    """What goes on the dead-letter topic for a record that could not be decided.
+
+    An operational record rather than part of the wire schema: it carries the
+    original bytes verbatim, base64-encoded because they may not be text, so
+    the record can be inspected and, once the fault is fixed, replayed.
+
+    Args:
+        record: The record as it came off the stream.
+        reason: `undecodable`, `unknown-schema-version` or `late`.
+        detail: The error's own text.
+
+    Returns:
+        JSON, UTF-8.
+    """
+    return json.dumps(
+        {
+            "reason": reason,
+            "detail": detail[:DETAIL_LIMIT],
+            "topic": record.topic,
+            "partition": record.position.partition,
+            "token": record.position.token,
+            "key": record.key,
+            "value_base64": base64.b64encode(record.value).decode("ascii"),
+        },
+        sort_keys=True,
+    ).encode("utf-8")
+
+
 class StreamScorer:
     """Consumes transactions and writes decisions."""
 
@@ -85,8 +156,10 @@ class StreamScorer:
         transactions_topic: str = TRANSACTIONS_TOPIC,
         decisions_topic: str = DECISIONS_TOPIC,
         shadow_topic: str = SHADOW_TOPIC,
+        dead_letter_topic: str = DEAD_LETTER_TOPIC,
         group: str = SCORER_GROUP,
         on_decided: Decided | None = None,
+        max_consecutive_dead_letters: int = MAX_CONSECUTIVE_DEAD_LETTERS,
     ) -> None:
         """Assemble the scorer.
 
@@ -96,14 +169,21 @@ class StreamScorer:
             transactions_topic: The topic to consume.
             decisions_topic: The topic to write.
             shadow_topic: Where a shadow model's would-be decisions go.
+            dead_letter_topic: Where records that cannot be decided go.
             group: The consumer group, where progress is checkpointed.
             on_decided: Called for each decision, for measurement.
+            max_consecutive_dead_letters: How many records in a row may be
+                set aside before the scorer stops.
         """
         self.stream = stream
         self.decider = decider
         self.transactions_topic = transactions_topic
         self.decisions_topic = decisions_topic
         self.shadow_topic = shadow_topic
+        self.dead_letter_topic = dead_letter_topic
+        self.max_consecutive_dead_letters = max_consecutive_dead_letters
+        self.dead_letters: dict[str, int] = {}
+        self._dead_in_a_row = 0
         self.group = group
         self.on_decided = on_decided
         self.commits = CommitStats()
@@ -127,7 +207,7 @@ class StreamScorer:
         if not records:
             return 0
         for record in records:
-            self._handle(record.value)
+            self._handle(record)
         committed = time.perf_counter_ns()
         self.stream.flush()
         flushed = time.perf_counter_ns()
@@ -141,10 +221,22 @@ class StreamScorer:
         self.commits.batches += 1
         return len(records)
 
-    def _handle(self, raw: bytes) -> None:
+    def _handle(self, record: Record) -> None:
         started = time.perf_counter_ns()
-        event = decode_transaction(raw)
-        outcome = self.decider.decide(event, started)
+        try:
+            event = decode_transaction(record.value)
+        except UnknownSchemaVersionError as error:
+            self._set_aside(record, "unknown-schema-version", str(error))
+            return
+        except (UnicodeDecodeError, ValidationError) as error:
+            self._set_aside(record, "undecodable", str(error))
+            return
+        try:
+            outcome = self.decider.decide(event, started)
+        except LateEventError as error:
+            self._set_aside(record, "late", str(error))
+            return
+        self._dead_in_a_row = 0
         if outcome is None:
             return
         before_persist = time.perf_counter_ns()
@@ -164,3 +256,27 @@ class StreamScorer:
                     persist_ns=persisted - before_persist,
                 ),
             )
+
+    def _set_aside(self, record: Record, reason: str, detail: str) -> None:
+        """Send a record to the dead-letter topic, or stop if too many have gone.
+
+        Args:
+            record: The record.
+            reason: Why it could not be decided.
+            detail: The error's text.
+
+        Raises:
+            DeadLetterRunError: If this makes too many in a row.
+        """
+        self._dead_in_a_row += 1
+        if self._dead_in_a_row > self.max_consecutive_dead_letters:
+            msg = (
+                f"{self._dead_in_a_row} records in a row could not be decided, the last "
+                f"{reason}: {detail[:200]}. That is a fault upstream, not a bad record; "
+                "stopping rather than setting the stream aside"
+            )
+            raise DeadLetterRunError(msg)
+        self.stream.produce(
+            self.dead_letter_topic, record.key, dead_letter_payload(record, reason, detail)
+        )
+        self.dead_letters[reason] = self.dead_letters.get(reason, 0) + 1

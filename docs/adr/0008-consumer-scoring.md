@@ -126,6 +126,53 @@ The HTTP endpoint differs from the consumer in the three ways its module
 docstring lists (a lock, 409 for out-of-order transactions, a flush per
 request), and those differences are the evidence the comparison is for.
 
+## Addendum, 2026-09-18: a record that cannot be decided is set aside
+
+**The fault.** A record the scorer could not decide raised out of `poll`
+before the batch's checkpoint. The scorer stopped; on restart it resumed from
+the last checkpoint, read the same record, and stopped again. One malformed
+message, one record from a producer on a newer schema, or one transaction
+late in event time was a permanent outage, and nothing behind it was ever
+decided. It was reproduced before it was fixed: three restarts, three
+identical stops on the same record.
+
+**The decision.** Three kinds of record are set aside rather than raised:
+
+| Reason | What it is |
+|---|---|
+| `undecodable` | Not UTF-8, not JSON, or not a valid transaction |
+| `unknown-schema-version` | A transaction this build does not know how to read |
+| `late` | A transaction behind the engine's clock, which the engine refuses rather than corrupt its windows (the section above on one partition) |
+
+Each goes to the `dead-letter` topic with its bytes untouched (base64, since
+they may not be text), the reason, the error's text, and where it came from,
+so it can be inspected and, once the fault is fixed, replayed. A dead letter
+is written before the batch's flush and so is durable before the checkpoint
+that passes it, the same guarantee a decision has.
+
+**A run of them stops the scorer.** One bad record is a bad record; fifty in a
+row is a producer deployed ahead of the scorer, or a clock gone wrong
+upstream, and setting the whole stream aside quietly would be worse than
+stopping. After `MAX_CONSECUTIVE_DEAD_LETTERS` (50, a placeholder: far more
+than one fault produces, far fewer than a systemic one would, and 50 ms of
+stream at the live rate) the scorer raises `DeadLetterRunError` and says what
+it last saw. Any other exception while deciding is a bug, would affect every
+record alike, and still stops the scorer at once, as before.
+
+**What it costs.** A transaction set aside gets no decision. On a payment path
+that means the caller's own timeout and default apply. A fallback decision
+(for example, review everything that could not be scored) was considered and
+not taken here: it would be a decision made without features, recorded on the
+decisions topic beside real ones, and whether that is better than no decision
+is a product question with no answer in a public problem statement. The
+count of each reason is on the scorer (`dead_letters`), the load test reports
+it per run, and a run with any is not comparable to one without.
+
+**Parity follows.** `stream/parity.py` counts what the scorer set aside, and a
+path that decided fewer transactions than the reference reports them as
+missing. A stream that reorders is therefore caught by parity as a set of
+missing decisions, where before it stopped the check with an exception.
+
 ## Options not taken
 
 - **Deduplicate on the decisions topic only.** Cheap, and it lets the engine

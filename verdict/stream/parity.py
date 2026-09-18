@@ -9,9 +9,9 @@ same events handed straight to a fresh feature engine in order.
 
 What a stream could get wrong, and so what this can catch:
 
-- **Order.** An event delivered after a later one for the same card would be
-  served a different window, or refused as late. One partition is what
-  prevents it (ADR 8); this is the check that it does.
+- **Order.** An event delivered after a later one would be served a
+  different window, or set aside as late with no decision at all. One
+  partition is what prevents it (ADR 8); this is the check that it does.
 - **Duplicates.** Delivery is at least once. A redelivered event that reached
   the engine would be counted twice in every window it falls in. The scorer's
   ledger is what prevents it; a duplicate that got past it shows up here as a
@@ -117,6 +117,7 @@ def through(
     *,
     transactions_topic: str,
     decisions_topic: str,
+    dead_letter_topic: str = "dead-letter",
     reader: Stream | None = None,
     deadline_seconds: float = DEFAULT_DEADLINE_SECONDS,
 ) -> PathResult:
@@ -128,6 +129,7 @@ def through(
         events: The replay, in time order.
         transactions_topic: An empty topic for the transactions.
         decisions_topic: An empty topic for the decisions.
+        dead_letter_topic: Where the scorer sets aside what it cannot decide.
         reader: A separate client to read the decisions with; the stream
             itself if None.
         deadline_seconds: How long the scorer may take.
@@ -150,10 +152,11 @@ def through(
         decider=decider,
         transactions_topic=transactions_topic,
         decisions_topic=decisions_topic,
+        dead_letter_topic=dead_letter_topic,
         group=f"parity-{uuid.uuid4().hex[:8]}",
     )
     deadline = time.monotonic() + deadline_seconds
-    while decider.stats.decided < len(events):
+    while decider.stats.decided + sum(scorer.dead_letters.values()) < len(events):
         if time.monotonic() > deadline:
             msg = f"{name}: decided {decider.stats.decided} of {len(events)} in {deadline_seconds}s"
             raise TimeoutError(msg)
@@ -162,7 +165,7 @@ def through(
     decided: dict[str, DecisionKey] = {}
     source = reader or stream
     group = f"parity-reader-{uuid.uuid4().hex[:8]}"
-    while len(decided) < len(events):
+    while len(decided) < decider.stats.decided:
         if time.monotonic() > deadline:
             msg = f"{name}: read back {len(decided)} of {len(events)} decisions"
             raise TimeoutError(msg)
