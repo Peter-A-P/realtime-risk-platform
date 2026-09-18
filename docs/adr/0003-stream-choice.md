@@ -1,6 +1,6 @@
 # 3. Redpanda locally, Kinesis live, behind one `Stream` interface
 
-- Status: accepted
+- Status: accepted; **an open question added 2026-09-18**, pending Peter (see the end)
 - Date: 2026-09-12
 - Deciders: Peter Parker
 
@@ -73,6 +73,53 @@ Option 3.
 - If the design has to grow beyond one region or beyond at-least-once, the
   interface is where that lands. `PLAN.md` section 11 records what would
   change.
+
+## Open question, 2026-09-18: Kinesis cannot carry the ingest hop PLAN.md budgets
+
+Found while starting the Kinesis implementation, before any of it was built,
+and recorded here rather than decided, because the answer changes the
+project's one-line claim.
+
+`PLAN.md` section 2.4 measures latency "from the event's ingest timestamp to
+the decision timestamp" and gives the ingest hop 5 ms of a 50 ms budget. AWS
+documents the time from `PutRecord` to a consumer receiving the record as the
+*message propagation delay*, and its own figures are:
+
+| Consumer | Average propagation delay, per AWS |
+|---|---|
+| Shared throughput, polling `GetRecords` (5 calls per second per shard) | about 200 ms with one consumer |
+| Enhanced fan-out, pushed over HTTP/2 by `SubscribeToShard` | typically about 70 ms |
+
+Those are averages; a 99th percentile is higher. So on Kinesis the stream
+alone exceeds the whole 50 ms budget on average, whichever consumer is used,
+before the scorer does anything. For comparison, the same flush measured
+inside the local broker's network in ADR 9 was 3.99 ms.
+
+The options, none taken yet:
+
+1. **Keep Kinesis, and move where the clock starts** to the scorer receiving
+   the record. The 50 ms claim then covers features, model, rules and the
+   durable write, and Kinesis's propagation is published beside it as AWS's.
+   Cheapest; the one-liner has to say "once it reaches the scorer".
+2. **Replace Kinesis on the live stack with Redpanda on the instance** (option
+   2 above, rejected at the time). The end-to-end claim survives as written,
+   on the evidence of ADR 9's in-network measurement. Costs the managed-AWS
+   example and makes a spot replacement a broker recovery, not just a
+   consumer restart.
+3. **Kinesis with enhanced fan-out, and a budget set from what it measures.**
+   Honest and managed, but the headline becomes a number in the low hundreds
+   of milliseconds, and enhanced fan-out adds a consumer-shard-hour and a
+   per-GB retrieval charge to the budget in `PLAN.md` section 6.
+
+Until this is decided, week 7's Kinesis client is not written; what every
+option needs (the parity test between stream implementations, the teardown
+check, the budget alarms) is.
+
+Sources: Amazon Kinesis Data Streams developer guide, *Develop enhanced
+fan-out consumers with dedicated throughput* (the propagation-delay table),
+https://docs.aws.amazon.com/streams/latest/dev/enhanced-consumers.html ; and
+*Quotas and limits* (five `GetRecords` transactions per second per shard),
+https://docs.aws.amazon.com/streams/latest/dev/service-sizes-and-limits.html
 
 ## Sources
 

@@ -28,7 +28,7 @@ and the scorer consumes it (ADR 8) with a stand-in model and a load test.
 Week 4's latency work found where the time goes and published that (ADR 9,
 `docs/latency-budget.md`): three of the four costs belong to the measuring
 host, and the end-to-end figure still waits for a quiet machine (section 11).
-398 tests; `ruff`, `ruff format` and
+404 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -245,6 +245,7 @@ unreachable.
 | 3 | **Kaggle forum posting.** Rule 8.B asks that publicly shared competition code be posted to the competition's own forum. Arguably spent since 2019, cheap to honour, and it publishes under Peter's name | Peter | Go-live |
 | 4 | AWS budget alarms before the first resource exists | Peter | Week 7 |
 | 5 | **Review ADR 17.** Three choices about the real data, each reversible in one function: the card key, no device, the reference date. The one most worth a second opinion is having no device at all | Peter | Before week 5 trains on the real data |
+| 6 | **Kinesis cannot meet the 50 ms budget as PLAN.md 2.4 measures it.** AWS documents about 200 ms average propagation for a polling consumer and about 70 ms with enhanced fan-out, before the scorer starts. Three options in ADR 3's open question: start the clock at the scorer, run Redpanda on the live instance instead, or keep Kinesis and publish what it measures. The first changes the one-liner's wording, the second the AWS story, the third the headline number | Peter | Before week 7's Kinesis client is written; nothing earlier depends on it |
 
 Nothing else is blocked. Weeks 4, 5 and 6, including the broker-backed latency
 measurement, can be built on this machine.
@@ -446,6 +447,17 @@ In the order the plan sets, with nothing blocked except where noted:
    connections falling to 395/s at eight, because the endpoint serialises on
    the engine's lock and extra connections only add queueing. That is ADR 8's
    argument for a stream consumer, measured.
+
+   Also on 2026-09-18, ahead of week 7: `verdict/stream/parity.py`, the parity
+   check ADR 3 names, in `tests/test_stream_parity.py`. Its first draft
+   compared only effects, and its own planted fault (one cent on one
+   transaction) showed that a changed event only surfaces in a later event's
+   window; it now also compares each transaction as received, by digest.
+   Starting the Kinesis client turned up a larger problem, now item 6 in
+   section 6 and an open question in ADR 3: AWS's own documented propagation
+   delay (about 200 ms polling, about 70 ms with enhanced fan-out) is larger
+   than the whole 50 ms budget. The client is not written until Peter picks
+   an option.
 
    Note the local stack cannot support the 50 ms claim whatever the machine is
    doing: the forwarder alone costs more than the budget on most connections,
