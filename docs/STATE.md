@@ -159,7 +159,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Thirteen ADRs, in `docs/adr/`: 1 to 9, 11 to 13, and 17. Read them before reopening anything they cover.
+Fourteen ADRs, in `docs/adr/`: 1 to 13, and 17. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -172,6 +172,7 @@ Thirteen ADRs, in `docs/adr/`: 1 to 9, 11 to 13, and 17. Read them before reopen
 | 7 | The leakage test is written first and never weakened | It has already caught three real faults |
 | 8 | The scorer is a stream consumer: at least once, duplicates stopped before the engine, checkpoint after durable decisions, features served from the engine in process | **`transactions` has one partition** because the engine needs time order; more needs a reorder buffer whose hold time is latency |
 | 9 | The latency budget stands as PLAN.md 2.4 states it; every cost that belongs to the measuring host is measured on its own and published, never subtracted quietly; the 50 ms figure is claimed from the live stack, not from here | Three host costs found and measured: the process's timer resolution, the load producer sharing the scorer's interpreter, and Docker Desktop's port forwarder (about 41 ms on some connections, fixed per connection, unchanged by every client setting tried). The platform's own cost is the per-batch flush and checkpoint, which is a throughput ceiling before it is a latency one |
+| 10 | A label is its own event on its own topic, joined by event id, arriving a constant seven days late on both tracks; features never read label time, promotion counts only arrived labels, the queue opens a label only on review | **Written after the fact** (2026-09-18): the decision was built in weeks 1 and 2 without its record. **Rule 4, training only on labels that had arrived by the cutoff, is not enforced by code yet**: week 5's training pipeline must be built to it, with a test |
 | 11 | Shadow on the champion's own features, timed apart, unable to break scoring; promotion only if the interval bound clears the margin, on labels that had arrived, with at least 50 frauds; rollback by a pointer read per event | Margins and prices are placeholders until the champion's variability is measured |
 | 12 | Drift: PSI and KS against a fixed reference; PSI 0.25, KS statistic 0.10 with p below 0.01, 500 values minimum; same quantity two consecutive days | **Amends PLAN.md 2.6**: no Evidently. **The thresholds must not be tuned against the development schedule**, or the sealed schedule grades nothing |
 | 13 | The queue ranks by expected loss; simulated a day at a time in hourly steps with expiry; paired by day | At fixed capacity the prices cannot reorder the queue, and a test says so. Scores must be calibrated before a result is published |

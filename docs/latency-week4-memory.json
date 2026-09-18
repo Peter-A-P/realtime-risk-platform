@@ -1,0 +1,452 @@
+{
+  "track": "synthetic live, local",
+  "stream": "memory",
+  "model": "stand-in-0 (not trained; see verdict/scoring/model.py)",
+  "features": "served by the in-process engine",
+  "load_producer_ran_in": "the scorer's process",
+  "rate_target_per_second": 1000.0,
+  "events_per_run": 20000,
+  "warmup_decisions_excluded": 1000,
+  "runs": 5,
+  "host": {
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 165 Stepping 3, GenuineIntel",
+    "python": "3.13.5",
+    "system": "Windows 11"
+  },
+  "measured_at": "2026-09-18T20:11:11+00:00",
+  "summary": {
+    "end_to_end_ms": {
+      "p50": {
+        "mean": 3.342,
+        "low": 1.763,
+        "high": 4.921,
+        "runs": 5
+      },
+      "p95": {
+        "mean": 182.089,
+        "low": 43.359,
+        "high": 320.82,
+        "runs": 5
+      },
+      "p99": {
+        "mean": 323.118,
+        "low": 129.367,
+        "high": 516.868,
+        "runs": 5
+      }
+    },
+    "backlog_ms": {
+      "early_p50": {
+        "mean": 3.976,
+        "low": -0.44,
+        "high": 8.392,
+        "runs": 5
+      },
+      "late_p50": {
+        "mean": 71.721,
+        "low": -62.595,
+        "high": 206.037,
+        "runs": 5
+      }
+    },
+    "hops_ms": {
+      "ingest": {
+        "p50": {
+          "mean": 3.048,
+          "low": 1.514,
+          "high": 4.583,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 322.584,
+          "low": 128.882,
+          "high": 516.285,
+          "runs": 5
+        }
+      },
+      "features": {
+        "p50": {
+          "mean": 0.178,
+          "low": 0.167,
+          "high": 0.19,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 1.595,
+          "low": 1.302,
+          "high": 1.889,
+          "runs": 5
+        }
+      },
+      "model": {
+        "p50": {
+          "mean": 0.005,
+          "low": 0.004,
+          "high": 0.005,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 0.032,
+          "low": 0.031,
+          "high": 0.033,
+          "runs": 5
+        }
+      },
+      "decision": {
+        "p50": {
+          "mean": 0.032,
+          "low": 0.03,
+          "high": 0.034,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 0.228,
+          "low": 0.209,
+          "high": 0.248,
+          "runs": 5
+        }
+      },
+      "persist": {
+        "p50": {
+          "mean": 0.01,
+          "low": 0.009,
+          "high": 0.011,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 0.072,
+          "low": 0.061,
+          "high": 0.082,
+          "runs": 5
+        }
+      }
+    },
+    "commit_per_batch_ms": {
+      "p50": {
+        "mean": 0.025,
+        "low": 0.023,
+        "high": 0.026,
+        "runs": 5
+      },
+      "p99": {
+        "mean": 0.125,
+        "low": 0.057,
+        "high": 0.193,
+        "runs": 5
+      }
+    },
+    "flush_per_batch_ms": {
+      "p50": {
+        "mean": 0.002,
+        "low": 0.002,
+        "high": 0.002,
+        "runs": 5
+      },
+      "p99": {
+        "mean": 0.004,
+        "low": 0.004,
+        "high": 0.005,
+        "runs": 5
+      }
+    },
+    "checkpoint_per_batch_ms": {
+      "p50": {
+        "mean": 0.023,
+        "low": 0.021,
+        "high": 0.024,
+        "runs": 5
+      },
+      "p99": {
+        "mean": 0.121,
+        "low": 0.051,
+        "high": 0.191,
+        "runs": 5
+      }
+    },
+    "records_per_batch": {
+      "mean": 12.578,
+      "low": 9.076,
+      "high": 16.08,
+      "runs": 5
+    },
+    "send_rate_per_second": {
+      "mean": 998.517,
+      "low": 995.311,
+      "high": 1001.722,
+      "runs": 5
+    }
+  },
+  "per_run": [
+    {
+      "sent": 20000,
+      "measured": 19000,
+      "fine_timer": true,
+      "producer": "the scorer's process",
+      "send_rate": 999.9061938004287,
+      "end_to_end": {
+        "p50": 5.36145,
+        "p95": 109.54368999999998,
+        "p99": 233.01142899999977
+      },
+      "backlog": {
+        "early_p50": 10.333400000000001,
+        "late_p50": 1.9466
+      },
+      "batches": 1198,
+      "records_per_batch": 16.69449081803005,
+      "hops": {
+        "ingest": {
+          "p50": 5.01405,
+          "p99": 232.63241499999984
+        },
+        "features": {
+          "p50": 0.173,
+          "p99": 1.7964239999999962
+        },
+        "model": {
+          "p50": 0.0045,
+          "p99": 0.03250099999999984
+        },
+        "decision": {
+          "p50": 0.0317,
+          "p99": 0.25081899999999696
+        },
+        "persist": {
+          "p50": 0.0095,
+          "p99": 0.0807
+        }
+      },
+      "commit": {
+        "p50": 0.0265,
+        "p99": 0.21425199999999978
+      },
+      "flush": {
+        "p50": 0.002,
+        "p99": 0.0045
+      },
+      "checkpoint": {
+        "p50": 0.0245,
+        "p99": 0.21246699999999977
+      },
+      "duplicates": 0,
+      "set_aside": {}
+    },
+    {
+      "sent": 20000,
+      "measured": 19000,
+      "fine_timer": true,
+      "producer": "the scorer's process",
+      "send_rate": 993.9817387662918,
+      "end_to_end": {
+        "p50": 2.468,
+        "p95": 110.86263999999994,
+        "p99": 271.0036379999999
+      },
+      "backlog": {
+        "early_p50": 2.3314500000000002,
+        "late_p50": 4.3343
+      },
+      "batches": 1850,
+      "records_per_batch": 10.81081081081081,
+      "hops": {
+        "ingest": {
+          "p50": 2.2093499999999997,
+          "p99": 270.2928069999997
+        },
+        "features": {
+          "p50": 0.1776,
+          "p99": 1.471624999999996
+        },
+        "model": {
+          "p50": 0.0047,
+          "p99": 0.03250099999999984
+        },
+        "decision": {
+          "p50": 0.0315,
+          "p99": 0.22170399999999937
+        },
+        "persist": {
+          "p50": 0.0094,
+          "p99": 0.06660099999999984
+        }
+      },
+      "commit": {
+        "p50": 0.0245,
+        "p99": 0.08729099999999997
+      },
+      "flush": {
+        "p50": 0.0019,
+        "p99": 0.0046
+      },
+      "checkpoint": {
+        "p50": 0.0225,
+        "p99": 0.08559699999999996
+      },
+      "duplicates": 0,
+      "set_aside": {}
+    },
+    {
+      "sent": 20000,
+      "measured": 19000,
+      "fine_timer": true,
+      "producer": "the scorer's process",
+      "send_rate": 999.9326945303311,
+      "end_to_end": {
+        "p50": 2.27775,
+        "p95": 119.43988499999998,
+        "p99": 208.82574399999984
+      },
+      "backlog": {
+        "early_p50": 2.4151499999999997,
+        "late_p50": 99.9375
+      },
+      "batches": 1963,
+      "records_per_batch": 10.188487009679063,
+      "hops": {
+        "ingest": {
+          "p50": 2.01985,
+          "p99": 208.32429999999962
+        },
+        "features": {
+          "p50": 0.16895,
+          "p99": 1.2522199999999968
+        },
+        "model": {
+          "p50": 0.0044,
+          "p99": 0.0315
+        },
+        "decision": {
+          "p50": 0.0302,
+          "p99": 0.21000399999999936
+        },
+        "persist": {
+          "p50": 0.009,
+          "p99": 0.0599
+        }
+      },
+      "commit": {
+        "p50": 0.0232,
+        "p99": 0.08124200000000009
+      },
+      "flush": {
+        "p50": 0.0019,
+        "p99": 0.004338000000000011
+      },
+      "checkpoint": {
+        "p50": 0.021,
+        "p99": 0.07332800000000006
+      },
+      "duplicates": 0,
+      "set_aside": {}
+    },
+    {
+      "sent": 20000,
+      "measured": 19000,
+      "fine_timer": true,
+      "producer": "the scorer's process",
+      "send_rate": 999.963261349778,
+      "end_to_end": {
+        "p50": 3.7979,
+        "p95": 370.10551999999996,
+        "p99": 593.9029639999998
+      },
+      "backlog": {
+        "early_p50": 2.19,
+        "late_p50": 250.05115
+      },
+      "batches": 1395,
+      "records_per_batch": 14.336917562724015,
+      "hops": {
+        "ingest": {
+          "p50": 3.4884500000000003,
+          "p99": 593.3121449999998
+        },
+        "features": {
+          "p50": 0.1783,
+          "p99": 1.8141829999999868
+        },
+        "model": {
+          "p50": 0.0049,
+          "p99": 0.0312
+        },
+        "decision": {
+          "p50": 0.0329,
+          "p99": 0.23660599999999904
+        },
+        "persist": {
+          "p50": 0.0105,
+          "p99": 0.07860099999999984
+        }
+      },
+      "commit": {
+        "p50": 0.0252,
+        "p99": 0.13802199999999953
+      },
+      "flush": {
+        "p50": 0.0018,
+        "p99": 0.0038059999999999947
+      },
+      "checkpoint": {
+        "p50": 0.0233,
+        "p99": 0.13589199999999954
+      },
+      "duplicates": 0,
+      "set_aside": {}
+    },
+    {
+      "sent": 20000,
+      "measured": 19000,
+      "fine_timer": true,
+      "producer": "the scorer's process",
+      "send_rate": 998.7990091134766,
+      "end_to_end": {
+        "p50": 2.8039,
+        "p95": 200.49500499999994,
+        "p99": 308.8437689999999
+      },
+      "backlog": {
+        "early_p50": 2.6104000000000003,
+        "late_p50": 2.3346
+      },
+      "batches": 1842,
+      "records_per_batch": 10.857763300760043,
+      "hops": {
+        "ingest": {
+          "p50": 2.50875,
+          "p99": 308.35709499999984
+        },
+        "features": {
+          "p50": 0.1938,
+          "p99": 1.641206999999999
+        },
+        "model": {
+          "p50": 0.0052,
+          "p99": 0.0331
+        },
+        "decision": {
+          "p50": 0.0337,
+          "p99": 0.2217
+        },
+        "persist": {
+          "p50": 0.0111,
+          "p99": 0.0725
+        }
+      },
+      "commit": {
+        "p50": 0.0251,
+        "p99": 0.10252099999999985
+      },
+      "flush": {
+        "p50": 0.002,
+        "p99": 0.003958999999999992
+      },
+      "checkpoint": {
+        "p50": 0.02305,
+        "p99": 0.09715399999999995
+      },
+      "duplicates": 0,
+      "set_aside": {}
+    }
+  ]
+}
