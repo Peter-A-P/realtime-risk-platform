@@ -147,9 +147,11 @@ verdict/
                      data ingest/manifest/verify/inspect/events/check
 ```
 
-Not yet written: `stream/kinesis.py` and `stream/parity.py` (week 7),
-`models/` training and export (week 5), `drift/retrain.py` and `approval.py` (week 6), `drift/`, `queue/`, `observe/`, `chaos/`,
-`deploy/terraform/`.
+Not yet written: `models/` training and export (week 5), `drift/retrain.py`
+and `approval.py` (week 6), `chaos/` beyond the first failure mode, Grafana
+provisioning in `observe/`, and `deploy/terraform/`. `stream/kinesis.py` will
+not be written (ADR 3, option 2); `stream/parity.py`, `observe/metrics.py`,
+`drift/` and `review_queue/` exist.
 
 `deploy/compose/docker-compose.yml` **ran for the first time on 2026-09-13**:
 Redpanda healthy, `transactions` (4 partitions), `labels` (1) and `decisions`
@@ -182,7 +184,7 @@ Fourteen ADRs, in `docs/adr/`: 1 to 13, and 17. Read them before reopening anyth
 |---|---|---|
 | 1 | Platform, not model | Model work is timeboxed to week 5 |
 | 2 | Two tracks: real data offline, synthetic live | Every number says which track |
-| 3 | Redpanda locally, Kinesis live, one `Stream` interface | Interface written 2026-09-14 with in-process and Redpanda implementations; Kinesis is week 7 |
+| 3 | **Amended 2026-09-18: Redpanda locally and live**, one `Stream` interface | Interface written 2026-09-14 with in-process and Redpanda implementations. Kinesis dropped: AWS documents its propagation delay as larger than the whole 50 ms budget. A spot replacement is now a broker recovery, which becomes a chaos scenario |
 | 4 | **Amended.** The aggregation engine is written here | Bytewax has no Python 3.13 wheels, on any platform, up to 0.21.1. Peter chose this over pinning Python to 3.12, adding a Rust toolchain, or a Kafka-only engine |
 | 5 | Feast: registry, point-in-time join, online read | Push sources, not materialisation. **Its first online read after start-up costs about 42 ms against a 5 ms budget hop: the scorer must warm the store** |
 | 6 | Features computed once; the reference evaluation is not a second computation | One definition, two executions, and the test holds them together |
