@@ -1,0 +1,87 @@
+#!/bin/bash
+# Runs once, as root, on the first boot of every instance the auto-scaling
+# group launches: a fresh one, or the replacement after a spot interruption.
+# It attaches the data volume, prepares Docker, and starts the live stack.
+# Rendered by Terraform (compute.tf); its log is /var/log/verdict-boot.log.
+set -euo pipefail
+exec > >(tee -a /var/log/verdict-boot.log) 2>&1
+echo "boot started $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+REGION="${region}"
+VOLUME_ID="${volume_id}"
+
+# The instance's own id, through IMDSv2.
+IMDS_TOKEN=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+INSTANCE_ID=$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" \
+  http://169.254.169.254/latest/meta-data/instance-id)
+
+# Docker from the distribution, Compose as a pinned, checksummed plugin.
+dnf install -y docker
+systemctl enable --now docker
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose \
+  "https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-x86_64"
+echo "${compose_sha256}  /usr/local/lib/docker/cli-plugins/docker-compose" | sha256sum -c -
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+# The data volume. After a spot interruption the old instance may still hold
+# it for a while, so wait for it to become available rather than fail.
+for attempt in $(seq 1 60); do
+  state=$(aws ec2 describe-volumes --region "$REGION" --volume-ids "$VOLUME_ID" \
+    --query 'Volumes[0].State' --output text)
+  if [ "$state" = "available" ]; then
+    aws ec2 attach-volume --region "$REGION" --volume-id "$VOLUME_ID" \
+      --instance-id "$INSTANCE_ID" --device /dev/sdf
+    break
+  fi
+  echo "volume is $state, attempt $attempt of 60"
+  sleep 10
+done
+
+# On Nitro instances the device is NVMe and its name is not stable; its
+# by-id link carries the volume id without the dash.
+DEVICE="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_$${VOLUME_ID/-/}"
+for attempt in $(seq 1 60); do
+  [ -e "$DEVICE" ] && break
+  sleep 2
+done
+[ -e "$DEVICE" ] || { echo "data volume never appeared at $DEVICE"; exit 1; }
+
+# A filesystem only if there is none: the first boot of the stack's life.
+# Every later boot, including every replacement, mounts what is there.
+if ! blkid "$DEVICE" >/dev/null 2>&1; then
+  echo "no filesystem on the data volume: first boot, making one"
+  mkfs.xfs "$DEVICE"
+fi
+mkdir -p /data
+UUID=$(blkid -s UUID -o value "$DEVICE")
+grep -q "$UUID" /etc/fstab || echo "UUID=$UUID /data xfs defaults,nofail 0 2" >> /etc/fstab
+mount -a
+mountpoint -q /data
+
+# Redpanda runs as uid 101 in its image.
+mkdir -p /data/redpanda
+chown 101:101 /data/redpanda
+
+# The tunnel token, from SSM, into a root-only file on the disposable root
+# volume. It is never written to the data volume, the log, or the repository.
+mkdir -p /etc/verdict
+umask 077
+printf 'TUNNEL_TOKEN=%s\n' "$(aws ssm get-parameter --region "$REGION" \
+  --name /verdict/cloudflare-tunnel-token --with-decryption \
+  --query Parameter.Value --output text)" > /etc/verdict/tunnel.env
+umask 022
+
+# The stack itself: deploy/live/compose.yml, carried in this script.
+mkdir -p /opt/verdict
+echo "${compose_b64}" | base64 -d > /opt/verdict/compose.yml
+# The broker first, then the topics job, then everything else: the same order
+# the local stack and CI use, and for the same reason (a one-shot job is not a
+# service to wait on).
+COMPOSE="docker compose -f /opt/verdict/compose.yml --env-file /etc/verdict/tunnel.env"
+$COMPOSE up -d --wait redpanda
+$COMPOSE run --rm topics
+$COMPOSE up -d --wait
+
+echo "boot finished $(date -u +%Y-%m-%dT%H:%M:%SZ)"

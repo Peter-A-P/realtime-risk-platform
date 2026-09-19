@@ -1,0 +1,103 @@
+# The live stack, on the one instance (deploy/terraform). The boot script
+# writes this file to /opt/verdict/compose.yml and starts it.
+#
+# It differs from the local stack (deploy/compose/docker-compose.yml) in
+# three ways, each on purpose:
+#   - no port is published: nothing outside the instance talks to the broker,
+#     and the dashboard leaves through the Cloudflare Tunnel;
+#   - the broker's data lives on the data volume at /data, which outlives the
+#     instance;
+#   - retentions are sized to the disk (ADR 14), not to a laptop.
+# Topic names and partition counts must match the local stack exactly, and
+# tests/test_live_stack.py asserts that they do.
+#
+# This is the stack's first shape: the stream and the tunnel. The scorer, the
+# generator, the label feed, Prometheus and Grafana join it as each is ready
+# for the instance.
+
+name: verdict
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.3.6
+    container_name: verdict-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=internal://0.0.0.0:9092
+      - --advertise-kafka-addr=internal://redpanda:9092
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+    configs:
+      - source: redpanda-bootstrap
+        target: /etc/redpanda/.bootstrap.yaml
+    volumes:
+      - /data/redpanda:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  # Run by the boot script with `run --rm`, never by `up`: see the profile.
+  # Idempotent, as the local one is, because every replacement instance runs
+  # it again against topics that already exist on the data volume.
+  topics:
+    image: redpandadata/redpanda:v24.3.6
+    profiles: [setup]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -e
+        ensure() {
+          if rpk topic describe "$$1" --brokers redpanda:9092 >/dev/null 2>&1; then
+            found=$$(rpk topic describe "$$1" --brokers redpanda:9092 -p | grep -c '^[0-9]')
+            test "$$found" -eq "$$2" || { echo "$$1 has $$found partitions, expected $$2"; exit 1; }
+            rpk topic alter-config "$$1" --brokers redpanda:9092 --set retention.ms="$$3"
+            echo "$$1 exists with $$2 partitions"
+          else
+            rpk topic create "$$1" --brokers redpanda:9092 \
+              --partitions "$$2" --replicas 1 --topic-config retention.ms="$$3"
+          fi
+        }
+        # PROVISIONAL, all of them: at 1,000 events a second these topics do
+        # not fit the disk at these retentions, and what keeps the history
+        # instead is ADR 14's open question.
+        # Two days of transactions: a day for the longest window a feature
+        # reads (24 hours), and a day for a replacement instance to replay it.
+        ensure transactions 1 172800000
+        # Nine days of labels: the seven-day delay (ADR 10) and two in hand.
+        ensure labels 1 777600000
+        ensure decisions 4 172800000
+        ensure shadow 4 172800000
+        ensure dead-letter 1 2592000000
+        rpk topic list --brokers redpanda:9092
+        test "$$(rpk cluster config get auto_create_topics_enabled -X admin.hosts=redpanda:9644)" = false
+    restart: "no"
+
+  # The dashboard's way out. It dials Cloudflare; nothing dials in. The token
+  # comes from SSM through the boot script's env file, never from this file.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.1
+    container_name: verdict-cloudflared
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?the boot script writes it to /etc/verdict/tunnel.env}
+    restart: unless-stopped
+
+configs:
+  redpanda-bootstrap:
+    content: |
+      auto_create_topics_enabled: false

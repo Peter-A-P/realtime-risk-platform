@@ -61,3 +61,24 @@ jobs:
         # Separated so a slow runner reads as a throughput result rather than
         # as a failure somewhere in the suite.
         run: pytest -q -m slow
+
+  terraform:
+    # The live stack's configuration, checked without an AWS account: format,
+    # and a validate that type-checks every resource against the provider.
+    # Nothing here plans or applies; that needs the deploy identity.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.3"
+
+      - name: Format
+        run: terraform -chdir=deploy/terraform fmt -check -recursive
+
+      - name: Validate
+        run: |
+          terraform -chdir=deploy/terraform init -backend=false -input=false
+          terraform -chdir=deploy/terraform validate

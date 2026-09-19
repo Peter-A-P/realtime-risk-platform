@@ -68,6 +68,7 @@ measurements in section 8 were taken there and say so.
 | The project venv is `.venv` in the repository root, rebuilt 2026-09-13 | Run everything as `.venv/Scripts/python.exe -m ...`. Bare `python` has no dependencies. `pip install` failed twice mid-download on a TLS record error and succeeded on the third try: retry before diagnosing |
 | The repository is under **OneDrive** | The competition data is kept outside it, at `C:\Dev\POCs Dev\09-realtime-risk-platform\data\ieee-fraud-detection` (the folder was renamed from `POCs` to `POCs Dev` on 2026-09-14; check it is still there). Set `VERDICT_IEEE_CIS_DIR` to that path and every `verdict data` command finds it (section 9). A `.lnk` shortcut to it sits under the repository's `data/`, which git ignores |
 | **Docker Desktop 4.90.0** on WSL2, engine 29.7.2, 12 CPUs and 7.7 GB to the VM | Not on PATH in a fresh shell: prepend `C:\Program Files\Docker\Docker\resources\bin`. Needed Intel VMX turned on in the BIOS; Windows still reports `VirtualizationFirmwareEnabled: False` once the hypervisor owns it, which is not a fault |
+| **Terraform 1.16.3** at `C:\Users\peter\bin\terraform.exe`, installed per user from the checksummed release zip | Set `TF_DATA_DIR` to `C:/Dev/POCs Dev/09-realtime-risk-platform/terraform-data` before `init`: the AWS provider is hundreds of megabytes and the repository is under OneDrive. The lock file carries Windows and Linux hashes |
 | **AWS CLI v2** at `C:\Program Files\Amazon\AWSCLIV2\aws.exe`, profile `verdict` (IAM user `verdict-bootstrap`, policy `deploy/aws/iam/bootstrap-policy.json`, region `ca-central-1`) | A shell started before the install has no `aws` on PATH: call it by full path. From Git Bash, set `MSYS_NO_PATHCONV=1` or it rewrites `/aws/service/...` and `/verdict/...` parameter names into Windows paths |
 | The old laptop: domain-joined to PSNL.CA, a TLS proxy, no Docker possible | Only relevant if work returns to it. Python HTTPS failed there where the browser worked |
 
@@ -150,7 +151,10 @@ verdict/
 
 Not yet written: `models/` training and export (week 5), `drift/retrain.py`
 and `approval.py` (week 6), `chaos/` beyond the first failure mode, Grafana
-provisioning in `observe/`, and `deploy/terraform/`. `stream/kinesis.py` will
+provisioning in `observe/`, and the scorer, generator and dashboard in the live
+compose file. `deploy/terraform/` was written on 2026-09-18 (ADR 14) and
+validated and planned against the account, 15 resources, **but never applied**:
+it waits on the deploy policy (section 6) and on Peter's go. `stream/kinesis.py` will
 not be written (ADR 3, option 2); `stream/parity.py`, `observe/metrics.py`,
 `drift/` and `review_queue/` exist.
 
@@ -179,7 +183,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Fourteen ADRs, in `docs/adr/`: 1 to 13, and 17. Read them before reopening anything they cover.
+Fifteen ADRs, in `docs/adr/`: 1 to 14, and 17. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -196,6 +200,7 @@ Fourteen ADRs, in `docs/adr/`: 1 to 13, and 17. Read them before reopening anyth
 | 11 | Shadow on the champion's own features, timed apart, unable to break scoring; promotion only if the interval bound clears the margin, on labels that had arrived, with at least 50 frauds; rollback by a pointer read per event | Margins and prices are placeholders until the champion's variability is measured |
 | 12 | Drift: PSI and KS against a fixed reference; PSI 0.25, KS statistic 0.10 with p below 0.01, 500 values minimum; same quantity two consecutive days | **Amends PLAN.md 2.6**: no Evidently. **The thresholds must not be tuned against the development schedule**, or the sealed schedule grades nothing |
 | 13 | The queue ranks by expected loss; simulated a day at a time in hourly steps with expiry; paired by day | At fixed capacity the prices cannot reorder the queue, and a test says so. Scores must be calibrated before a result is published |
+| 14 | The live stack: its own VPC in `ca-central-1d`, no ingress rule, one spot instance (c6a.large, c5a.large or c7i.large) in a group of one, a data volume that outlives it, ECR for the image, SSM Session Manager for a person, a Cloudflare Tunnel for the dashboard; the budget and the tunnel token outside Terraform | **Open question, must close before go-live:** at 1,000 events a second history does not fit on a disk (about 260 GB at the provisional retentions, 1.9 TB of transactions over the window). Recommended: topics as buffers, a Parquet sink for what is kept, and a published sample with weights, which ADRs 11 and 13 must then accept |
 | 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Pending Peter's review**: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code
@@ -264,7 +269,8 @@ unreachable.
 | 1 | ~~The go-live date~~ **Decided 2026-09-18**: as soon as the definition of done is met; sixty-day window (section 1) | | |
 | 2 | ~~Docker~~ **Done 2026-09-13**, on the personal desktop. The Redpanda stack runs (section 3) | | |
 | 3 | **Kaggle forum posting.** Rule 8.B asks that publicly shared competition code be posted to the competition's own forum. Arguably spent since 2019, cheap to honour, and it publishes under Peter's name | Peter | Go-live |
-| 4 | **A least-privilege AWS identity for 09** in 04's account, and a named profile `verdict` on this machine. The session writes the policy JSON when the Terraform's resource list is known; the tag-scoped CA$350 budget with alarms at 50, 80 and 100 percent is created before any other resource | Peter | Before the first `terraform apply` |
+| 4 | ~~A least-privilege AWS identity for 09~~ **Done 2026-09-18** (below). **Now: attach `deploy/aws/iam/deploy-policy.json`** to the same user as a second policy, `verdict-deploy`. It is what `terraform apply` needs; nothing is applied without Peter's go | Peter | Before the first `deploy/up.sh` |
+| 7 | **The storage question in ADR 14.** Keep a sample of legitimate traffic, with weights, instead of every row; or pay for disk; or lower the rate | Peter | Before go-live, and before week 6's queue evaluation reads the live history |
 | 5 | **Review ADR 17.** Three choices about the real data, each reversible in one function: the card key, no device, the reference date. The one most worth a second opinion is having no device at all | Peter | Before week 5 trains on the real data |
 | 6 | ~~Kinesis and the 50 ms budget~~ **Decided 2026-09-18: Redpanda on the instance** (ADR 3). The original item: **Kinesis cannot meet the 50 ms budget as PLAN.md 2.4 measures it.** AWS documents about 200 ms average propagation for a polling consumer and about 70 ms with enhanced fan-out, before the scorer starts. Three options in ADR 3's open question: start the clock at the scorer, run Redpanda on the live instance instead, or keep Kinesis and publish what it measures. The first changes the one-liner's wording, the second the AWS story, the third the headline number | Peter | Before week 7's Kinesis client is written; nothing earlier depends on it |
 
@@ -320,7 +326,7 @@ only alarm that sees 09's spend.
 `ca-central-1` was US$0.080 to 0.097 an hour on 2026-09-18 (c5, c6i, c6a, c7i;
 cheapest c7i.xlarge in 1d), against the US$0.055 the plan priced in. The
 section 6 amendment carries the new figure. **Decided the same day: sixty days on a c6a.large**
-(2 vCPU, 4 GB, US$0.037 to 0.040 an hour), about CA$105 for the window; fallback
+(2 vCPU, 4 GB, US$0.037 to 0.040 an hour), about CA$115 for the window with ADR 14's 100 GB volume; fallback
 4 vCPU for 45 days if the live load test fails the budget, decided before sealing.
 `verdict-monthly` is US$60 accordingly (expected about US$50 a month).
 

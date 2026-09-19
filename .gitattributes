@@ -1,0 +1,6 @@
+# Files that run on the Linux instance keep LF on every checkout, including a
+# Windows one with autocrlf: a carriage return in the boot script is a failed
+# boot, found only on AWS.
+*.sh text eol=lf
+*.tftpl text eol=lf
+deploy/live/*.yml text eol=lf
