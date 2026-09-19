@@ -132,8 +132,11 @@ once the load test has measured what it costs.
 ## Consequences
 
 - The scorer does more on its hot path: a dictionary per decision and one
-  record batch per poll. Its cost is unmeasured until the load test runs
-  with and without a spool, which is CPU work and waits for a quiet machine.
+  record batch per poll. **Measured on 2026-09-19** (`docs/latency-budget.md`,
+  "The cost of staging history"): about 0.1 ms at p50 in process and about
+  1 ms through the broker; zstd adds nothing measurable. The 99th percentile
+  is not settled: two of ten staged runs held a stall of 0.8 or 1.4 s, and
+  that is re-measured on the live instance.
 - Eight days of staged decisions are on disk at any time, holding features
   for every transaction. They are synthetic, as everything on the live stack
   is, and are deleted as each day is finalised.

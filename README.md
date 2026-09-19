@@ -113,6 +113,15 @@ stalls on the broker's side that are not yet explained (the broker's health chec
 tested and ruled out). From the Windows host, each run's figure depends on which path the
 forwarder gave its connections, so it is reported by mode, not averaged.
 
+**Staging history, and rolling back.** Staging every decision with its features (ADR 18)
+costs about 0.1 ms at the median in process and about 1 ms through the broker, and zstd on
+the scorer's producer adds nothing measurable; the 99th percentile is not settled, because
+two of ten staged runs through the broker held a stall of about a second
+([docs/latency-budget.md](docs/latency-budget.md)). The rollback flag, drilled five times at
+1,000 transactions a second: the old champion decided 5.8 ms (5.4 to 6.2) after the flag was
+flipped, and the rolled-back model made no decision after it
+([docs/rollback-drill.json](docs/rollback-drill.json)).
+
 **The transport comparison.** The same load into the synchronous HTTP endpoint, with no
 broker on either side: over one connection it decided every transaction but ran at its
 limit (p99 96 to 132 ms in four runs, and one run fell a second behind and stayed there);

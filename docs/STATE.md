@@ -562,9 +562,14 @@ running jobs too, so nothing timing-sensitive was measured):
   0.64). **Peter's call:** tune `scenarios.py` before sealing, as PLAN.md
   section 8 planned. The synthetic challenger waits for that decision.
   The champion ships in `verdict/models/artifacts/` for the dry run.
-- **Not yet run:** the latency load tests with and without the history
-  spool and with zstd, and the five timed rollback drills. Both need an idle
-  machine; the drill works (7 to 12 ms on trial runs).
+- **Then, on an idle machine** (06 stopped by Peter, 08 idle): the
+  **rollback drill**, five runs, 5.8 ms (5.4 to 6.2) from flag to the old
+  champion deciding, none by the rolled-back model after it
+  (`docs/rollback-drill.json`); and **the cost of staging history**
+  (`docs/latency-history-cost.json`, `docs/latency-budget.md`): about 0.1 ms
+  at p50 in process and 1 ms through the broker; zstd costs nothing
+  measurable, so it can go on live. The p99 is not settled: two of ten
+  staged broker runs stalled for 0.8 and 1.4 s. Re-measure on the instance.
 - Training tables and models live at
   `C:/Dev/POCs Dev/09-realtime-risk-platform/models/`, outside OneDrive and
   outside git; `verdict train replay | champion | challenger | leak`

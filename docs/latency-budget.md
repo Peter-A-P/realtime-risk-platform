@@ -206,6 +206,45 @@ drift over the half hour could not pass for an effect:
 Stalling runs appear with it on and with it off, in about equal number. The
 broker is back on the compose file's own health check.
 
+## The cost of staging history, 2026-09-19 (ADR 18)
+
+`docs/latency-history-cost.json`. The scorer with and without its history
+spool (every decision staged with its features before the checkpoint), and
+with zstd on its producer; stand-in model, 1,000 a second, five runs of
+20,000 each per configuration, configurations alternated so the machine's
+drift falls on each alike. No other project's job was running. Milliseconds,
+mean of the per-run figure with a 95 percent t interval.
+
+| Path | Staged | Compression | p50 | p95 | p99 | Per-run p99 |
+|---|---|---|---|---|---|---|
+| In-process | no | | 0.59 (0.59 to 0.60) | 1.01 (0.99 to 1.03) | 4.65 (2.75 to 6.55) | |
+| In-process | yes | | 0.67 (0.66 to 0.68) | 1.14 (1.12 to 1.16) | 5.38 (4.92 to 5.83) | |
+| In-process | no | | 0.59 (0.59 to 0.60) | 1.00 (0.98 to 1.03) | 4.25 (2.34 to 6.15) | |
+| In-process | yes | | 0.72 (0.64 to 0.80) | 1.28 (1.05 to 1.52) | 9.86 (1.07 to 18.64) | |
+| Redpanda, in network | no | none | 11.26 (10.99 to 11.52) | 17.60 (16.52 to 18.68) | 50.29 (16.53 to 84.05) | 39, 59, 29, 94, 31 |
+| Redpanda, in network | yes | none | 14.57 (10.99 to 18.16) | 243.9 (wide) | 338.6 (wide) | 90, **1,411**, 136, 27, 30 |
+| Redpanda, in network | yes | zstd | 14.39 (10.25 to 18.54) | 56.45 (wide) | 251.2 (wide) | 81, 87, 37, 270, **782** |
+| Redpanda, in network | no | none | 11.17 (11.04 to 11.31) | 17.38 (16.99 to 17.78) | 34.78 (21.64 to 47.92) | 29, 27, 31, 33, 53 |
+| Redpanda, in network | yes | none | 12.04 (11.84 to 12.24) | 18.34 (17.69 to 18.98) | 51.54 (17.28 to 85.80) | 74, 87, 28, 27, 42 |
+| Redpanda, in network | yes | zstd | 12.13 (12.05 to 12.21) | 18.60 (18.17 to 19.02) | 54.26 (12.10 to 96.42) | 77, 103, 31, 29, 31 |
+
+What survives:
+
+- **Staging costs about 0.1 ms at the median in process and about 1 ms
+  through the broker**, and about the same at the 95th percentile in the
+  second round. That is inside the budget with room.
+- **zstd on the scorer's producer costs nothing measurable** beside staging
+  (12.13 against 12.04 at p50, intervals overlapping), so it can be switched
+  on live as ADR 18 planned.
+- **The 99th percentile is not settled.** The first round's staged runs held
+  two stalls of 0.8 and 1.4 seconds, against a worst of 94 ms unstaged; the
+  second round's did not. The broker's own stalls (ADR 9's open question)
+  were already there without staging, and ten runs cannot say whether
+  staging makes them more frequent. The candidate to test is where the
+  spool writes: into the container's own filesystem here, onto the data
+  volume live. It is run again, with more runs, on the live instance, which
+  is where the claim is made.
+
 ## The transport comparison (Rule C candidate 3)
 
 The same events at the same rate into the HTTP endpoint (`verdict

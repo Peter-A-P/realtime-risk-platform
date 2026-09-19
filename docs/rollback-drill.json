@@ -1,0 +1,40 @@
+{
+  "track": "synthetic live, local",
+  "rolled_back_from": "champion-9c7b11fd35bb",
+  "rolled_back_to": "stand-in-0",
+  "rate_per_second": 1000.0,
+  "runs": [
+    {
+      "seconds_to_old_champion": 0.0059611,
+      "decisions_by_new_after_rollback": 0,
+      "decisions": 2002
+    },
+    {
+      "seconds_to_old_champion": 0.0059358,
+      "decisions_by_new_after_rollback": 0,
+      "decisions": 2006
+    },
+    {
+      "seconds_to_old_champion": 0.0059247,
+      "decisions_by_new_after_rollback": 0,
+      "decisions": 2012
+    },
+    {
+      "seconds_to_old_champion": 0.0052408,
+      "decisions_by_new_after_rollback": 0,
+      "decisions": 2006
+    },
+    {
+      "seconds_to_old_champion": 0.0060685,
+      "decisions_by_new_after_rollback": 0,
+      "decisions": 2006
+    }
+  ],
+  "seconds_to_old_champion": {
+    "mean": 0.00582618,
+    "low": 0.005413817899157502,
+    "high": 0.006238542100842498
+  },
+  "host": "Windows AMD64, Python 3.13.5",
+  "measured_at": "2026-09-19T18:10:57+00:00"
+}

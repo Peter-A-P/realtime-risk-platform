@@ -1,0 +1,1239 @@
+{
+  "measured_on": "2026-09-19",
+  "track": "synthetic live, local",
+  "model": "stand-in-0 (timing only)",
+  "host": "build desktop, Windows 11, i5-10400F; no other project's job running (06 stopped, 08 idle)",
+  "order": "configurations alternated, in the order listed, so machine drift falls on each alike",
+  "runs": [
+    {
+      "file": "memory-1-no-history",
+      "stream": "memory",
+      "bootstrap": null,
+      "history_staged": false,
+      "compression": null,
+      "runs": 5,
+      "events_per_run": 20000,
+      "rate": 1000.0,
+      "end_to_end_ms": {
+        "p50": {
+          "mean": 0.594,
+          "low": 0.59,
+          "high": 0.599,
+          "runs": 5
+        },
+        "p95": {
+          "mean": 1.012,
+          "low": 0.991,
+          "high": 1.034,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 4.651,
+          "low": 2.75,
+          "high": 6.551,
+          "runs": 5
+        }
+      },
+      "hops_ms": {
+        "ingest": {
+          "p50": {
+            "mean": 0.499,
+            "low": 0.495,
+            "high": 0.503,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 4.437,
+            "low": 2.412,
+            "high": 6.463,
+            "runs": 5
+          }
+        },
+        "features": {
+          "p50": {
+            "mean": 0.071,
+            "low": 0.071,
+            "high": 0.072,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.207,
+            "low": 0.203,
+            "high": 0.211,
+            "runs": 5
+          }
+        },
+        "model": {
+          "p50": {
+            "mean": 0.002,
+            "low": 0.002,
+            "high": 0.002,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.005,
+            "low": 0.005,
+            "high": 0.005,
+            "runs": 5
+          }
+        },
+        "decision": {
+          "p50": {
+            "mean": 0.017,
+            "low": 0.016,
+            "high": 0.017,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.033,
+            "low": 0.033,
+            "high": 0.034,
+            "runs": 5
+          }
+        },
+        "persist": {
+          "p50": {
+            "mean": 0.005,
+            "low": 0.005,
+            "high": 0.005,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.009,
+            "low": 0.008,
+            "high": 0.01,
+            "runs": 5
+          }
+        }
+      },
+      "flush_per_batch_ms": {
+        "p50": {
+          "mean": 0.0,
+          "low": 0.0,
+          "high": 0.0,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 0.001,
+          "low": 0.001,
+          "high": 0.001,
+          "runs": 5
+        }
+      },
+      "per_run_p99_ms": [
+        2.0149639999999898,
+        5.84698599999989,
+        5.463678999999923,
+        4.700252999999991,
+        5.227934999999946
+      ]
+    },
+    {
+      "file": "memory-2-history",
+      "stream": "memory",
+      "bootstrap": null,
+      "history_staged": true,
+      "compression": null,
+      "runs": 5,
+      "events_per_run": 20000,
+      "rate": 1000.0,
+      "end_to_end_ms": {
+        "p50": {
+          "mean": 0.668,
+          "low": 0.66,
+          "high": 0.676,
+          "runs": 5
+        },
+        "p95": {
+          "mean": 1.141,
+          "low": 1.124,
+          "high": 1.158,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 5.375,
+          "low": 4.917,
+          "high": 5.833,
+          "runs": 5
+        }
+      },
+      "hops_ms": {
+        "ingest": {
+          "p50": {
+            "mean": 0.57,
+            "low": 0.564,
+            "high": 0.577,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 5.167,
+            "low": 4.713,
+            "high": 5.621,
+            "runs": 5
+          }
+        },
+        "features": {
+          "p50": {
+            "mean": 0.074,
+            "low": 0.073,
+            "high": 0.074,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.211,
+            "low": 0.2,
+            "high": 0.222,
+            "runs": 5
+          }
+        },
+        "model": {
+          "p50": {
+            "mean": 0.002,
+            "low": 0.002,
+            "high": 0.002,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.005,
+            "low": 0.005,
+            "high": 0.005,
+            "runs": 5
+          }
+        },
+        "decision": {
+          "p50": {
+            "mean": 0.018,
+            "low": 0.018,
+            "high": 0.018,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.036,
+            "low": 0.035,
+            "high": 0.038,
+            "runs": 5
+          }
+        },
+        "persist": {
+          "p50": {
+            "mean": 0.006,
+            "low": 0.005,
+            "high": 0.006,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.01,
+            "low": 0.009,
+            "high": 0.011,
+            "runs": 5
+          }
+        }
+      },
+      "flush_per_batch_ms": {
+        "p50": {
+          "mean": 0.001,
+          "low": 0.001,
+          "high": 0.001,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 0.001,
+          "low": 0.001,
+          "high": 0.001,
+          "runs": 5
+        }
+      },
+      "per_run_p99_ms": [
+        5.379037999999849,
+        5.654028999999964,
+        5.678734999999898,
+        5.398984999999954,
+        4.7639049999999985
+      ]
+    },
+    {
+      "file": "memory-3-no-history",
+      "stream": "memory",
+      "bootstrap": null,
+      "history_staged": false,
+      "compression": null,
+      "runs": 5,
+      "events_per_run": 20000,
+      "rate": 1000.0,
+      "end_to_end_ms": {
+        "p50": {
+          "mean": 0.595,
+          "low": 0.591,
+          "high": 0.598,
+          "runs": 5
+        },
+        "p95": {
+          "mean": 1.002,
+          "low": 0.978,
+          "high": 1.027,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 4.245,
+          "low": 2.338,
+          "high": 6.152,
+          "runs": 5
+        }
+      },
+      "hops_ms": {
+        "ingest": {
+          "p50": {
+            "mean": 0.499,
+            "low": 0.496,
+            "high": 0.502,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 4.066,
+            "low": 2.079,
+            "high": 6.052,
+            "runs": 5
+          }
+        },
+        "features": {
+          "p50": {
+            "mean": 0.071,
+            "low": 0.071,
+            "high": 0.072,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.203,
+            "low": 0.197,
+            "high": 0.21,
+            "runs": 5
+          }
+        },
+        "model": {
+          "p50": {
+            "mean": 0.002,
+            "low": 0.002,
+            "high": 0.002,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.005,
+            "low": 0.004,
+            "high": 0.005,
+            "runs": 5
+          }
+        },
+        "decision": {
+          "p50": {
+            "mean": 0.017,
+            "low": 0.016,
+            "high": 0.017,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.033,
+            "low": 0.031,
+            "high": 0.034,
+            "runs": 5
+          }
+        },
+        "persist": {
+          "p50": {
+            "mean": 0.005,
+            "low": 0.005,
+            "high": 0.005,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.008,
+            "low": 0.007,
+            "high": 0.009,
+            "runs": 5
+          }
+        }
+      },
+      "flush_per_batch_ms": {
+        "p50": {
+          "mean": 0.0,
+          "low": 0.0,
+          "high": 0.0,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 0.001,
+          "low": 0.001,
+          "high": 0.001,
+          "runs": 5
+        }
+      },
+      "per_run_p99_ms": [
+        1.5781819999999869,
+        5.222437999999865,
+        5.3370259999998675,
+        4.505342999999929,
+        4.580599999999968
+      ]
+    },
+    {
+      "file": "memory-4-history",
+      "stream": "memory",
+      "bootstrap": null,
+      "history_staged": true,
+      "compression": null,
+      "runs": 5,
+      "events_per_run": 20000,
+      "rate": 1000.0,
+      "end_to_end_ms": {
+        "p50": {
+          "mean": 0.717,
+          "low": 0.635,
+          "high": 0.798,
+          "runs": 5
+        },
+        "p95": {
+          "mean": 1.283,
+          "low": 1.046,
+          "high": 1.519,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 9.859,
+          "low": 1.073,
+          "high": 18.644,
+          "runs": 5
+        }
+      },
+      "hops_ms": {
+        "ingest": {
+          "p50": {
+            "mean": 0.613,
+            "low": 0.539,
+            "high": 0.687,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 9.604,
+            "low": 0.883,
+            "high": 18.325,
+            "runs": 5
+          }
+        },
+        "features": {
+          "p50": {
+            "mean": 0.076,
+            "low": 0.072,
+            "high": 0.08,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.235,
+            "low": 0.187,
+            "high": 0.283,
+            "runs": 5
+          }
+        },
+        "model": {
+          "p50": {
+            "mean": 0.003,
+            "low": 0.002,
+            "high": 0.003,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.006,
+            "low": 0.005,
+            "high": 0.007,
+            "runs": 5
+          }
+        },
+        "decision": {
+          "p50": {
+            "mean": 0.018,
+            "low": 0.018,
+            "high": 0.019,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.041,
+            "low": 0.034,
+            "high": 0.048,
+            "runs": 5
+          }
+        },
+        "persist": {
+          "p50": {
+            "mean": 0.005,
+            "low": 0.005,
+            "high": 0.006,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.011,
+            "low": 0.008,
+            "high": 0.013,
+            "runs": 5
+          }
+        }
+      },
+      "flush_per_batch_ms": {
+        "p50": {
+          "mean": 0.001,
+          "low": 0.001,
+          "high": 0.001,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 0.002,
+          "low": 0.001,
+          "high": 0.002,
+          "runs": 5
+        }
+      },
+      "per_run_p99_ms": [
+        4.726320999999997,
+        5.629199999999936,
+        5.135210999999998,
+        21.05962699999993,
+        12.743291999999938
+      ]
+    },
+    {
+      "file": "rp-1-none",
+      "stream": "redpanda",
+      "bootstrap": "redpanda:9092",
+      "history_staged": false,
+      "compression": "none",
+      "runs": 5,
+      "events_per_run": 20000,
+      "rate": 1000.0,
+      "end_to_end_ms": {
+        "p50": {
+          "mean": 11.255,
+          "low": 10.993,
+          "high": 11.518,
+          "runs": 5
+        },
+        "p95": {
+          "mean": 17.601,
+          "low": 16.523,
+          "high": 18.68,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 50.292,
+          "low": 16.532,
+          "high": 84.053,
+          "runs": 5
+        }
+      },
+      "hops_ms": {
+        "ingest": {
+          "p50": {
+            "mean": 11.127,
+            "low": 10.871,
+            "high": 11.383,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 49.585,
+            "low": 15.624,
+            "high": 83.546,
+            "runs": 5
+          }
+        },
+        "features": {
+          "p50": {
+            "mean": 0.088,
+            "low": 0.087,
+            "high": 0.09,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.328,
+            "low": 0.28,
+            "high": 0.375,
+            "runs": 5
+          }
+        },
+        "model": {
+          "p50": {
+            "mean": 0.003,
+            "low": 0.003,
+            "high": 0.003,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.011,
+            "low": 0.009,
+            "high": 0.013,
+            "runs": 5
+          }
+        },
+        "decision": {
+          "p50": {
+            "mean": 0.018,
+            "low": 0.018,
+            "high": 0.019,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.075,
+            "low": 0.063,
+            "high": 0.087,
+            "runs": 5
+          }
+        },
+        "persist": {
+          "p50": {
+            "mean": 0.006,
+            "low": 0.006,
+            "high": 0.006,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.058,
+            "low": 0.049,
+            "high": 0.068,
+            "runs": 5
+          }
+        }
+      },
+      "flush_per_batch_ms": {
+        "p50": {
+          "mean": 0.776,
+          "low": 0.764,
+          "high": 0.788,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 1.594,
+          "low": 1.429,
+          "high": 1.759,
+          "runs": 5
+        }
+      },
+      "per_run_p99_ms": [
+        38.80003600999998,
+        58.761458,
+        29.218593019999968,
+        94.11969599999999,
+        30.56065301999997
+      ]
+    },
+    {
+      "file": "rp-2-none-history",
+      "stream": "redpanda",
+      "bootstrap": "redpanda:9092",
+      "history_staged": true,
+      "compression": "none",
+      "runs": 5,
+      "events_per_run": 20000,
+      "rate": 1000.0,
+      "end_to_end_ms": {
+        "p50": {
+          "mean": 14.572,
+          "low": 10.987,
+          "high": 18.156,
+          "runs": 5
+        },
+        "p95": {
+          "mean": 243.889,
+          "low": -355.337,
+          "high": 843.116,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 338.635,
+          "low": -407.53,
+          "high": 1084.8,
+          "runs": 5
+        }
+      },
+      "hops_ms": {
+        "ingest": {
+          "p50": {
+            "mean": 14.432,
+            "low": 10.878,
+            "high": 17.985,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 338.254,
+            "low": -408.106,
+            "high": 1084.614,
+            "runs": 5
+          }
+        },
+        "features": {
+          "p50": {
+            "mean": 0.088,
+            "low": 0.086,
+            "high": 0.09,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.366,
+            "low": 0.314,
+            "high": 0.419,
+            "runs": 5
+          }
+        },
+        "model": {
+          "p50": {
+            "mean": 0.003,
+            "low": 0.003,
+            "high": 0.003,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.013,
+            "low": 0.011,
+            "high": 0.015,
+            "runs": 5
+          }
+        },
+        "decision": {
+          "p50": {
+            "mean": 0.019,
+            "low": 0.018,
+            "high": 0.019,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.082,
+            "low": 0.068,
+            "high": 0.096,
+            "runs": 5
+          }
+        },
+        "persist": {
+          "p50": {
+            "mean": 0.006,
+            "low": 0.006,
+            "high": 0.007,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.068,
+            "low": 0.055,
+            "high": 0.08,
+            "runs": 5
+          }
+        }
+      },
+      "flush_per_batch_ms": {
+        "p50": {
+          "mean": 0.723,
+          "low": 0.708,
+          "high": 0.738,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 25.966,
+          "low": -13.94,
+          "high": 65.872,
+          "runs": 5
+        }
+      },
+      "per_run_p99_ms": [
+        90.12493802999987,
+        1410.74866901,
+        135.6450750099999,
+        26.828360049999784,
+        29.825690019999957
+      ]
+    },
+    {
+      "file": "rp-3-zstd-history",
+      "stream": "redpanda",
+      "bootstrap": "redpanda:9092",
+      "history_staged": true,
+      "compression": "zstd",
+      "runs": 5,
+      "events_per_run": 20000,
+      "rate": 1000.0,
+      "end_to_end_ms": {
+        "p50": {
+          "mean": 14.394,
+          "low": 10.248,
+          "high": 18.539,
+          "runs": 5
+        },
+        "p95": {
+          "mean": 56.455,
+          "low": -36.309,
+          "high": 149.218,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 251.202,
+          "low": -133.543,
+          "high": 635.947,
+          "runs": 5
+        }
+      },
+      "hops_ms": {
+        "ingest": {
+          "p50": {
+            "mean": 14.252,
+            "low": 10.126,
+            "high": 18.378,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 250.633,
+            "low": -134.532,
+            "high": 635.798,
+            "runs": 5
+          }
+        },
+        "features": {
+          "p50": {
+            "mean": 0.087,
+            "low": 0.085,
+            "high": 0.088,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.371,
+            "low": 0.33,
+            "high": 0.411,
+            "runs": 5
+          }
+        },
+        "model": {
+          "p50": {
+            "mean": 0.003,
+            "low": 0.003,
+            "high": 0.003,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.014,
+            "low": 0.013,
+            "high": 0.014,
+            "runs": 5
+          }
+        },
+        "decision": {
+          "p50": {
+            "mean": 0.019,
+            "low": 0.018,
+            "high": 0.019,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.083,
+            "low": 0.071,
+            "high": 0.094,
+            "runs": 5
+          }
+        },
+        "persist": {
+          "p50": {
+            "mean": 0.006,
+            "low": 0.006,
+            "high": 0.007,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.071,
+            "low": 0.061,
+            "high": 0.081,
+            "runs": 5
+          }
+        }
+      },
+      "flush_per_batch_ms": {
+        "p50": {
+          "mean": 0.737,
+          "low": 0.711,
+          "high": 0.763,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 12.522,
+          "low": -4.951,
+          "high": 29.994,
+          "runs": 5
+        }
+      },
+      "per_run_p99_ms": [
+        80.66121299999999,
+        87.22894362999689,
+        36.54096898999996,
+        269.5319610199999,
+        782.0456509999999
+      ]
+    },
+    {
+      "file": "rp-4-none",
+      "stream": "redpanda",
+      "bootstrap": "redpanda:9092",
+      "history_staged": false,
+      "compression": "none",
+      "runs": 5,
+      "events_per_run": 20000,
+      "rate": 1000.0,
+      "end_to_end_ms": {
+        "p50": {
+          "mean": 11.173,
+          "low": 11.035,
+          "high": 11.311,
+          "runs": 5
+        },
+        "p95": {
+          "mean": 17.383,
+          "low": 16.987,
+          "high": 17.779,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 34.783,
+          "low": 21.645,
+          "high": 47.922,
+          "runs": 5
+        }
+      },
+      "hops_ms": {
+        "ingest": {
+          "p50": {
+            "mean": 11.043,
+            "low": 10.917,
+            "high": 11.169,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 34.503,
+            "low": 21.297,
+            "high": 47.709,
+            "runs": 5
+          }
+        },
+        "features": {
+          "p50": {
+            "mean": 0.089,
+            "low": 0.089,
+            "high": 0.089,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.339,
+            "low": 0.306,
+            "high": 0.372,
+            "runs": 5
+          }
+        },
+        "model": {
+          "p50": {
+            "mean": 0.003,
+            "low": 0.003,
+            "high": 0.003,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.011,
+            "low": 0.01,
+            "high": 0.013,
+            "runs": 5
+          }
+        },
+        "decision": {
+          "p50": {
+            "mean": 0.019,
+            "low": 0.019,
+            "high": 0.019,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.073,
+            "low": 0.062,
+            "high": 0.083,
+            "runs": 5
+          }
+        },
+        "persist": {
+          "p50": {
+            "mean": 0.006,
+            "low": 0.006,
+            "high": 0.006,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.061,
+            "low": 0.052,
+            "high": 0.071,
+            "runs": 5
+          }
+        }
+      },
+      "flush_per_batch_ms": {
+        "p50": {
+          "mean": 0.771,
+          "low": 0.757,
+          "high": 0.785,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 1.465,
+          "low": 1.327,
+          "high": 1.603,
+          "runs": 5
+        }
+      },
+      "per_run_p99_ms": [
+        28.667162029999886,
+        27.36186605999966,
+        31.240630669999668,
+        33.39630609999976,
+        53.25135515999642
+      ]
+    },
+    {
+      "file": "rp-5-none-history",
+      "stream": "redpanda",
+      "bootstrap": "redpanda:9092",
+      "history_staged": true,
+      "compression": "none",
+      "runs": 5,
+      "events_per_run": 20000,
+      "rate": 1000.0,
+      "end_to_end_ms": {
+        "p50": {
+          "mean": 12.041,
+          "low": 11.84,
+          "high": 12.242,
+          "runs": 5
+        },
+        "p95": {
+          "mean": 18.337,
+          "low": 17.692,
+          "high": 18.983,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 51.538,
+          "low": 17.281,
+          "high": 85.795,
+          "runs": 5
+        }
+      },
+      "hops_ms": {
+        "ingest": {
+          "p50": {
+            "mean": 11.914,
+            "low": 11.708,
+            "high": 12.12,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 51.144,
+            "low": 17.086,
+            "high": 85.202,
+            "runs": 5
+          }
+        },
+        "features": {
+          "p50": {
+            "mean": 0.087,
+            "low": 0.087,
+            "high": 0.087,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.338,
+            "low": 0.311,
+            "high": 0.364,
+            "runs": 5
+          }
+        },
+        "model": {
+          "p50": {
+            "mean": 0.003,
+            "low": 0.003,
+            "high": 0.003,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.012,
+            "low": 0.01,
+            "high": 0.014,
+            "runs": 5
+          }
+        },
+        "decision": {
+          "p50": {
+            "mean": 0.019,
+            "low": 0.018,
+            "high": 0.019,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.075,
+            "low": 0.066,
+            "high": 0.084,
+            "runs": 5
+          }
+        },
+        "persist": {
+          "p50": {
+            "mean": 0.006,
+            "low": 0.006,
+            "high": 0.006,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.062,
+            "low": 0.057,
+            "high": 0.067,
+            "runs": 5
+          }
+        }
+      },
+      "flush_per_batch_ms": {
+        "p50": {
+          "mean": 0.704,
+          "low": 0.694,
+          "high": 0.715,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 1.266,
+          "low": 0.998,
+          "high": 1.534,
+          "runs": 5
+        }
+      },
+      "per_run_p99_ms": [
+        74.02173504999972,
+        87.22339700999956,
+        27.712663009999975,
+        26.971976019999925,
+        41.76152704999973
+      ]
+    },
+    {
+      "file": "rp-6-zstd-history",
+      "stream": "redpanda",
+      "bootstrap": "redpanda:9092",
+      "history_staged": true,
+      "compression": "zstd",
+      "runs": 5,
+      "events_per_run": 20000,
+      "rate": 1000.0,
+      "end_to_end_ms": {
+        "p50": {
+          "mean": 12.128,
+          "low": 12.049,
+          "high": 12.207,
+          "runs": 5
+        },
+        "p95": {
+          "mean": 18.598,
+          "low": 18.172,
+          "high": 19.024,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 54.262,
+          "low": 12.101,
+          "high": 96.422,
+          "runs": 5
+        }
+      },
+      "hops_ms": {
+        "ingest": {
+          "p50": {
+            "mean": 12.006,
+            "low": 11.93,
+            "high": 12.082,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 53.284,
+            "low": 12.209,
+            "high": 94.359,
+            "runs": 5
+          }
+        },
+        "features": {
+          "p50": {
+            "mean": 0.089,
+            "low": 0.088,
+            "high": 0.09,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.355,
+            "low": 0.324,
+            "high": 0.385,
+            "runs": 5
+          }
+        },
+        "model": {
+          "p50": {
+            "mean": 0.003,
+            "low": 0.003,
+            "high": 0.003,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.012,
+            "low": 0.011,
+            "high": 0.014,
+            "runs": 5
+          }
+        },
+        "decision": {
+          "p50": {
+            "mean": 0.019,
+            "low": 0.019,
+            "high": 0.019,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.078,
+            "low": 0.065,
+            "high": 0.091,
+            "runs": 5
+          }
+        },
+        "persist": {
+          "p50": {
+            "mean": 0.006,
+            "low": 0.006,
+            "high": 0.006,
+            "runs": 5
+          },
+          "p99": {
+            "mean": 0.064,
+            "low": 0.059,
+            "high": 0.069,
+            "runs": 5
+          }
+        }
+      },
+      "flush_per_batch_ms": {
+        "p50": {
+          "mean": 0.701,
+          "low": 0.688,
+          "high": 0.713,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 1.444,
+          "low": 1.183,
+          "high": 1.704,
+          "runs": 5
+        }
+      },
+      "per_run_p99_ms": [
+        76.98807401999996,
+        103.11356301,
+        30.727586989999978,
+        29.16980299999999,
+        31.309604119999964
+      ]
+    }
+  ]
+}
