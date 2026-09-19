@@ -64,3 +64,18 @@ design chose to accept them, and each needs a chaos run before go-live.
 - **The compactor does not run.** Staged hours pile up unsealed at about 284
   bytes a row instead of 30, about a gigabyte an hour. What is needed: the
   age of the oldest unsealed hour as a metric.
+
+## Known before it happens: a spot replacement (ADR 15)
+
+Not yet tried on the instance. What the design says happens, to be checked by
+a timed interruption drill before go-live:
+
+- **The feeds** restore their saved place and resend up to 30 seconds of
+  records, then catch up on whatever came due while they were down. The
+  duplicates are visible on the dashboard and absorbed by the scorer's ledger
+  and history's finalising. A fresh start with no saved place, more than an
+  hour into the window, is refused rather than replaying the window.
+- **The scorer** starts with empty feature windows and serves "no history"
+  until they refill. Its rebuild by replay is not built, and the engine's
+  memory at the live rate is the first thing to measure (ADR 15).
+

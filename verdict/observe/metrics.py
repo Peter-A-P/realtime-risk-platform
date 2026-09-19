@@ -62,6 +62,23 @@ HOP_BUCKETS: Final[tuple[float, ...]] = (
 )
 """Seconds. Dense below 5 ms, where the scorer's hops are; wide above."""
 
+AGE_BUCKETS: Final[tuple[float, ...]] = (
+    0.005,
+    0.01,
+    0.025,
+    0.05,
+    0.1,
+    0.25,
+    1.0,
+    5.0,
+    30.0,
+    300.0,
+    3600.0,
+)
+"""Seconds from event time to decision: the budget's 50 ms in the middle, and
+room above for a feed catching up after an interruption, which is reported,
+not dropped."""
+
 BATCH_BUCKETS: Final[tuple[float, ...]] = (1, 2, 5, 10, 20, 50, 100, 200, 500)
 """Records per batch, up to the scorer's own maximum of 500."""
 
@@ -116,6 +133,14 @@ class ScorerMetrics:
             ("reason",),
             registry=self.registry,
         )
+        self.event_age = Histogram(
+            "verdict_event_to_decision_seconds",
+            "Event time to decision time. On the live stack the feed sends each "
+            "transaction when its event time comes, so this is ingest to decision; "
+            "in a load test, whose event times are synthetic, it means nothing.",
+            buckets=AGE_BUCKETS,
+            registry=self.registry,
+        )
         self.last_decision = Gauge(
             "verdict_last_decision_timestamp_seconds",
             "Wall-clock time of the most recent decision.",
@@ -134,7 +159,7 @@ class ScorerMetrics:
             decision: Its decision.
             sample: How long each hop took.
         """
-        del event
+        self.event_age.observe(max(0.0, (decision.decided_at - event.event_time).total_seconds()))
         self.decisions.labels(decision.action.value, decision.model_version).inc()
         self.hops.labels("features").observe(sample.features_ns / 1e9)
         self.hops.labels("model").observe(sample.model_ns / 1e9)

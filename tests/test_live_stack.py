@@ -164,7 +164,14 @@ def test_every_platform_service_runs_the_one_pushed_image() -> None:
     """One image, named by the commit it was built from (deploy/push-image.sh)."""
     services = _compose(LIVE_COMPOSE)["services"]
     ours = {name: s for name, s in services.items() if "VERDICT_IMAGE" in str(s.get("image"))}
-    assert set(ours) == {"scorer", "labels", "compactor"}
+    assert set(ours) == {
+        "scorer",
+        "labels",
+        "compactor",
+        "feed-transactions",
+        "feed-labels",
+        "grafana-files",
+    }
     assert len({s["image"] for s in ours.values()}) == 1
 
 
@@ -180,3 +187,44 @@ def test_the_image_leaves_the_data_directory_out() -> None:
     ignore = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
     assert ignore[ignore.index("*")] == "*"
     assert not any(line.startswith("!data") for line in ignore)
+
+
+def test_the_public_dashboard_is_anonymous_read_only_and_closed_to_login() -> None:
+    grafana = _compose(LIVE_COMPOSE)["services"]["grafana"]
+    env = grafana["environment"]
+    assert env["GF_AUTH_ANONYMOUS_ENABLED"] == "true"
+    assert env["GF_AUTH_ANONYMOUS_ORG_ROLE"] == "Viewer"
+    assert env["GF_AUTH_DISABLE_LOGIN_FORM"] == "true"
+    assert env["GF_USERS_ALLOW_SIGN_UP"] == "false"
+    assert env["GF_EXPLORE_ENABLED"] == "false"
+    assert "ports" not in grafana
+    assert all(volume.endswith(":ro") for volume in grafana["volumes"])
+
+
+def test_a_public_query_cannot_hold_the_instance() -> None:
+    command = _compose(LIVE_COMPOSE)["services"]["prometheus"]["command"]
+    assert any(arg.startswith("--query.timeout=") for arg in command)
+    assert any(arg.startswith("--query.max-samples=") for arg in command)
+
+
+def test_both_feeds_play_the_same_stream_and_keep_their_place_on_the_volume() -> None:
+    services = _compose(LIVE_COMPOSE)["services"]
+    feeds = [services["feed-transactions"], services["feed-labels"]]
+
+    def shared(command: list[str]) -> list[str]:
+        return [a for a in command if a.startswith(("--start=", "--schedule=", "--state="))]
+
+    assert shared(feeds[0]["command"]) == shared(feeds[1]["command"])
+    for feed in feeds:
+        assert "--state=/data/feeds" in feed["command"]
+        assert "/data/feeds:/data/feeds" in feed["volumes"]
+
+
+def test_the_user_data_fits_the_sixteen_kilobyte_limit() -> None:
+    """The boot script carries the compose file gzipped; both must fit."""
+    import base64
+    import gzip
+
+    boot = (TERRAFORM / "boot.sh.tftpl").read_bytes()
+    compose = base64.b64encode(gzip.compress(LIVE_COMPOSE.read_bytes()))
+    assert len(boot) + len(compose) + 2_048 < 16_384

@@ -827,6 +827,224 @@ def history_compact(
         typer.echo(json.dumps(asdict(manifest), sort_keys=True))
 
 
+live_app = typer.Typer(
+    name="live", help="The live feeds: the generator in real time (ADR 15).", no_args_is_help=True
+)
+app.add_typer(live_app)
+
+
+def _read_if_present(path: Path | None, *, strip: bool = False) -> str | None:
+    """A file's text, or None if there is no such file.
+
+    The live stack always passes the schedule's files; on the development
+    schedule they do not exist, and only `sealed` requires them.
+    """
+    if path is None or not path.exists():
+        return None
+    text = path.read_text(encoding="utf-8")
+    return text.strip() if strip else text
+
+
+def _run_feed(
+    feed_name: str,
+    *,
+    state: Path,
+    start: str,
+    rate: float,
+    schedule: str,
+    bootstrap: str | None,
+    metrics_port: int,
+    metrics_host: str,
+    from_start: bool,
+    secret_file: Path | None,
+    commitment_file: Path | None,
+) -> None:
+    import signal
+    import threading
+
+    from prometheus_client import start_http_server
+
+    from verdict.live.feed import (
+        Feed,
+        FeedMetrics,
+        LiveFeed,
+        SnapshotStore,
+        live_schedule,
+        open_run,
+    )
+    from verdict.stream.redpanda import DEFAULT_BOOTSTRAP, RedpandaStream
+
+    feed = Feed(feed_name)
+    window_start = dt.datetime.fromisoformat(start)
+    if window_start.tzinfo is None:
+        typer.echo("--start must carry a time zone, for example 2026-10-01T00:00:00+00:00")
+        raise typer.Exit(code=2)
+    config = GeneratorConfig(
+        events_per_second=rate,
+        start_time=window_start.astimezone(dt.UTC),
+        schedule=live_schedule(
+            schedule,
+            secret=_read_if_present(secret_file, strip=True),
+            commitment=_read_if_present(commitment_file),
+        ),
+    )
+    store = SnapshotStore(state, feed)
+    run = open_run(config, store, now=dt.datetime.now(dt.UTC), from_start=from_start)
+    metrics = FeedMetrics(feed)
+    stream = RedpandaStream(bootstrap or DEFAULT_BOOTSTRAP)
+    if metrics_port:
+        start_http_server(metrics_port, addr=metrics_host, registry=metrics.registry)
+    stop = threading.Event()
+
+    def ask_to_stop(signum: int, frame: object) -> None:
+        del signum, frame
+        stop.set()
+
+    signal.signal(signal.SIGINT, ask_to_stop)
+    signal.signal(signal.SIGTERM, ask_to_stop)
+    typer.echo(
+        f"{feed.value} feed from {config.start_time.isoformat()} at {rate:g}/s on the "
+        f"{schedule} schedule, {run.emitted:,} records already sent"
+    )
+    try:
+        LiveFeed(run, stream, feed, store, metrics=metrics).run_until(stop.is_set)
+    finally:
+        stream.close()
+    typer.echo(f"stopped at {run.emitted:,} records; place saved in {store.path}")
+
+
+_STATE = Annotated[Path, typer.Option(help="Where the feed saves its place (the data volume).")]
+_START = Annotated[str, typer.Option(help="The window's start, ISO 8601 with a zone.")]
+_RATE = Annotated[float, typer.Option(help="Legitimate transactions a second.")]
+_SCHEDULE = Annotated[
+    str,
+    typer.Option(help="dev, or sealed (needs --secret-file and --commitment-file)."),
+]
+_BOOTSTRAP = Annotated[str | None, typer.Option(help="Broker address.")]
+_METRICS_HOST = Annotated[str, typer.Option(help="Interface the metrics listen on.")]
+_SECRET_FILE = Annotated[
+    Path | None, typer.Option(help="A file holding the sealed secret; never printed.")
+]
+_COMMITMENT_FILE = Annotated[
+    Path | None, typer.Option(help="The committed hashes, docs/sealed-schedule.json.")
+]
+_FROM_START = Annotated[
+    bool, typer.Option(help="Start from the window's start even with no saved place.")
+]
+
+
+@live_app.command("transactions")
+def live_transactions(
+    state: _STATE,
+    start: _START,
+    rate: _RATE = 1000.0,
+    schedule: _SCHEDULE = "dev",
+    bootstrap: _BOOTSTRAP = None,
+    metrics_port: Annotated[int, typer.Option(help="Metrics port; 0 for none.")] = 9109,
+    metrics_host: _METRICS_HOST = "127.0.0.1",
+    from_start: _FROM_START = False,
+    secret_file: _SECRET_FILE = None,
+    commitment_file: _COMMITMENT_FILE = None,
+) -> None:
+    """Send each transaction to `transactions` when its event time comes.
+
+    Args:
+        state: Where the feed saves its place.
+        start: The window's start.
+        rate: Legitimate transactions a second.
+        schedule: dev or sealed.
+        bootstrap: Broker address.
+        metrics_port: Metrics port.
+        metrics_host: Metrics interface.
+        from_start: Start fresh even well into the window.
+        secret_file: The sealed secret's file, for `sealed`.
+        commitment_file: The committed hashes, for `sealed`.
+    """
+    _run_feed(
+        "transactions",
+        state=state,
+        start=start,
+        rate=rate,
+        schedule=schedule,
+        bootstrap=bootstrap,
+        metrics_port=metrics_port,
+        metrics_host=metrics_host,
+        from_start=from_start,
+        secret_file=secret_file,
+        commitment_file=commitment_file,
+    )
+
+
+@live_app.command("labels")
+def live_labels(
+    state: _STATE,
+    start: _START,
+    rate: _RATE = 1000.0,
+    schedule: _SCHEDULE = "dev",
+    bootstrap: _BOOTSTRAP = None,
+    metrics_port: Annotated[int, typer.Option(help="Metrics port; 0 for none.")] = 9110,
+    metrics_host: _METRICS_HOST = "127.0.0.1",
+    from_start: _FROM_START = False,
+    secret_file: _SECRET_FILE = None,
+    commitment_file: _COMMITMENT_FILE = None,
+) -> None:
+    """Send each label to `labels` when its label time comes, a week later.
+
+    Runs the same stream as the transaction feed, from the same start, and
+    must be given the same configuration: its snapshot refuses any other.
+
+    Args:
+        state: Where the feed saves its place.
+        start: The window's start.
+        rate: Legitimate transactions a second.
+        schedule: dev or sealed.
+        bootstrap: Broker address.
+        metrics_port: Metrics port.
+        metrics_host: Metrics interface.
+        from_start: Start fresh even well into the window.
+        secret_file: The sealed secret's file, for `sealed`.
+        commitment_file: The committed hashes, for `sealed`.
+    """
+    _run_feed(
+        "labels",
+        state=state,
+        start=start,
+        rate=rate,
+        schedule=schedule,
+        bootstrap=bootstrap,
+        metrics_port=metrics_port,
+        metrics_host=metrics_host,
+        from_start=from_start,
+        secret_file=secret_file,
+        commitment_file=commitment_file,
+    )
+
+
+observe_app = typer.Typer(
+    name="observe", help="What the platform shows about itself.", no_args_is_help=True
+)
+app.add_typer(observe_app)
+
+
+@observe_app.command("grafana")
+def observe_grafana(
+    out: Annotated[Path, typer.Option(help="Where to write Grafana's provisioning files.")],
+    mounted_at: Annotated[
+        str, typer.Option(help="Where Grafana sees that directory.")
+    ] = "/etc/grafana/verdict",
+) -> None:
+    """Write the public dashboard and its data source for Grafana to load.
+
+    Args:
+        out: The directory to write.
+        mounted_at: Its path inside the Grafana container.
+    """
+    from verdict.observe.dashboard import write_files
+
+    for path in write_files(out, mounted_at=mounted_at):
+        typer.echo(f"wrote {path}")
+
+
 flag_app = typer.Typer(
     name="flag", help="The champion pointer the scorer reads per event.", no_args_is_help=True
 )

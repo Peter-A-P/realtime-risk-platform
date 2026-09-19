@@ -27,6 +27,9 @@ locals {
   # that upgrades itself under a latency measurement is not a measurement.
   compose_version = "v5.5.1"
   compose_sha256  = "db1889184726840f75c4f9c001048430d4f25b3be3cb084d3ddd762bc0aed576"
+
+  # The sealed schedule's committed hashes, written by `verdict schedule seal`.
+  commitment = "${path.module}/../../docs/sealed-schedule.json"
 }
 
 data "aws_caller_identity" "current" {}

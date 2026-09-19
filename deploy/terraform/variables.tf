@@ -44,3 +44,25 @@ variable "image_tag" {
     error_message = "running = true needs image_tag: push an image with deploy/push-image.sh first."
   }
 }
+
+variable "window_start" {
+  description = "The live window's start, RFC 3339 with a zone. Fixed for the window: every feed restart continues from it. Required when running."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = !var.running || can(formatdate("YYYY", var.window_start))
+    error_message = "running = true needs window_start as RFC 3339, for example 2026-10-01T00:00:00Z."
+  }
+}
+
+variable "schedule" {
+  description = "dev for a dry run on the public development schedule; sealed for the live window (the secret in SSM at /verdict/schedule-secret, the hashes in docs/sealed-schedule.json)."
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "sealed"], var.schedule)
+    error_message = "schedule is dev or sealed."
+  }
+}

@@ -28,7 +28,11 @@ from roughly two thousand events per second to tens of thousands.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import heapq
+import itertools
+import pickle
+from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Final
@@ -204,52 +208,25 @@ class Generator:
             limit: Stop after this many records. `None` runs forever, which is
                 what the live producer wants.
 
-        Yields:
-            One record per transaction, legitimate or fraudulent.
+        Returns:
+            One record per transaction, legitimate or fraudulent, as a
+            `GeneratorRun` (which can be snapshotted and resumed) when there
+            is no limit.
         """
-        rng = np.random.default_rng([self.config.seed, 0xE7E4])
-        draws = _Draws(rng, self.config)
+        run = GeneratorRun(self)
+        return run if limit is None else itertools.islice(run, limit)
 
-        elapsed = 0.0
-        emitted = 0
-        counter = 0
-        attack_number = 0
-        pending: list[tuple[float, int, PlannedEvent]] = []
-        regime = self.config.schedule.at(0.0)
-        if self.config.warm_up:
-            counter, attack_number = self._warm_up(rng, draws, pending, regime)
-        next_attack_at = elapsed + draws.attack_gap(self._attack_rate(regime))
+    def resume(self, snapshot: bytes) -> GeneratorRun:
+        """Continue a run from a snapshot, exactly where it stopped.
 
-        while limit is None or emitted < limit:
-            next_legit_at = elapsed + draws.inter_arrival()
+        Args:
+            snapshot: What `GeneratorRun.snapshot` returned.
 
-            while next_attack_at <= next_legit_at:
-                attack_regime = self.config.schedule.at(next_attack_at / 86_400.0)
-                attack_number += 1
-                for planned in plan_attack(
-                    _choose_scenario(attack_regime, draws.unit()),
-                    rng,
-                    self.graph,
-                    attack_regime,
-                    next_attack_at,
-                    attack_number,
-                ):
-                    counter += 1
-                    heapq.heappush(pending, (planned.at_seconds, counter, planned))
-                next_attack_at += draws.attack_gap(self._attack_rate(attack_regime))
-
-            while pending and pending[0][0] <= next_legit_at:
-                at_seconds, _, planned = heapq.heappop(pending)
-                emitted += 1
-                yield self._record_from_planned(planned, at_seconds, draws)
-                if limit is not None and emitted >= limit:
-                    return
-
-            elapsed = next_legit_at
-            regime = self.config.schedule.at(elapsed / 86_400.0)
-            emitted += 1
-            counter += 1
-            yield self._legitimate_record(elapsed, regime, draws, counter)
+        Returns:
+            A run whose next record is the one the snapshotted run would have
+            produced next.
+        """
+        return GeneratorRun.restore(self, snapshot)
 
     def _warm_up(
         self,
@@ -477,6 +454,201 @@ class Generator:
             A timezone-aware UTC timestamp.
         """
         return self.config.start_time + dt.timedelta(seconds=elapsed)
+
+
+class SnapshotMismatchError(ValueError):
+    """Raised on resuming a snapshot under a different generator configuration."""
+
+
+@dataclass(slots=True)
+class _RunState:
+    """Everything a run needs to carry on, and nothing it can rebuild.
+
+    The entity graph is rebuilt from the configuration. What is kept is the
+    random state, the attacks already planned, the counters, and any records
+    built but not yet handed out.
+    """
+
+    rng: np.random.Generator
+    draws: _Draws
+    elapsed: float
+    counter: int
+    attack_number: int
+    pending: list[tuple[float, int, PlannedEvent]]
+    next_attack_at: float
+    ready: deque[GeneratedRecord]
+    emitted: int = 0
+
+
+class GeneratorRun(Iterator[GeneratedRecord]):
+    """One run of the generator, as an iterator that can be put down and picked up.
+
+    The live window is sixty days at a thousand events a second. A spot
+    replacement restarts the producer, and regenerating from the window's
+    start to find its place would take hours by day thirty. So a run's whole
+    state can be snapshotted, and a run restored from a snapshot produces the
+    same records, byte for byte, that the original would have produced next
+    (`tests/test_generator_resume.py`).
+
+    Records are built a step at a time: the attacks due before the next
+    legitimate transaction, then that transaction, in exactly the order and
+    with exactly the draws the generator has always used.
+    """
+
+    def __init__(self, generator: Generator, state: _RunState | None = None) -> None:
+        """Start a run, or continue one.
+
+        Args:
+            generator: The generator whose configuration and graph to use.
+            state: A restored state, or None to start at the window's start.
+        """
+        self.generator = generator
+        self._state = state if state is not None else self._fresh()
+
+    def _fresh(self) -> _RunState:
+        generator = self.generator
+        rng = np.random.default_rng([generator.config.seed, 0xE7E4])
+        draws = _Draws(rng, generator.config)
+        pending: list[tuple[float, int, PlannedEvent]] = []
+        counter = attack_number = 0
+        regime = generator.config.schedule.at(0.0)
+        if generator.config.warm_up:
+            counter, attack_number = generator._warm_up(rng, draws, pending, regime)
+        return _RunState(
+            rng=rng,
+            draws=draws,
+            elapsed=0.0,
+            counter=counter,
+            attack_number=attack_number,
+            pending=pending,
+            next_attack_at=draws.attack_gap(generator._attack_rate(regime)),
+            ready=deque(),
+        )
+
+    @property
+    def emitted(self) -> int:
+        """Records handed out so far, across every resume.
+
+        Returns:
+            The count.
+        """
+        return self._state.emitted
+
+    def __iter__(self) -> GeneratorRun:
+        """Return the run itself.
+
+        Returns:
+            This run.
+        """
+        return self
+
+    def __next__(self) -> GeneratedRecord:
+        """The next record in event-time order.
+
+        Returns:
+            The record.
+        """
+        state = self._state
+        while not state.ready:
+            self._step()
+        state.emitted += 1
+        return state.ready.popleft()
+
+    def peek(self) -> GeneratedRecord:
+        """The record `next` would return, without taking it.
+
+        A live producer waits for a record's time to come before sending it,
+        and a snapshot taken while it waits must still hold that record.
+
+        Returns:
+            The next record.
+        """
+        state = self._state
+        while not state.ready:
+            self._step()
+        return state.ready[0]
+
+    def _step(self) -> None:
+        """Build the attacks due before the next legitimate event, then it."""
+        generator, state = self.generator, self._state
+        schedule = generator.config.schedule
+        next_legit_at = state.elapsed + state.draws.inter_arrival()
+
+        while state.next_attack_at <= next_legit_at:
+            attack_regime = schedule.at(state.next_attack_at / 86_400.0)
+            state.attack_number += 1
+            for planned in plan_attack(
+                _choose_scenario(attack_regime, state.draws.unit()),
+                state.rng,
+                generator.graph,
+                attack_regime,
+                state.next_attack_at,
+                state.attack_number,
+            ):
+                state.counter += 1
+                heapq.heappush(state.pending, (planned.at_seconds, state.counter, planned))
+            state.next_attack_at += state.draws.attack_gap(generator._attack_rate(attack_regime))
+
+        while state.pending and state.pending[0][0] <= next_legit_at:
+            at_seconds, _, planned = heapq.heappop(state.pending)
+            state.ready.append(generator._record_from_planned(planned, at_seconds, state.draws))
+
+        state.elapsed = next_legit_at
+        regime = schedule.at(state.elapsed / 86_400.0)
+        state.counter += 1
+        state.ready.append(
+            generator._legitimate_record(state.elapsed, regime, state.draws, state.counter)
+        )
+
+    def snapshot(self) -> bytes:
+        """The run's state, to resume from later.
+
+        Returns:
+            Opaque bytes, tied to this generator's configuration. They are
+            pickled, so only a snapshot this platform wrote to its own data
+            volume may ever be restored.
+        """
+        return pickle.dumps(
+            (config_fingerprint(self.generator.config), self._state),
+            protocol=pickle.HIGHEST_PROTOCOL,
+        )
+
+    @classmethod
+    def restore(cls, generator: Generator, snapshot: bytes) -> GeneratorRun:
+        """Rebuild a run from a snapshot.
+
+        Args:
+            generator: A generator built from the same configuration.
+            snapshot: What `snapshot` returned.
+
+        Returns:
+            The run, positioned where the snapshot was taken.
+
+        Raises:
+            SnapshotMismatchError: If the configuration differs. A different
+                seed, rate, schedule or start would continue a different
+                stream from this one's position, which is not a resume.
+        """
+        fingerprint, state = pickle.loads(snapshot)
+        if fingerprint != config_fingerprint(generator.config):
+            msg = "the snapshot was taken under a different generator configuration"
+            raise SnapshotMismatchError(msg)
+        if not isinstance(state, _RunState):
+            msg = "not a generator snapshot"
+            raise SnapshotMismatchError(msg)
+        return cls(generator, state)
+
+
+def config_fingerprint(config: GeneratorConfig) -> str:
+    """A hash of everything in a configuration that shapes the stream.
+
+    Args:
+        config: The configuration.
+
+    Returns:
+        SHA-256, hex.
+    """
+    return hashlib.sha256(repr(config).encode("utf-8")).hexdigest()
 
 
 def _choose_scenario(regime: Regime, draw: float) -> FraudScenario:

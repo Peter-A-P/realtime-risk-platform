@@ -1,7 +1,7 @@
 # One spot instance, kept at one by an auto-scaling group. A spot
 # interruption terminates the instance; the group launches a replacement in
 # the same zone, and its boot script reattaches the data volume and starts
-# the stack. ADR 15 will record how the platform recovers its state.
+# the stack. ADR 15 records how the feeds recover, and what is open.
 
 # Amazon Linux 2023, x86, the current image when Terraform runs. The build is
 # tested on x86 (PLAN.md section 6), so the live stack is too.
@@ -51,10 +51,21 @@ resource "aws_launch_template" "instance" {
     volume_id       = aws_ebs_volume.data.id
     compose_version = local.compose_version
     compose_sha256  = local.compose_sha256
-    compose_b64     = filebase64("${path.module}/../live/compose.yml")
-    image           = "${aws_ecr_repository.verdict.repository_url}:${var.image_tag}"
-    registry        = split("/", aws_ecr_repository.verdict.repository_url)[0]
+    # Gzipped: user data is limited to 16 KB, and a test keeps it inside.
+    compose_b64gz  = base64gzip(file("${path.module}/../live/compose.yml"))
+    window_start   = var.window_start
+    schedule       = var.schedule
+    commitment_b64 = var.schedule == "sealed" ? filebase64(local.commitment) : ""
+    image          = "${aws_ecr_repository.verdict.repository_url}:${var.image_tag}"
+    registry       = split("/", aws_ecr_repository.verdict.repository_url)[0]
   }))
+
+  lifecycle {
+    precondition {
+      condition     = var.schedule != "sealed" || fileexists(local.commitment)
+      error_message = "schedule = sealed needs docs/sealed-schedule.json: run verdict schedule seal first."
+    }
+  }
 
   # default_tags does not reach what an auto-scaling group launches, so the
   # instance, its root volume and its network interface are tagged here. The

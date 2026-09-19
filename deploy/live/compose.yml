@@ -13,9 +13,10 @@
 #
 # The platform's own services all run one image, `verdict`, with different
 # commands; VERDICT_IMAGE names it (the boot script writes it from the
-# Terraform variable `image_tag`). Still to join: the live generator and its
-# label feed, which need to resume after a spot replacement (ADR 15), and
-# Grafana with the public dashboard.
+# Terraform variable `image_tag`), along with the window's start and schedule.
+# The two feeds play the generator in real time and resume from their saved
+# place after a spot replacement (ADR 15). Grafana serves the public
+# dashboard through the tunnel, read-only and anonymous.
 
 name: verdict
 
@@ -124,6 +125,54 @@ services:
       - /data/history:/data/history
     restart: unless-stopped
 
+  # The generator in real time: each transaction when its event time comes,
+  # each label a week later. Same configuration, two runs (ADR 15). Their
+  # saved places are on the data volume; the sealed schedule's secret and
+  # commitment are files the boot script writes, mounted read-only.
+  feed-transactions:
+    image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
+    container_name: verdict-feed-transactions
+    command:
+      - live
+      - transactions
+      - --state=/data/feeds
+      - --start=${VERDICT_WINDOW_START:?the boot script writes it}
+      - --schedule=${VERDICT_SCHEDULE:?the boot script writes it}
+      - --bootstrap=redpanda:9092
+      - --metrics-host=0.0.0.0
+      - --metrics-port=9109
+      - --secret-file=/run/schedule/secret
+      - --commitment-file=/run/schedule/commitment.json
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    volumes:
+      - /data/feeds:/data/feeds
+      - /etc/verdict/schedule:/run/schedule:ro
+    restart: unless-stopped
+
+  feed-labels:
+    image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
+    container_name: verdict-feed-labels
+    command:
+      - live
+      - labels
+      - --state=/data/feeds
+      - --start=${VERDICT_WINDOW_START:?the boot script writes it}
+      - --schedule=${VERDICT_SCHEDULE:?the boot script writes it}
+      - --bootstrap=redpanda:9092
+      - --metrics-host=0.0.0.0
+      - --metrics-port=9110
+      - --secret-file=/run/schedule/secret
+      - --commitment-file=/run/schedule/commitment.json
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    volumes:
+      - /data/feeds:/data/feeds
+      - /etc/verdict/schedule:/run/schedule:ro
+    restart: unless-stopped
+
   # Seal finished hours and finalise days whose labels are in, hourly. A
   # compaction that fails is retried an hour later; its manifest says what
   # each finished day held.
@@ -145,11 +194,60 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=15d
+      # The dashboard is public, and a viewer's panel is a query. Bounded, so
+      # nobody can make this instance spend its CPU on someone else's query.
+      - --query.timeout=10s
+      - --query.max-samples=5000000
+      - --query.max-concurrency=4
     configs:
       - source: prometheus
         target: /etc/prometheus/prometheus.yml
     volumes:
       - /data/prometheus:/prometheus
+    restart: unless-stopped
+
+  # Writes Grafana's provisioning (data source, dashboard) from the image,
+  # where the dashboard is code with a test on every query (verdict/observe).
+  # Run by the boot script with `run --rm`, like the topics job.
+  grafana-files:
+    image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
+    profiles: [setup]
+    command: [observe, grafana, --out=/grafana, --mounted-at=/etc/grafana/verdict]
+    volumes:
+      - /data/grafana:/grafana
+    restart: "no"
+
+  # The public dashboard, reached only through the tunnel. Anonymous viewers
+  # see the one provisioned dashboard; nobody can log in, sign up, explore,
+  # share a snapshot or edit. The admin password is random per boot and
+  # written nowhere but the root-only env file, because nobody needs it.
+  grafana:
+    image: grafana/grafana:13.2.2
+    container_name: verdict-grafana
+    environment:
+      GF_PATHS_PROVISIONING: /etc/grafana/verdict/provisioning
+      GF_SERVER_ROOT_URL: https://risk.peterparker.ca
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?the boot script writes it}
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_BASIC_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_EXPLORE_ENABLED: "false"
+      GF_SNAPSHOTS_EXTERNAL_ENABLED: "false"
+      GF_PUBLIC_DASHBOARDS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/verdict/dashboards/verdict.json
+    volumes:
+      - /data/grafana:/etc/grafana/verdict:ro
+    depends_on:
+      - prometheus
     restart: unless-stopped
 
   # The dashboard's way out. It dials Cloudflare; nothing dials in. The token
@@ -174,3 +272,6 @@ configs:
         - job_name: scorer
           static_configs:
             - targets: ["scorer:9108"]
+        - job_name: feeds
+          static_configs:
+            - targets: ["feed-transactions:9109", "feed-labels:9110"]

@@ -28,7 +28,7 @@ and the scorer consumes it (ADR 8) with a stand-in model and a load test.
 Week 4's latency work found where the time goes and published that (ADR 9,
 `docs/latency-budget.md`): three of the four costs belong to the measuring
 host, and the end-to-end figure still waits for a quiet machine (section 11).
-466 tests; `ruff`, `ruff format` and
+489 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -205,7 +205,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Sixteen ADRs, in `docs/adr/`: 1 to 14, 17 and 18. Read them before reopening anything they cover.
+Seventeen ADRs, in `docs/adr/`: 1 to 15, 17 and 18. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -224,6 +224,7 @@ Sixteen ADRs, in `docs/adr/`: 1 to 14, 17 and 18. Read them before reopening any
 | 13 | The queue ranks by expected loss; simulated a day at a time in hourly steps with expiry; paired by day | At fixed capacity the prices cannot reorder the queue, and a test says so. Scores must be calibrated before a result is published |
 | 14 | The live stack: its own VPC in `ca-central-1d`, no ingress rule, one spot instance (c6a.large, c5a.large or c7i.large) in a group of one, a data volume that outlives it, ECR for the image, SSM Session Manager for a person, a Cloudflare Tunnel for the dashboard; the budget and the tunnel token outside Terraform | Its storage question (history does not fit on a disk at 1,000 events a second) was **closed by ADR 18** on 2026-09-19; the data volume is 150 GB |
 | 18 | History is a labelled, weighted sample: topics keep a day; every decision staged with its features before the checkpoint; days finalised seven days and six hours after they end; every reviewed or declined row kept, approved frauds at 0.10, approved legitimate at 0.01, each with weight 1 / rate; the promotion gate reads the weight | Rates are fixed before go-live and change only at a day boundary. The scorer's added cost on the hot path is **unmeasured** until the load test runs with and without a spool |
+| 15 | Spot recovery. The feeds resume exactly: `GeneratorRun` snapshots on the data volume every 30 s, restores byte for byte, sends at least once and never skips; a fresh start deep in a window is refused; `sealed` checks the secret against the commitment before running | **Open:** the scorer's rebuild after a replacement, and the engine's memory at the live rate (about 8.5 kB per event retained on a first measurement; 24 hours at 1,000 a second will not fit in 4 GB as it stands) |
 | 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Pending Peter's review**: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code
@@ -502,6 +503,7 @@ order it would run:
 
 | Work | Why it needs the CPU | Estimate |
 |---|---|---|
+| Engine memory at steady state: a few million events through the feature engine at the live population | ADR 15's open question; may decide the instance size or the window design | 10 minutes |
 | Load test with and without the history spool, memory and Redpanda, and with zstd on the decisions producer | ADR 18's cost on the hot path, and whether zstd is safe to switch on live | 45 minutes, idle machine required |
 | Features for training: replay the competition data and about 5 million synthetic events through the engine | Training reads the engine's features, never a second computation | 20 to 30 minutes |
 | Gradient-boosting champion on each track, with its interval | Week 5 | 20 to 40 minutes |
@@ -516,12 +518,29 @@ PyTorch CPU, ONNX Runtime) are downloads, not CPU, and can happen any time.
 **Built on 2026-09-19 without the CPU**, while it was needed elsewhere: the
 training-set code (ADR 10 rule 4 enforced), the platform image and its push
 script, and the scorer, label collector, compactor and Prometheus in the live
-compose file. **Next without the CPU:** the live generator and label feed.
-They cannot simply restart after a spot replacement: the generator is a
-Python generator function, not resumable, and catching up by regenerating
-from the window's start would take hours by day thirty. That needs a
-checkpointable generator state and is ADR 15's first question. Then Grafana
-and the public dashboard.
+compose file. Then the same day: **the live feeds** (ADR 15), a resumable
+generator played in real time, transactions at their event time and labels a
+week later, each saving its place on the data volume; and **the public
+dashboard** (ADR 14's addendum), Grafana provisioned from code, anonymous and
+read-only, every query checked against the exported metrics.
+
+**A finding that may block go-live, needing the CPU to settle:** the feature
+engine retained about 8.5 kB per event over its first 60,000 events at the
+live population (`tracemalloc`). Part of that is per-entity setup that stops
+growing, but at 1,000 events a second over 24-hour windows even a few hundred
+bytes per event is tens of gigabytes, on a 4 GB instance. The steady-state
+figure needs a few million events through the engine, about 10 minutes of
+CPU, and is now **first** on the CPU list; what follows it (bucketed windows,
+a smaller population, a lower rate, or a larger instance) is ADR 15's open
+question and Peter's call on cost.
+
+**Peter's steps before go-live, from this work:** (1) in Cloudflare, the
+tunnel's public hostname `risk.peterparker.ca` must point to
+`http://grafana:3000`, not `localhost:3000`; (2) at sealing, put the secret
+in SSM with `aws ssm put-parameter --profile verdict --region ca-central-1
+--name /verdict/schedule-secret --type SecureString --value ... --tags
+Key=project,Value=verdict`, as with the tunnel token, and commit
+`docs/sealed-schedule.json`.
 
 In the order the plan sets, with nothing blocked except where noted:
 

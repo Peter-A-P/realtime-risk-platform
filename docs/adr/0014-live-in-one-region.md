@@ -155,6 +155,22 @@ Until it is decided the volume is 100 GB, which holds option 1 comfortably,
 and gp3 volumes grow in place without detaching, so the provisional size
 costs nothing to change.
 
+**The public dashboard (added 2026-09-19).** Grafana on the instance,
+reached only through the tunnel, which must route `risk.peterparker.ca` to
+`http://grafana:3000` (the tunnel runs in the stack's network, so
+`localhost` would be the tunnel's own container). Anonymous viewers get the
+one provisioned dashboard, read-only; the login form, basic auth, sign-up,
+Explore, snapshots and public-dashboard sharing are all off, and the admin
+password is random per boot and written nowhere else. The dashboard is code
+(`verdict/observe/dashboard.py`), written into Grafana's provisioning by a
+one-shot job from the platform image, and `tests/test_dashboard.py` checks
+every query's metric against what the scorer and the feeds register, shown
+failing on a renamed metric. Because a viewer's panel is a Prometheus query,
+Prometheus bounds every query (10 seconds, five million samples, four at a
+time), so a public page cannot spend the instance's CPU. The scorer gains
+one metric for it, event time to decision, which on the live stack is ingest
+to decision because the feed sends each transaction at its event time.
+
 ## Consequences
 
 - The stack costs the volume (about US$9 a month at 100 GB) while the

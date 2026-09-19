@@ -62,10 +62,11 @@ mountpoint -q /data
 
 # Each service owns its directory on the data volume, by the uid its image
 # runs as: Redpanda 101, the platform's image 10001 (deploy/image), and
-# Prometheus 65534.
-mkdir -p /data/redpanda /data/history /data/prometheus
+# Prometheus 65534. The feeds' saved places are what let a replacement
+# carry on the stream where it stopped (ADR 15).
+mkdir -p /data/redpanda /data/history /data/feeds /data/grafana /data/prometheus
 chown 101:101 /data/redpanda
-chown 10001:10001 /data/history
+chown 10001:10001 /data/history /data/feeds /data/grafana
 chown 65534:65534 /data/prometheus
 
 # The tunnel token, from SSM, into a root-only file on the disposable root
@@ -81,17 +82,43 @@ umask 022
 # instance's role. Which image is a Terraform variable, so it is in the plan.
 aws ecr get-login-password --region "$REGION" \
   | docker login --username AWS --password-stdin "${registry}"
-printf 'VERDICT_IMAGE=%s\n' "${image}" > /etc/verdict/stack.env
+
+# The sealed schedule, on the live window only: the secret from SSM, where
+# Peter put it at sealing, and the committed hashes from the repository. Both
+# on the disposable root volume, readable by the feeds' user and nobody else.
+mkdir -p /etc/verdict/schedule
+if [ "${schedule}" = "sealed" ]; then
+  umask 077
+  aws ssm get-parameter --region "$REGION" --name /verdict/schedule-secret \
+    --with-decryption --query Parameter.Value --output text > /etc/verdict/schedule/secret
+  echo "${commitment_b64}" | base64 -d > /etc/verdict/schedule/commitment.json
+  umask 022
+fi
+chown -R 10001:10001 /etc/verdict/schedule
+chmod 700 /etc/verdict/schedule
+
+# What the stack runs, root-only: the image, the window and its schedule, and
+# a Grafana admin password nobody needs, random per boot (the dashboard is
+# anonymous and read-only).
+umask 077
+{
+  printf 'VERDICT_IMAGE=%s\n' "${image}"
+  printf 'VERDICT_WINDOW_START=%s\n' "${window_start}"
+  printf 'VERDICT_SCHEDULE=%s\n' "${schedule}"
+  printf 'GRAFANA_ADMIN_PASSWORD=%s\n' "$(openssl rand -hex 24)"
+} > /etc/verdict/stack.env
+umask 022
 
 # The stack itself: deploy/live/compose.yml, carried in this script.
 mkdir -p /opt/verdict
-echo "${compose_b64}" | base64 -d > /opt/verdict/compose.yml
+echo "${compose_b64gz}" | base64 -d | gunzip > /opt/verdict/compose.yml
 # The broker first, then the topics job, then everything else: the same order
 # the local stack and CI use, and for the same reason (a one-shot job is not a
 # service to wait on).
 COMPOSE="docker compose -f /opt/verdict/compose.yml --env-file /etc/verdict/stack.env --env-file /etc/verdict/tunnel.env"
 $COMPOSE up -d --wait redpanda
 $COMPOSE run --rm topics
+$COMPOSE run --rm grafana-files
 $COMPOSE up -d --wait
 
 echo "boot finished $(date -u +%Y-%m-%dT%H:%M:%SZ)"
