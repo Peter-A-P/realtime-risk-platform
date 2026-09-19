@@ -248,3 +248,81 @@ def test_every_aggregation_can_be_built() -> None:
             window=WINDOW,
         )
         assert build_aggregator(spec) is not None
+
+
+# --- a window with a resolution (ADR 20) -------------------------------------
+
+RESOLUTION = dt.timedelta(minutes=15)
+
+
+def in_resolved_window(pairs: list[tuple[int, int]], at: int) -> list[tuple[int, int]]:
+    """The definition, by scan: `[floor(at - window), at)` in 15-minute steps."""
+    far = ((at - 60) // 15) * 15
+    return [pair for pair in pairs if far <= pair[0] < at]
+
+
+def resolved(aggregation: Aggregation, field: str | None) -> FeatureSpec:
+    return FeatureSpec(
+        name="resolved",
+        entity=EntityKind.CARD,
+        aggregation=aggregation,
+        field=field,
+        window=WINDOW,
+        resolution=RESOLUTION,
+    )
+
+
+@settings(max_examples=300)
+@given(pairs=observations, at=query_offsets)
+def test_every_bucketed_aggregation_matches_the_resolved_definition(
+    pairs: list[tuple[int, int]], at: int
+) -> None:
+    """One summary per bucket must answer exactly what the bucket's events would."""
+    # START is 12:00, on a 15-minute boundary, so offsets floor as minutes do.
+    expected = in_resolved_window(pairs, at)
+    values = [v for _, v in expected]
+    cases: list[tuple[Aggregation, str | None, float]] = [
+        (Aggregation.COUNT, None, float(len(values))),
+        (Aggregation.SUM, "amount_cents", float(sum(values))),
+        (Aggregation.MEAN, "amount_cents", sum(values) / len(values) if values else 0.0),
+        (Aggregation.MAX, "amount_cents", float(max(values, default=0))),
+        (Aggregation.MIN, "amount_cents", float(min(values, default=0))),
+        (Aggregation.DISTINCT_COUNT, "merchant_id", float(len({v % 5 for v in values}))),
+    ]
+    for aggregation, field, want in cases:
+        aggregator = build_aggregator(resolved(aggregation, field))
+        for minutes, value in pushable(pairs, at):
+            item: float | str = f"v{value % 5}" if field == "merchant_id" else value
+            aggregator.push(START + dt.timedelta(minutes=minutes), item)
+        result = aggregator.value(START + dt.timedelta(minutes=at))
+        if not values:
+            assert result == NO_EVENTS, aggregation
+        else:
+            assert result == pytest.approx(want), aggregation
+
+
+def test_a_bucketed_window_holds_one_entry_per_bucket_whatever_the_rate() -> None:
+    """The point of ADR 20: memory set by buckets, not by events."""
+    spec = FeatureSpec(
+        name="day",
+        entity=EntityKind.CARD,
+        aggregation=Aggregation.COUNT,
+        window=dt.timedelta(hours=24),
+        resolution=dt.timedelta(hours=1),
+    )
+    aggregator = build_aggregator(spec)
+    for second in range(0, 26 * 3600, 3):
+        aggregator.push(START + dt.timedelta(seconds=second), None)
+    aggregator.value(START + dt.timedelta(hours=26))
+    assert len(aggregator._keys) <= 25  # type: ignore[attr-defined]
+
+
+def test_a_resolution_that_does_not_divide_the_window_is_refused() -> None:
+    with pytest.raises(ValueError, match="resolution"):
+        FeatureSpec(
+            name="odd",
+            entity=EntityKind.CARD,
+            aggregation=Aggregation.COUNT,
+            window=dt.timedelta(minutes=50),
+            resolution=dt.timedelta(minutes=15),
+        )

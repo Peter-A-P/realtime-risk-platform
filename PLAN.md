@@ -335,7 +335,7 @@ chosen by the live load test, and the reserve shrinks to about CA$46.
 day's spot price US$0.037 to 0.040 an hour: about US$58 (CA$78) for the instance, and with
 public IPv4, EBS and egress about **CA$105 for the live window**, about CA$220 of the line
 with re-runs and the full CA$100 reserve. With the 100 GB data volume ADR 14 provisions instead of 50 GB (about US$18 over the
-window, plus the 16 GB root), the window is **about CA$115**; with ADR 18's 150 GB, **about CA$127**. The scorer is single-threaded by design (one
+window, plus the 16 GB root), the window is **about CA$115**; with ADR 18's 150 GB, **about CA$127**. **Amended again 2026-09-19 (ADR 20):** the instance moves to an r7i.large (16 GB), whose spot price that day was US$0.040 to 0.055 an hour against 0.037 to 0.040, so the window is **about CA$142**, about CA$257 of the line with re-runs and the reserve. The scorer is single-threaded by design (one
 partition, ADR 8), so the second pair of cores bought headroom, not throughput. x86 rather
 than Graviton at the same price, so the live stack runs the architecture the build is
 tested on. **Fallback, fixed now so it is not chosen under pressure:** if the load test on

@@ -1,0 +1,83 @@
+{
+  "measured_at": "2026-09-19T21:22:40+00:00",
+  "host": "Windows AMD64, Python 3.13.5",
+  "configuration": "the live configuration with population and rate divided by fifty",
+  "scale": 50,
+  "samples": [
+    {
+      "stream_hours": 2.0,
+      "events": 148437,
+      "entities": 11594,
+      "rss_mb": 90.3
+    },
+    {
+      "stream_hours": 4.0,
+      "events": 296043,
+      "entities": 11442,
+      "rss_mb": 95.5
+    },
+    {
+      "stream_hours": 6.0,
+      "events": 444256,
+      "entities": 11427,
+      "rss_mb": 99.9
+    },
+    {
+      "stream_hours": 8.0,
+      "events": 592757,
+      "entities": 11139,
+      "rss_mb": 102.1
+    },
+    {
+      "stream_hours": 10.0,
+      "events": 742664,
+      "entities": 11112,
+      "rss_mb": 107.3
+    },
+    {
+      "stream_hours": 12.0,
+      "events": 892654,
+      "entities": 11226,
+      "rss_mb": 109.3
+    },
+    {
+      "stream_hours": 14.0,
+      "events": 1040851,
+      "entities": 11082,
+      "rss_mb": 109.9
+    },
+    {
+      "stream_hours": 16.0,
+      "events": 1189132,
+      "entities": 10826,
+      "rss_mb": 111.3
+    },
+    {
+      "stream_hours": 18.0,
+      "events": 1337192,
+      "entities": 10555,
+      "rss_mb": 118.0
+    },
+    {
+      "stream_hours": 20.0,
+      "events": 1485877,
+      "entities": 10498,
+      "rss_mb": 118.4
+    },
+    {
+      "stream_hours": 22.0,
+      "events": 1635280,
+      "entities": 10521,
+      "rss_mb": 119.0
+    },
+    {
+      "stream_hours": 24.0,
+      "events": 1784038,
+      "entities": 10491,
+      "rss_mb": 119.2
+    }
+  ],
+  "wall_seconds": 263.1,
+  "live_estimate_gb": 5.96,
+  "note": "resident memory above the process baseline; the live estimate is the last sample times the scale, since state is per entity"
+}

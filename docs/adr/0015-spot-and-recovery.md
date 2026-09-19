@@ -86,10 +86,14 @@ it needs rethinking first:
 engine-footprint`, `docs/engine-footprint.json`: 800,000 events at the live
 population, resident memory sampled every 50,000 and fitted against entities
 and events). **About 4,700 bytes per tracked entity and about 900 bytes per
-event while it is inside the windows.** Nine of the sixteen features hold 24
+event while it is inside the windows.** Six of the sixteen features hold 24
 hours; at 1,000 events a second that is about 33 GB for a full day of
 windows, against an instance of 4 GB. A first look had put it at 8.5 kB per
 event, before the per-entity part was separated out.
+
+**Decided 2026-09-19 (ADR 20): hourly buckets for the day-long windows and
+a 16 GB instance; the engine measures about 6 GB at the live rate.** The
+original analysis follows.
 
 So the scorer cannot hold 24 hours of windows at the live rate on the live
 instance, and its recovery cannot be designed until that is decided. The

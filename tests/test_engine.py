@@ -296,3 +296,38 @@ def test_running_a_replay_flushes_at_the_end(replay: list[TransactionEvent]) -> 
     spec = next(spec for spec in FEATURE_SET if spec.name == "card_txn_count_1h")
     last = replay[-1]
     assert engine.lookup(spec, last.card_id, last.event_time + dt.timedelta(seconds=1)) >= 1.0
+
+
+def test_the_day_windows_agree_with_the_definition_across_hour_boundaries() -> None:
+    """ADR 20: three days of sparse traffic, so buckets leave the day windows.
+
+    Every feature the engine serves, on every event, against the definition
+    recomputed from the raw events, including the hourly-resolved far edge.
+    """
+    import numpy as np
+
+    from verdict.scoring.core import EngineFeatures
+    from verdict.store.features import entity_id_of, evaluate_spec
+
+    rng = np.random.default_rng(5)
+    seconds = np.sort(rng.uniform(0, 3 * 86_400, size=400))
+    events = [
+        an_event(
+            f"evt-{i}",
+            START + dt.timedelta(seconds=float(at)),
+            card=f"card-{rng.integers(0, 4)}",
+            device=f"dev-{rng.integers(0, 3)}",
+            merchant=f"mer-{rng.integers(0, 5)}",
+            amount=int(rng.integers(100, 50_000)),
+        )
+        for i, at in enumerate(seconds)
+    ]
+    source = EngineFeatures(FeatureEngine(FEATURE_SET))
+    for event in events:
+        served = source.serve(event)
+        for spec in FEATURE_SET:
+            entity_id = entity_id_of(event, spec.entity)
+            if entity_id is None:
+                continue
+            expected = evaluate_spec(spec, events, entity_id, event.event_time)
+            assert served[spec.name] == pytest.approx(expected), (spec.name, event.event_id)

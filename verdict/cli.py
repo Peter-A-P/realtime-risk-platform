@@ -1062,18 +1062,29 @@ def engine_footprint(
     out: Annotated[Path, typer.Option(help="Where to write the report.")] = Path(
         "docs/engine-footprint.json"
     ),
+    steady: Annotated[
+        bool,
+        typer.Option(help="Measure the steady state instead: 26 scaled hours, times fifty."),
+    ] = False,
 ) -> None:
-    """Measure the feature engine's memory as events pass through it (ADR 15).
+    """Measure the feature engine's memory as events pass through it (ADR 15, ADR 20).
 
-    CPU and memory heavy: about two minutes and 2.5 GB at the default.
+    CPU and memory heavy: a few minutes either way.
 
     Args:
-        events: The most events to serve.
+        events: The most events to serve, without --steady.
         out: Where to write the report.
+        steady: Run the scaled configuration past a full day and project to live.
     """
     from dataclasses import asdict
 
-    from verdict.features.footprint import measure
+    from verdict.features.footprint import measure, steady_state
+
+    if steady:
+        result = steady_state()
+        out.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        typer.echo(f"about {result['live_estimate_gb']} GB at the live rate, steady")
+        return
 
     report = measure(events)
     out.write_text(json.dumps(asdict(report), indent=2) + "\n", encoding="utf-8")

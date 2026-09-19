@@ -119,11 +119,12 @@ def view_ttl(specs: Sequence[FeatureSpec]) -> dt.timedelta:
         specs: The features in one view.
 
     Returns:
-        The longest window among them, or `UNBOUNDED_TTL` if any is unbounded.
+        The longest reach among them (a window, plus its resolution), or
+        `UNBOUNDED_TTL` if any is unbounded.
     """
     if any(spec.window is None for spec in specs):
         return UNBOUNDED_TTL
-    windows = [spec.window for spec in specs if spec.window is not None]
+    windows = [spec.lookback for spec in specs if spec.lookback is not None]
     return max(windows) if windows else UNBOUNDED_TTL
 
 

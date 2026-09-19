@@ -28,7 +28,7 @@ and the scorer consumes it (ADR 8) with a stand-in model and a load test.
 Week 4's latency work found where the time goes and published that (ADR 9,
 `docs/latency-budget.md`): three of the four costs belong to the measuring
 host, and the end-to-end figure still waits for a quiet machine (section 11).
-498 tests; `ruff`, `ruff format` and
+502 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -205,7 +205,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Eighteen ADRs, in `docs/adr/`: 1 to 15, 17, 18 and 19. Read them before reopening anything they cover.
+Nineteen ADRs, in `docs/adr/`: 1 to 15 and 17 to 20. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -222,10 +222,11 @@ Eighteen ADRs, in `docs/adr/`: 1 to 15, 17, 18 and 19. Read them before reopenin
 | 11 | Shadow on the champion's own features, timed apart, unable to break scoring; promotion only if the interval bound clears the margin, on labels that had arrived, with at least 50 frauds; rollback by a pointer read per event | Margins and prices are placeholders until the champion's variability is measured |
 | 12 | Drift: PSI and KS against a fixed reference; PSI 0.25, KS statistic 0.10 with p below 0.01, 500 values minimum; same quantity two consecutive days | **Amends PLAN.md 2.6**: no Evidently. **The thresholds must not be tuned against the development schedule**, or the sealed schedule grades nothing |
 | 13 | The queue ranks by expected loss; simulated a day at a time in hourly steps with expiry; paired by day | At fixed capacity the prices cannot reorder the queue, and a test says so. Scores must be calibrated before a result is published |
-| 14 | The live stack: its own VPC in `ca-central-1d`, no ingress rule, one spot instance (c6a.large, c5a.large or c7i.large) in a group of one, a data volume that outlives it, ECR for the image, SSM Session Manager for a person, a Cloudflare Tunnel for the dashboard; the budget and the tunnel token outside Terraform | Its storage question (history does not fit on a disk at 1,000 events a second) was **closed by ADR 18** on 2026-09-19; the data volume is 150 GB |
+| 14 | The live stack: its own VPC in `ca-central-1d`, no ingress rule, one spot instance (r7i.large, r6i.large or r5.large, 16 GB, since ADR 20) in a group of one, a data volume that outlives it, ECR for the image, SSM Session Manager for a person, a Cloudflare Tunnel for the dashboard; the budget and the tunnel token outside Terraform | Its storage question (history does not fit on a disk at 1,000 events a second) was **closed by ADR 18** on 2026-09-19; the data volume is 150 GB |
 | 18 | History is a labelled, weighted sample: topics keep a day; every decision staged with its features before the checkpoint; days finalised seven days and six hours after they end; every reviewed or declined row kept, approved frauds at 0.10, approved legitimate at 0.01, each with weight 1 / rate; the promotion gate reads the weight | Rates are fixed before go-live and change only at a day boundary. The scorer's added cost on the hot path is **unmeasured** until the load test runs with and without a spool |
 | 15 | Spot recovery. The feeds resume exactly: `GeneratorRun` snapshots on the data volume every 30 s, restores byte for byte, sends at least once and never skips; a fresh start deep in a window is refused; `sealed` checks the secret against the commitment before running | **Open:** the scorer's rebuild after a replacement, and the engine's memory at the live rate (about 4.7 kB per entity and 900 B per held event, measured; 24 hours at 1,000 a second is about 33 GB against 4 GB) |
 | 19 | Champion and challenger: tracks replayed through the scorer's own engine path; split in time at 70 percent; XGBoost with fixed parameters and early stopping; an FT-Transformer challenger; ONNX export refused unless it scores as the fitted model does; PR-AUC with stratified bootstrap intervals; only synthetic-trained models ship | Synthetic fraud is too easy (champion 0.9996): scenario tuning is Peter's call before sealing |
+| 20 | The six day-long features at hourly resolution: window `[floor_hour(t - 24h), t)`, a definition the reference and leakage test share; bucketed aggregators in arrays, distinct by latest bucket; instance r7i.large (16 GB) | Engine about 6 GB at the live rate, measured at scale (`docs/engine-footprint-steady.json`); the whole instance is measured in the dry run |
 | 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Accepted by Peter on 2026-09-19**, all three choices as written: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code
@@ -546,6 +547,9 @@ Key=project,Value=verdict`, as with the tunnel token, and commit
 **CPU session, 2026-09-19** (Peter's green light; projects 06 and 08 were
 running jobs too, so nothing timing-sensitive was measured):
 
+- **Engine memory: decided and built** (ADR 20, Peter): hourly buckets for
+  the day-long features and an r7i.large (16 GB); measured about 6 GB at the
+  live rate. The first measurement, kept for the record:
 - **Engine memory** (`docs/engine-footprint.json`): about 4,700 bytes per
   entity and 900 per held event; a day of 24-hour windows at 1,000 a second
   is about 33 GB against a 4 GB instance. **Blocks go-live; Peter's call**

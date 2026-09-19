@@ -151,3 +151,65 @@ def measure(events: int, *, every: int = 50_000, ceiling_bytes: int = 5_000_000_
         f"entities at the end: {entities:,}; the population may not have been seen in full"
     )
     return report
+
+
+def steady_state(hours: float = 26.0, *, every_hours: float = 2.0) -> dict[str, Any]:
+    """The engine's memory once every window is full, at the live per-entity rate.
+
+    A day at the live rate is 86 million events, hours of CPU here. But an
+    entity's state depends only on its own traffic, so the scaled training
+    configuration (population and rate both divided by fifty, per-entity rates
+    unchanged; `models/champion.SYNTHETIC`) holds one fiftieth of the live
+    state. Run it past the longest reach (24 hours plus one resolution) and
+    multiply by fifty.
+
+    Args:
+        hours: Stream time to run, past 25 so the day windows are full.
+        every_hours: How often to sample.
+
+    Returns:
+        The samples, and the live estimate from the last one.
+    """
+    import platform
+
+    import psutil
+
+    from verdict.models.champion import SCALE, SYNTHETIC
+
+    process = psutil.Process(os.getpid())
+    source = EngineFeatures(FeatureEngine())
+    gc.collect()
+    baseline = process.memory_info().rss
+    end = SYNTHETIC.start_time + dt.timedelta(hours=hours)
+    next_mark = every_hours
+    samples: list[dict[str, float]] = []
+    started = time.perf_counter()
+    for served, record in enumerate(Generator(SYNTHETIC).stream(), start=1):
+        event = record.event
+        if event.event_time >= end:
+            break
+        source.serve(event)
+        elapsed = (event.event_time - SYNTHETIC.start_time).total_seconds() / 3600
+        if elapsed >= next_mark:
+            gc.collect()
+            samples.append(
+                {
+                    "stream_hours": round(elapsed, 2),
+                    "events": served,
+                    "entities": source.engine.tracked_entities,
+                    "rss_mb": round((process.memory_info().rss - baseline) / 1e6, 1),
+                }
+            )
+            next_mark += every_hours
+    last = samples[-1]
+    return {
+        "measured_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "host": f"{platform.system()} {platform.machine()}, Python {platform.python_version()}",
+        "configuration": "the live configuration with population and rate divided by fifty",
+        "scale": SCALE,
+        "samples": samples,
+        "wall_seconds": round(time.perf_counter() - started, 1),
+        "live_estimate_gb": round(last["rss_mb"] * SCALE / 1e3, 2),
+        "note": "resident memory above the process baseline; the live estimate is "
+        "the last sample times the scale, since state is per entity",
+    }

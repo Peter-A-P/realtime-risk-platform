@@ -29,6 +29,24 @@ it is both easy and enormously flattering: a velocity count that includes the
 current transaction separates fraud from legitimate traffic beautifully
 offline and cannot be computed at all in production, where the decision has to
 be made before the event exists anywhere.
+
+## Resolution: the far edge of a long window, snapped to the hour
+
+A feature may carry a `resolution`. Its window is then
+`[floor(t - w), t)`, where `floor` rounds down to a multiple of the
+resolution since the Unix epoch. The near edge is exactly as before, strictly
+before `t`, so the point-in-time guarantee is untouched; only the far edge
+moves, back by up to one resolution. The 24-hour features use an hourly
+resolution (ADR 20): their window is the last 24 to 25 hours, whole hours at
+the far end.
+
+This is a definition, not an approximation of one. `events_in_window` applies
+it, the reference evaluation and the leakage test therefore check against it,
+and the engine's bucketed aggregators compute it exactly. What it buys is that
+events in the same hour leave the window together, so an aggregator can hold
+one summary per hour instead of one entry per event: at most 25 per entity,
+whatever the rate. At 1,000 transactions a second the exact 24-hour windows
+would need tens of gigabytes (ADR 15).
 """
 
 from __future__ import annotations
@@ -109,6 +127,9 @@ class FeatureSpec:
             `SECONDS_SINCE_LAST`, which need no field.
         window: How far back to look. `None` means unbounded: everything
             strictly before the as-of time.
+        resolution: If set, the window's far edge is rounded down to a
+            multiple of this since the epoch (see the module docstring). It
+            must divide the window and a day. None is exact.
         description: What it is for, in a sentence. It ends up in the feature
             registry, and a feature nobody can explain is a feature nobody
             should ship.
@@ -119,6 +140,7 @@ class FeatureSpec:
     aggregation: Aggregation
     field: str | None = None
     window: dt.timedelta | None = None
+    resolution: dt.timedelta | None = None
     description: str = ""
 
     def __post_init__(self) -> None:
@@ -138,6 +160,43 @@ class FeatureSpec:
         if self.window is not None and self.window <= dt.timedelta(0):
             msg = f"{self.name}: window must be positive, got {self.window}"
             raise ValueError(msg)
+        if self.resolution is not None:
+            if self.window is None:
+                msg = f"{self.name}: an unbounded window has no far edge to resolve"
+                raise ValueError(msg)
+            if (
+                self.resolution <= dt.timedelta(0)
+                or self.window % self.resolution
+                or dt.timedelta(days=1) % self.resolution
+            ):
+                msg = f"{self.name}: resolution {self.resolution} must divide the window and a day"
+                raise ValueError(msg)
+
+    def window_start(self, as_of: dt.datetime) -> dt.datetime | None:
+        """The oldest moment inside the window at `as_of`, inclusive.
+
+        Args:
+            as_of: The moment the feature describes.
+
+        Returns:
+            `as_of - window`, rounded down to the resolution if there is one;
+            None for an unbounded window.
+        """
+        if self.window is None:
+            return None
+        start = as_of - self.window
+        return start if self.resolution is None else floor_to(start, self.resolution)
+
+    @property
+    def lookback(self) -> dt.timedelta | None:
+        """The longest the window can reach back: the window plus one resolution.
+
+        Returns:
+            The span, or None if unbounded.
+        """
+        if self.window is None:
+            return None
+        return self.window + (self.resolution or dt.timedelta(0))
 
     @property
     def window_seconds(self) -> float | None:
@@ -149,6 +208,22 @@ class FeatureSpec:
         return None if self.window is None else self.window.total_seconds()
 
 
+EPOCH: Final = dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
+
+
+def floor_to(moment: dt.datetime, resolution: dt.timedelta) -> dt.datetime:
+    """Round a moment down to a multiple of a resolution since the Unix epoch.
+
+    Args:
+        moment: A timezone-aware time.
+        resolution: The step.
+
+    Returns:
+        The start of the step the moment falls in.
+    """
+    return EPOCH + ((moment - EPOCH) // resolution) * resolution
+
+
 def events_in_window(
     events: Sequence[TransactionEvent],
     spec: FeatureSpec,
@@ -158,7 +233,8 @@ def events_in_window(
     """Select the events a feature may see.
 
     The whole point-in-time argument lives in the comparison operators here:
-    `event_time < as_of` and not `<=`, and `event_time >= as_of - window`.
+    `event_time < as_of` and not `<=`, and `event_time >= spec.window_start`,
+    which is `as_of - window`, rounded down for a feature with a resolution.
 
     Args:
         events: Raw events, in any order.
@@ -169,7 +245,7 @@ def events_in_window(
     Returns:
         The eligible events, oldest first.
     """
-    start = None if spec.window is None else as_of - spec.window
+    start = spec.window_start(as_of)
     selected = [
         event
         for event in events
@@ -291,6 +367,7 @@ FEATURE_SET: Final[tuple[FeatureSpec, ...]] = (
         entity=EntityKind.CARD,
         aggregation=Aggregation.COUNT,
         window=_DAY,
+        resolution=_HOUR,
         description="Transactions on this card in the last day.",
     ),
     FeatureSpec(
@@ -307,6 +384,7 @@ FEATURE_SET: Final[tuple[FeatureSpec, ...]] = (
         aggregation=Aggregation.MEAN,
         field="amount_cents",
         window=_DAY,
+        resolution=_HOUR,
         description=(
             "This card's usual ticket over a day. The model compares it with the "
             "amount on the event being scored, which is how a takeover's spending "
@@ -319,6 +397,7 @@ FEATURE_SET: Final[tuple[FeatureSpec, ...]] = (
         aggregation=Aggregation.MAX,
         field="amount_cents",
         window=_DAY,
+        resolution=_HOUR,
         description="The largest amount on this card in the last day.",
     ),
     FeatureSpec(
@@ -326,6 +405,7 @@ FEATURE_SET: Final[tuple[FeatureSpec, ...]] = (
         entity=EntityKind.CARD,
         aggregation=Aggregation.SECONDS_SINCE_LAST,
         window=_DAY,
+        resolution=_HOUR,
         description=(
             "Silence before this transaction. A dormant card used twice in a "
             "minute is the shape of a takeover."
@@ -337,6 +417,7 @@ FEATURE_SET: Final[tuple[FeatureSpec, ...]] = (
         aggregation=Aggregation.DISTINCT_COUNT,
         field="merchant_id",
         window=_DAY,
+        resolution=_HOUR,
         description="How many different merchants this card touched in a day.",
     ),
     # --- Device. The entity-graph view: one device, many cards. ---
@@ -365,6 +446,7 @@ FEATURE_SET: Final[tuple[FeatureSpec, ...]] = (
         aggregation=Aggregation.DISTINCT_COUNT,
         field="card_id",
         window=_DAY,
+        resolution=_HOUR,
         description="Cards seen on this device in a day.",
     ),
     FeatureSpec(
