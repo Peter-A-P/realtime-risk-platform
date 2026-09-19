@@ -11,9 +11,11 @@
 # Topic names and partition counts must match the local stack exactly, and
 # tests/test_live_stack.py asserts that they do.
 #
-# This is the stack's first shape: the stream and the tunnel. The scorer, the
-# generator, the label feed, Prometheus and Grafana join it as each is ready
-# for the instance.
+# The platform's own services all run one image, `verdict`, with different
+# commands; VERDICT_IMAGE names it (the boot script writes it from the
+# Terraform variable `image_tag`). Still to join: the live generator and its
+# label feed, which need to resume after a spot replacement (ADR 15), and
+# Grafana with the public dashboard.
 
 name: verdict
 
@@ -89,6 +91,67 @@ services:
         test "$$(rpk cluster config get auto_create_topics_enabled -X admin.hosts=redpanda:9644)" = false
     restart: "no"
 
+  # The decision path (ADR 8), staging every decision with its features
+  # before the checkpoint (ADR 18). Metrics listen inside the stack's network
+  # only; nothing publishes the port.
+  scorer:
+    image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
+    container_name: verdict-scorer
+    command:
+      - score
+      - --bootstrap=redpanda:9092
+      - --history=/data/history
+      - --metrics-host=0.0.0.0
+      - --metrics-port=9108
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    volumes:
+      - /data/history:/data/history
+    # A stop never splits a batch (scoring/service.py); give it time to finish.
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  # Labels off the stream into the label spool, before the topic's day ends.
+  labels:
+    image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
+    container_name: verdict-labels
+    command: [history, labels, --root=/data/history, --bootstrap=redpanda:9092]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    volumes:
+      - /data/history:/data/history
+    restart: unless-stopped
+
+  # Seal finished hours and finalise days whose labels are in, hourly. A
+  # compaction that fails is retried an hour later; its manifest says what
+  # each finished day held.
+  compactor:
+    image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
+    container_name: verdict-compactor
+    entrypoint: [/bin/sh, -c]
+    command: ["while true; do verdict history compact --root=/data/history; sleep 3600; done"]
+    volumes:
+      - /data/history:/data/history
+    restart: unless-stopped
+
+  # Scrapes the scorer. Its data is on the volume so a replacement keeps the
+  # window's history of latency; fifteen days is what the dashboard shows.
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    container_name: verdict-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    configs:
+      - source: prometheus
+        target: /etc/prometheus/prometheus.yml
+    volumes:
+      - /data/prometheus:/prometheus
+    restart: unless-stopped
+
   # The dashboard's way out. It dials Cloudflare; nothing dials in. The token
   # comes from SSM through the boot script's env file, never from this file.
   cloudflared:
@@ -103,3 +166,11 @@ configs:
   redpanda-bootstrap:
     content: |
       auto_create_topics_enabled: false
+  prometheus:
+    content: |
+      global:
+        scrape_interval: 15s
+      scrape_configs:
+        - job_name: scorer
+          static_configs:
+            - targets: ["scorer:9108"]

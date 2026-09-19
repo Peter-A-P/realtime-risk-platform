@@ -87,11 +87,23 @@ Around it, outside Terraform on purpose:
   state, what is left after a teardown, and fails if anything tagged remains
   but the tunnel token.
 
-`deploy/live/compose.yml` is the stack on the instance: for now the broker,
-the topics job and the tunnel. The scorer, the generator, the label feed,
-Prometheus and Grafana join it as each is ready. Its topics must match the
+`deploy/live/compose.yml` is the stack on the instance: the broker, the
+topics job and the tunnel, and since 2026-09-19 the scorer, the label
+collector, the hourly compactor (ADR 18) and Prometheus. The live generator
+and its label feed, and Grafana, are still to come. Its topics must match the
 local stack's names and partition counts exactly, and a test holds them
 together.
+
+**The image (added 2026-09-19).** `deploy/image/Dockerfile` builds one image
+that every platform service runs with a different command, as an
+unprivileged user (uid 10001). `.dockerignore` admits only `pyproject.toml`,
+`README.md`, `LICENSE` and `verdict/`, so `data/` cannot reach a registry.
+`deploy/push-image.sh` refuses a dirty tree, tags the image with the commit
+and pushes it to the immutable repository; Terraform's `image_tag` variable
+names it, and `running = true` without one is refused at plan time. The boot
+script logs the instance in to ECR with its own role and gives each service
+its directory on the data volume by uid. CI builds the image and checks it
+runs as that user; nothing pushes from CI.
 
 ## Open question: at 1,000 events a second, history does not fit on a disk
 

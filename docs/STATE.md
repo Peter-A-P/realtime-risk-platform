@@ -28,7 +28,7 @@ and the scorer consumes it (ADR 8) with a stand-in model and a load test.
 Week 4's latency work found where the time goes and published that (ADR 9,
 `docs/latency-budget.md`): three of the four costs belong to the measuring
 host, and the end-to-end figure still waits for a quiet machine (section 11).
-450 tests; `ruff`, `ruff format` and
+466 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -134,6 +134,11 @@ verdict/
     flags.py         Champion pointer file, read per event (one stat), atomic writes,
                      rollback; a bad pointer is refused and scoring continues.
   models/
+    inputs.py        MODEL_INPUTS: the sixteen features then the amount, in one order;
+                     `vector` at decision time and `matrix` for training, held equal.
+    dataset.py       ADR 10 rule 4: `at_cutoff` keeps rows whose labels had arrived and
+                     counts the rest; `replay_table` serves features through the scorer's
+                     own engine path for the offline track.
     promote.py       The promotion gate: paired bootstrap on labelled shadow rows, PR-AUC
                      and decision cost, non-inferiority on the bound. Never promotes.
   drift/
@@ -213,7 +218,7 @@ Sixteen ADRs, in `docs/adr/`: 1 to 14, 17 and 18. Read them before reopening any
 | 7 | The leakage test is written first and never weakened | It has already caught three real faults |
 | 8 | The scorer is a stream consumer: at least once, duplicates stopped before the engine, checkpoint after durable decisions, features served from the engine in process | **`transactions` has one partition** because the engine needs time order; more needs a reorder buffer whose hold time is latency |
 | 9 | The latency budget stands as PLAN.md 2.4 states it; every cost that belongs to the measuring host is measured on its own and published, never subtracted quietly; the 50 ms figure is claimed from the live stack, not from here | Three host costs found and measured: the process's timer resolution, the load producer sharing the scorer's interpreter, and Docker Desktop's port forwarder (about 41 ms on some connections, fixed per connection, unchanged by every client setting tried). The platform's own cost is the per-batch flush and checkpoint, which is a throughput ceiling before it is a latency one |
-| 10 | A label is its own event on its own topic, joined by event id, arriving a constant seven days late on both tracks; features never read label time, promotion counts only arrived labels, the queue opens a label only on review | **Written after the fact** (2026-09-18): the decision was built in weeks 1 and 2 without its record. **Rule 4, training only on labels that had arrived by the cutoff, is not enforced by code yet**: week 5's training pipeline must be built to it, with a test |
+| 10 | A label is its own event on its own topic, joined by event id, arriving a constant seven days late on both tracks; features never read label time, promotion counts only arrived labels, the queue opens a label only on review | **Written after the fact** (2026-09-18): the decision was built in weeks 1 and 2 without its record. Rule 4, training only on labels that had arrived by the cutoff, **is enforced since 2026-09-19** by `models/dataset.py`, with a test shown failing when broken |
 | 11 | Shadow on the champion's own features, timed apart, unable to break scoring; promotion only if the interval bound clears the margin, on labels that had arrived, with at least 50 frauds; rollback by a pointer read per event | Margins and prices are placeholders until the champion's variability is measured |
 | 12 | Drift: PSI and KS against a fixed reference; PSI 0.25, KS statistic 0.10 with p below 0.01, 500 values minimum; same quantity two consecutive days | **Amends PLAN.md 2.6**: no Evidently. **The thresholds must not be tuned against the development schedule**, or the sealed schedule grades nothing |
 | 13 | The queue ranks by expected loss; simulated a day at a time in hourly steps with expiry; paired by day | At fixed capacity the prices cannot reorder the queue, and a test says so. Scores must be calibrated before a result is published |
@@ -507,6 +512,16 @@ order it would run:
 About 4 to 5 hours in all: a first session of about 2 hours (everything but
 the challenger), then the challenger on its own. Package installs (XGBoost,
 PyTorch CPU, ONNX Runtime) are downloads, not CPU, and can happen any time.
+
+**Built on 2026-09-19 without the CPU**, while it was needed elsewhere: the
+training-set code (ADR 10 rule 4 enforced), the platform image and its push
+script, and the scorer, label collector, compactor and Prometheus in the live
+compose file. **Next without the CPU:** the live generator and label feed.
+They cannot simply restart after a spot replacement: the generator is a
+Python generator function, not resumable, and catching up by regenerating
+from the window's start would take hours by day thirty. That needs a
+checkpointable generator state and is ADR 15's first question. Then Grafana
+and the public dashboard.
 
 In the order the plan sets, with nothing blocked except where noted:
 

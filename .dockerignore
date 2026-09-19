@@ -1,0 +1,10 @@
+# The image is built from the repository root but needs only pyproject.toml,
+# README.md, LICENSE and verdict/. Everything else stays out, and above all
+# data/: the competition data may not be redistributed, and an image pushed
+# to a registry is a redistribution (docs/data.md).
+*
+!pyproject.toml
+!README.md
+!LICENSE
+!verdict/
+verdict/**/__pycache__

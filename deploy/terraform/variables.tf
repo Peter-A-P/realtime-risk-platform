@@ -33,3 +33,14 @@ variable "running" {
   type        = bool
   default     = false
 }
+
+variable "image_tag" {
+  description = "The platform image to run, as deploy/push-image.sh printed it: a commit. Required when running."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = !var.running || var.image_tag != ""
+    error_message = "running = true needs image_tag: push an image with deploy/push-image.sh first."
+  }
+}

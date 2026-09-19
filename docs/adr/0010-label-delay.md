@@ -82,10 +82,10 @@ have.
 4. **Training at a cutoff uses only labels that had arrived by the cutoff.**
    A model trained as of time T sees rows whose `label_time` is at or before
    T, which means its most recent seven days of transactions are unlabelled
-   and excluded, not labelled with hindsight. **No code enforces this yet**,
-   because no training pipeline exists yet; it is set here so that the
-   pipeline is built to it, and the training code carries a test of it as
-   the promotion gate does of rule 2.
+   and excluded, not labelled with hindsight. **Enforced since 2026-09-19**
+   by `at_cutoff` in `verdict/models/dataset.py`, which leaves those rows
+   out and counts them, and refuses a table without label times;
+   `tests/test_dataset.py` shows it failing when unarrived rows are let in.
 
 ## Consequences
 

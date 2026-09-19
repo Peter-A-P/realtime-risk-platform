@@ -100,6 +100,7 @@ def test_what_an_autoscaling_group_launches_is_tagged() -> None:
         LIVE_COMPOSE,
         ROOT / "deploy" / "up.sh",
         ROOT / "deploy" / "down.sh",
+        ROOT / "deploy" / "push-image.sh",
     ],
 )
 def test_files_that_run_on_linux_have_no_carriage_returns(path: Path) -> None:
@@ -157,3 +158,25 @@ def test_tag_on_create_names_actions_without_a_service_prefix() -> None:
         values = statement.get("Condition", {}).get("StringEquals", {}).get("ec2:CreateAction", [])
         for value in values:
             assert ":" not in value, f"{statement['Sid']}: {value}"
+
+
+def test_every_platform_service_runs_the_one_pushed_image() -> None:
+    """One image, named by the commit it was built from (deploy/push-image.sh)."""
+    services = _compose(LIVE_COMPOSE)["services"]
+    ours = {name: s for name, s in services.items() if "VERDICT_IMAGE" in str(s.get("image"))}
+    assert set(ours) == {"scorer", "labels", "compactor"}
+    assert len({s["image"] for s in ours.values()}) == 1
+
+
+def test_the_scorer_stages_its_decisions_on_the_data_volume() -> None:
+    """ADR 18: history lives on the volume that outlives the instance."""
+    scorer = _compose(LIVE_COMPOSE)["services"]["scorer"]
+    assert "--history=/data/history" in scorer["command"]
+    assert "/data/history:/data/history" in scorer["volumes"]
+
+
+def test_the_image_leaves_the_data_directory_out() -> None:
+    """An image pushed to a registry is a redistribution (docs/data.md)."""
+    ignore = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    assert ignore[ignore.index("*")] == "*"
+    assert not any(line.startswith("!data") for line in ignore)

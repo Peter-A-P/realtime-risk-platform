@@ -52,6 +52,8 @@ resource "aws_launch_template" "instance" {
     compose_version = local.compose_version
     compose_sha256  = local.compose_sha256
     compose_b64     = filebase64("${path.module}/../live/compose.yml")
+    image           = "${aws_ecr_repository.verdict.repository_url}:${var.image_tag}"
+    registry        = split("/", aws_ecr_repository.verdict.repository_url)[0]
   }))
 
   # default_tags does not reach what an auto-scaling group launches, so the

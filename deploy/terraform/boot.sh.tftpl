@@ -60,9 +60,13 @@ grep -q "$UUID" /etc/fstab || echo "UUID=$UUID /data xfs defaults,nofail 0 2" >>
 mount -a
 mountpoint -q /data
 
-# Redpanda runs as uid 101 in its image.
-mkdir -p /data/redpanda
+# Each service owns its directory on the data volume, by the uid its image
+# runs as: Redpanda 101, the platform's image 10001 (deploy/image), and
+# Prometheus 65534.
+mkdir -p /data/redpanda /data/history /data/prometheus
 chown 101:101 /data/redpanda
+chown 10001:10001 /data/history
+chown 65534:65534 /data/prometheus
 
 # The tunnel token, from SSM, into a root-only file on the disposable root
 # volume. It is never written to the data volume, the log, or the repository.
@@ -73,13 +77,19 @@ printf 'TUNNEL_TOKEN=%s\n' "$(aws ssm get-parameter --region "$REGION" \
   --query Parameter.Value --output text)" > /etc/verdict/tunnel.env
 umask 022
 
+# The platform's image, pulled from this stack's own repository by the
+# instance's role. Which image is a Terraform variable, so it is in the plan.
+aws ecr get-login-password --region "$REGION" \
+  | docker login --username AWS --password-stdin "${registry}"
+printf 'VERDICT_IMAGE=%s\n' "${image}" > /etc/verdict/stack.env
+
 # The stack itself: deploy/live/compose.yml, carried in this script.
 mkdir -p /opt/verdict
 echo "${compose_b64}" | base64 -d > /opt/verdict/compose.yml
 # The broker first, then the topics job, then everything else: the same order
 # the local stack and CI use, and for the same reason (a one-shot job is not a
 # service to wait on).
-COMPOSE="docker compose -f /opt/verdict/compose.yml --env-file /etc/verdict/tunnel.env"
+COMPOSE="docker compose -f /opt/verdict/compose.yml --env-file /etc/verdict/stack.env --env-file /etc/verdict/tunnel.env"
 $COMPOSE up -d --wait redpanda
 $COMPOSE run --rm topics
 $COMPOSE up -d --wait

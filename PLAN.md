@@ -238,7 +238,8 @@ verdict/
                until time moves on so same-instant events cannot see each other), sinks.py (one write path
                to both stores), verify.py (parity, and the served-value record the leakage check reads)
   store/       feast/ (feature repo), retrieval.py (point-in-time joins), leakage_test.py (the test in 2.3)
-  models/      train.py (XGBoost champion), challenger.py (FT-Transformer, PyTorch), export.py (ONNX),
+  models/      inputs.py and dataset.py (one input order for training and serving; ADR 10 rule 4
+               enforced; built 2026-09-19), train.py (XGBoost champion), challenger.py (FT-Transformer, PyTorch), export.py (ONNX),
                registry.py (MLflow), promote.py (non-inferiority on the shadow window; built ahead, 2026-09-15)
   scoring/     consumer.py (stream consumer scorer with per-hop timers), rules.py (decision rules),
                core.py (the decision, shared by both transports), flags.py (champion pointer, read per event),
