@@ -16,7 +16,9 @@ it". **The live stream is Redpanda on the instance, not Kinesis** (ADR 3, amende
 **The AWS account is the one project 04 already uses**, shared as an account only: 09's
 Terraform, `up.sh` and `down.sh` live in this repository, every resource carries the tag
 `project=verdict`, and the budget and the teardown check are scoped to that tag. 04's code
-is not on 09's path. Access is a least-privilege identity for 09 alone.
+is not on 09's path. Access is a least-privilege identity for 09 alone. The public dashboard
+at `risk.peterparker.ca` is served from the instance through a Cloudflare Tunnel (the
+zone is on Cloudflare), not from a static site on another cloud.
 
 **Package:** `verdict`. **Fed by:** nothing in the portfolio; 01, 02 and 03 exist by then and
 their habits carry over. **Feeds:** 10 reads this platform's traces as one of its production
@@ -315,6 +317,24 @@ go-live. The build months run locally and cost nothing.
 about CA$4, so **about CA$122 for the live window**, plus the CA$14 of interview re-runs
 and the CA$100 reserve, about CA$236 against the CA$350 line. The original table is kept
 for the record.
+
+**Re-priced 2026-09-18 from the spot price history:** 4 vCPU, 8 GB spot instances in
+`ca-central-1` cost US$0.080 to 0.097 an hour that day, not US$0.055. At US$0.085 for
+sixty days the instance is about US$122 (CA$165), and AWS now charges US$0.005 an hour for
+a public IPv4 address (about CA$10 over the window). The live window is then about CA$190,
+and with re-runs and the reserve about CA$304 of the CA$350 line. The instance type is
+chosen by the live load test, and the reserve shrinks to about CA$46.
+
+**Decided 2026-09-18, Peter: sixty days on a 2 vCPU, 4 GB instance (c6a.large).** Same
+day's spot price US$0.037 to 0.040 an hour: about US$58 (CA$78) for the instance, and with
+public IPv4, EBS and egress about **CA$105 for the live window**, about CA$220 of the line
+with re-runs and the full CA$100 reserve. The scorer is single-threaded by design (one
+partition, ADR 8), so the second pair of cores bought headroom, not throughput. x86 rather
+than Graviton at the same price, so the live stack runs the architecture the build is
+tested on. **Fallback, fixed now so it is not chosen under pressure:** if the load test on
+the live instance cannot hold 1,000 events a second within the latency budget, the
+instance goes to 4 vCPU and the window to 45 days (about CA$145), decided before the
+schedule is sealed, never after. The window length is committed in the seal.
 
 | Item | Basis | US$ | CA$ |
 |---|---|---:|---:|

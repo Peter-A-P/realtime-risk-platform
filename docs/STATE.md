@@ -68,6 +68,7 @@ measurements in section 8 were taken there and say so.
 | The project venv is `.venv` in the repository root, rebuilt 2026-09-13 | Run everything as `.venv/Scripts/python.exe -m ...`. Bare `python` has no dependencies. `pip install` failed twice mid-download on a TLS record error and succeeded on the third try: retry before diagnosing |
 | The repository is under **OneDrive** | The competition data is kept outside it, at `C:\Dev\POCs Dev\09-realtime-risk-platform\data\ieee-fraud-detection` (the folder was renamed from `POCs` to `POCs Dev` on 2026-09-14; check it is still there). Set `VERDICT_IEEE_CIS_DIR` to that path and every `verdict data` command finds it (section 9). A `.lnk` shortcut to it sits under the repository's `data/`, which git ignores |
 | **Docker Desktop 4.90.0** on WSL2, engine 29.7.2, 12 CPUs and 7.7 GB to the VM | Not on PATH in a fresh shell: prepend `C:\Program Files\Docker\Docker\resources\bin`. Needed Intel VMX turned on in the BIOS; Windows still reports `VirtualizationFirmwareEnabled: False` once the hypervisor owns it, which is not a fault |
+| **AWS CLI v2** at `C:\Program Files\Amazon\AWSCLIV2\aws.exe`, profile `verdict` (IAM user `verdict-bootstrap`, policy `deploy/aws/iam/bootstrap-policy.json`, region `ca-central-1`) | A shell started before the install has no `aws` on PATH: call it by full path. From Git Bash, set `MSYS_NO_PATHCONV=1` or it rewrites `/aws/service/...` and `/verdict/...` parameter names into Windows paths |
 | The old laptop: domain-joined to PSNL.CA, a TLS proxy, no Docker possible | Only relevant if work returns to it. Python HTTPS failed there where the browser worked |
 
 The full test suite takes about **2 minutes** here with Docker stopped (220
@@ -272,8 +273,56 @@ file is hashed, so changing the text is a deliberate edit with
 `docs/generator-hashes.json` updated in the same commit and the reason in the
 message, done once, before `verdict schedule seal --window-days 60`.
 
-**`risk.peterparker.ca`** needs a DNS record pointing at the live stack. Where
-the zone is hosted is not recorded here yet.
+**`risk.peterparker.ca`** (decided 2026-09-18): the zone is on Cloudflare,
+and the dashboard is served from the live instance through a **Cloudflare
+Tunnel**, the way `coach.peterparker.ca` is served, not from an Azure Static
+Web App like 01, 02 and 08. The dashboard shows live telemetry that exists
+only on the instance; a tunnel needs no inbound port, no Elastic IP and no
+DNS change when a spot replacement arrives, and it keeps the live stack in
+one cloud with one teardown. The tunnel token lives in SSM Parameter Store at
+`/verdict/cloudflare-tunnel-token`, put there by Peter, never in the
+repository. The public hostname route is added at go-live. ADR 14 records
+this with the Terraform.
+
+**AWS access, phase 1** (2026-09-18): `deploy/aws/iam/bootstrap-policy.json`
+is the policy for the `verdict-bootstrap` IAM user: read-only account facts in
+`ca-central-1`, budgets named `verdict-*`, and parameters under `/verdict/`.
+It cannot create any compute. The phase 2 policy, for `terraform apply`, is
+written from the Terraform's own resource list when that exists. The account
+must be on AWS's **paid plan** before the live stack runs: a free-plan account
+closes when its credits run out, and this account also holds 04. **Done
+2026-09-18**: Peter upgraded the account, created the user and profile, and
+stored the tunnel token (a `SecureString`, tagged `project=verdict`).
+
+Checked from this machine the same day: the profile works; it is refused an
+instance launch (dry run), IAM reads, a parameter outside `/verdict/`, any
+region but `ca-central-1`, and a budget not named `verdict-*`. EC2 quotas in
+`ca-central-1`: 32 vCPU of standard spot, 16 of on-demand, so no increase is
+needed. The account already has 04's budget, US$150 a month account-wide with
+email alerts, which stays as the backstop.
+
+**`verdict-monthly` exists (2026-09-18):** US$60 a month, filtered to the tag
+`user:project$verdict`, email alerts to the same address as 04's budget at 50,
+80 and 100 percent actual and 100 percent forecast.
+
+**It counts nothing until the `project` cost allocation tag is active**, and
+the tag is not listed yet. The only tagged resources so far (the parameter,
+the IAM user) are free, and the billing console lists a tag key only once it
+appears in billing data, so it may not show until the first billable tagged
+resource runs. Hence a rule for the go-live script, to be built with the
+Terraform: the stack may come up for the dry run, which puts the tag into
+billing data, and Peter activates it then; **the live window does not start
+(schedule sealed, generator at the live rate) unless `ce
+list-cost-allocation-tags` shows `project` as Active**. Until then 04's account-wide US$150 budget is the
+only alarm that sees 09's spend.
+
+**Spot prices are higher than PLAN.md section 6 assumed**: 4 vCPU, 8 GB spot in
+`ca-central-1` was US$0.080 to 0.097 an hour on 2026-09-18 (c5, c6i, c6a, c7i;
+cheapest c7i.xlarge in 1d), against the US$0.055 the plan priced in. The
+section 6 amendment carries the new figure. **Decided the same day: sixty days on a c6a.large**
+(2 vCPU, 4 GB, US$0.037 to 0.040 an hour), about CA$105 for the window; fallback
+4 vCPU for 45 days if the live load test fails the budget, decided before sealing.
+`verdict-monthly` is US$60 accordingly (expected about US$50 a month).
 
 Nothing else is blocked. Weeks 4, 5 and 6, including the broker-backed latency
 measurement, can be built on this machine.
