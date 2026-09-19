@@ -5,6 +5,9 @@
   champion's own variability is measured, and are revisited then.
 - Date: 2026-09-15
 - Deciders: the build session, within `PLAN.md` section 2.5 as written
+- **Addendum, 2026-09-19 (ADR 18):** live history is a weighted sample, so
+  every shadow row carries a weight and the gate uses it. See the addendum
+  before Sources.
 
 ## Context
 
@@ -106,6 +109,19 @@ on every event avoids becoming a latency cost or a way to break scoring.
   exists to close.
 - **An environment variable or a restart for rollback.** Neither is read per
   event, and the plan measures rollback in seconds.
+
+## Addendum, 2026-09-19: rows carry weights
+
+The live shadow window is read from history, which keeps every reviewed or
+declined row and a tenth of approved frauds and a hundredth of approved
+legitimate rows (ADR 18). Read unweighted, that sample's precision is several
+times too high. So `ShadowRow` has a `weight`, PR-AUC counts weighted rows,
+decision cost sums weighted costs, and the bootstrap resamples within each
+weight, which keeps each resample to the sample's design. With every weight
+1, as on the offline track, the computation and its seeded draws are
+unchanged, and so is every existing test. The minimum of 50 frauds counts
+rows, not weights: a weight adds no evidence. `tests/test_history.py` holds
+the weighted PR-AUC and decision cost of a sample to the full data's.
 
 ## Sources
 

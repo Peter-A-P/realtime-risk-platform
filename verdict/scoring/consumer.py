@@ -42,6 +42,13 @@ deciding is a bug, affects every record alike, and still stops the scorer at
 once. ADR 8's addendum of 2026-09-18 records the choice, including what it
 costs: a dead-lettered transaction gets no decision.
 
+**Every decision is staged, with its features, before the checkpoint.** With
+a history spool attached (`verdict/history`, ADR 18), each decision's row goes
+to the spool as it is made and the spool is written before the decisions are
+flushed, so a checkpointed transaction always has its row. A crash between the
+two means the transaction comes again and is staged twice, which the day's
+finalising removes.
+
 The ledger is in memory and bounded. It stops duplicates within a process's
 lifetime; after a restart the engine's state is gone as well, which is the
 larger problem and is the online store's to solve (rebuilt by replay, ADR 8).
@@ -65,6 +72,8 @@ from verdict.events.schema import (
     decode_transaction,
 )
 from verdict.features.engine import LateEventError
+from verdict.history.records import staged_row
+from verdict.history.spool import SpoolWriter
 from verdict.scoring.core import Decider
 from verdict.scoring.timing import HopSample
 from verdict.stream.base import Record, Stream, StreamError
@@ -176,6 +185,7 @@ class StreamScorer:
         group: str = SCORER_GROUP,
         on_decided: Decided | None = None,
         max_consecutive_dead_letters: int = MAX_CONSECUTIVE_DEAD_LETTERS,
+        history: SpoolWriter | None = None,
     ) -> None:
         """Assemble the scorer.
 
@@ -190,6 +200,9 @@ class StreamScorer:
             on_decided: Called for each decision, for measurement.
             max_consecutive_dead_letters: How many records in a row may be
                 set aside before the scorer stops.
+            history: Where each decision is staged with its features, if
+                anywhere. The live scorer has one; the load test measures
+                with and without.
         """
         self.stream = stream
         self.decider = decider
@@ -203,6 +216,8 @@ class StreamScorer:
         self.group = group
         self.on_decided = on_decided
         self.commits = CommitStats()
+        self.history = history
+        self._latest_event: TransactionEvent | None = None
 
     def poll(self, max_records: int = 500, timeout_seconds: float = 0.1) -> int:
         """Consume one batch, decide it, commit it.
@@ -224,6 +239,15 @@ class StreamScorer:
             return 0
         for record in records:
             self._handle(record)
+        if self.history is not None:
+            # Before the decisions are flushed, so before the checkpoint. Not
+            # inside the commit timing: it is its own cost, and the load test
+            # measures it by running with and without a spool.
+            self.history.flush()
+            if self._latest_event is not None:
+                # Events come in time order, so every hour before the latest
+                # event's is complete and can be closed for sealing.
+                self.history.close_before(self._latest_event.event_time)
         committed = time.perf_counter_ns()
         self.stream.flush()
         flushed = time.perf_counter_ns()
@@ -264,6 +288,12 @@ class StreamScorer:
         persisted = time.perf_counter_ns()
         if outcome.shadow_payload is not None:
             self.stream.produce(self.shadow_topic, event.card_id, outcome.shadow_payload)
+        if self.history is not None:
+            self.history.append(
+                event.event_time,
+                staged_row(event, outcome.features, outcome.decision, outcome.shadow),
+            )
+            self._latest_event = event
         if self.on_decided is not None:
             self.on_decided(
                 event,

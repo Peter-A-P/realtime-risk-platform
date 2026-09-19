@@ -1,7 +1,8 @@
 # 14. The live stack: one region, one zone, one spot instance, nothing inbound
 
-- Status: accepted, 2026-09-18, with **one open question** (storage, at the end)
-  that must be closed before go-live
+- Status: accepted, 2026-09-18. The open question at the end (storage) was
+  **closed on 2026-09-19 by ADR 18**: topics keep a day, and history is a
+  labelled, weighted sample. The data volume moved from 100 to 150 GB
 - Date: 2026-09-18
 - Deciders: Peter Parker (the account, the window, the instance size, the
   dashboard's host); the build session (the rest, below)
@@ -93,6 +94,8 @@ local stack's names and partition counts exactly, and a test holds them
 together.
 
 ## Open question: at 1,000 events a second, history does not fit on a disk
+
+**Closed 2026-09-19 by ADR 18, option 1 below.** Kept as it was asked.
 
 Measured on 20,000 generated events on 2026-09-18, as JSON on the wire:
 

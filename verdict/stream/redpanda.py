@@ -129,6 +129,7 @@ class RedpandaStream:
         *,
         client_id: str = "verdict",
         linger_ms: int = 2,
+        compression: str = "none",
     ) -> None:
         """Connect.
 
@@ -137,6 +138,11 @@ class RedpandaStream:
             client_id: How this client names itself to the broker.
             linger_ms: How long the producer waits to batch. Small, because
                 the platform's latency budget starts counting at produce.
+            compression: The producer's batch compression: `none`, or `zstd`
+                on the live stack, where a day of each topic has to fit on
+                the data volume (ADR 18). Off by default so every latency
+                figure measured so far describes the configuration it names;
+                the live setting is measured before it is used.
         """
         from confluent_kafka import Producer
         from confluent_kafka.admin import AdminClient
@@ -149,6 +155,7 @@ class RedpandaStream:
                 "enable.idempotence": True,
                 "acks": "all",
                 "linger.ms": linger_ms,
+                "compression.type": compression,
             }
         )
         self._admin = AdminClient(self._common)

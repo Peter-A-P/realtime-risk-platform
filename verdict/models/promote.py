@@ -31,6 +31,22 @@ models' metrics on the same rows, so the interval is on the difference, and a
 row that is hard for both models does not widen it. Percentile intervals at
 95 percent, from a seeded generator so the evidence is reproducible.
 
+## Rows from a sample carry a weight
+
+Live history is a sample (ADR 18): every reviewed or declined transaction,
+and a fixed fraction of the approved frauds and approved legitimate ones.
+Each row carries the weight that makes it stand for the rows it represents,
+and every quantity here uses it: precision and recall count weighted rows,
+and decision cost sums weighted costs. Unweighted, a sample that keeps a
+tenth of frauds and a hundredth of legitimate transactions would report a
+precision nearly ten times too high. The bootstrap resamples within each
+weight, so a resample keeps the sample's design. With every weight 1, as on
+the offline track, all of this reduces to the unweighted computation, draw
+for draw.
+
+The fraud count that gates a verdict is of rows, not weights: it measures
+how much evidence there is, and a weight adds none.
+
 ## When it refuses
 
 - **Labels that had not arrived.** A row counts only if its label time is at
@@ -79,6 +95,8 @@ class ShadowRow:
         amount_cents: The amount at stake.
         champion_score: The champion's score.
         challenger_score: The challenger's score, from the shadow topic.
+        weight: How many transactions the row stands for: 1 on the offline
+            track, `1 / rate` from the live sample (ADR 18).
     """
 
     event_id: str
@@ -87,6 +105,7 @@ class ShadowRow:
     amount_cents: int
     champion_score: float
     challenger_score: float
+    weight: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -220,7 +239,9 @@ FloatArray = npt.NDArray[np.float64]
 BoolArray = npt.NDArray[np.bool_]
 
 
-def average_precision(labels: BoolArray, scores: FloatArray) -> float:
+def average_precision(
+    labels: BoolArray, scores: FloatArray, weights: FloatArray | None = None
+) -> float:
     """PR-AUC as average precision, over distinct score thresholds.
 
     Tied scores are one threshold: the rows sharing a score are admitted
@@ -230,19 +251,22 @@ def average_precision(labels: BoolArray, scores: FloatArray) -> float:
     Args:
         labels: True for fraud.
         scores: Higher means more likely fraud.
+        weights: How many transactions each row stands for. None is all 1.
 
     Returns:
         The average precision, or 0.0 when there are no frauds, since there is
         no recall to gain.
     """
-    positives = int(labels.sum())
+    if weights is None:
+        weights = np.ones(len(labels), dtype=np.float64)
+    positives = float(weights[labels].sum())
     if positives == 0:
         return 0.0
     order = np.argsort(-scores, kind="mergesort")
     sorted_scores = scores[order]
-    sorted_labels = labels[order]
-    true_positives = np.cumsum(sorted_labels)
-    seen = np.arange(1, len(sorted_scores) + 1)
+    sorted_weights = weights[order]
+    true_positives = np.cumsum(np.where(labels[order], sorted_weights, 0.0))
+    seen = np.cumsum(sorted_weights)
     last_of_tie = np.r_[np.diff(sorted_scores) != 0, True]
     tp = true_positives[last_of_tie]
     precision = tp / seen[last_of_tie]
@@ -258,6 +282,7 @@ def decision_cost(
     rules: DecisionRules,
     review_cost: float,
     false_decline_fraction: float,
+    weights: FloatArray | None = None,
 ) -> float:
     """The cost the decisions from these scores would have realised, in cents.
 
@@ -275,16 +300,20 @@ def decision_cost(
         rules: The rules both models are judged under.
         review_cost: Cents per review.
         false_decline_fraction: Share of a declined legitimate amount lost.
+        weights: How many transactions each row stands for. None is all 1.
 
     Returns:
         The total cost in cents.
     """
+    if weights is None:
+        weights = np.ones(len(labels), dtype=np.float64)
     decline = scores >= rules.decline_at
     review = ~decline & ((scores >= rules.review_at) | (amounts >= rules.review_amount_cents))
     approve = ~decline & ~review
-    missed = np.sum(amounts[approve & labels])
-    reviews = review_cost * np.count_nonzero(review)
-    lost_business = false_decline_fraction * np.sum(amounts[decline & ~labels])
+    weighted = amounts * weights
+    missed = np.sum(weighted[approve & labels])
+    reviews = review_cost * np.sum(weights[review])
+    lost_business = false_decline_fraction * np.sum(weighted[decline & ~labels])
     return float(missed + reviews + lost_business)
 
 
@@ -348,16 +377,20 @@ def evaluate(
     amounts = np.array([row.amount_cents for row in usable], dtype=np.float64)
     champion = np.array([row.champion_score for row in usable], dtype=np.float64)
     challenger = np.array([row.challenger_score for row in usable], dtype=np.float64)
+    weights = np.array([row.weight for row in usable], dtype=np.float64)
     review_cost = float(margins.review_cost_cents)
     lost = margins.false_decline_fraction
+    # One stratum per distinct weight, resampled within itself. All weights 1
+    # is one stratum, and the draws are exactly the unweighted bootstrap's.
+    strata = [np.flatnonzero(weights == value) for value in np.unique(weights)]
 
     def both(index: npt.NDArray[np.intp]) -> tuple[float, float, float, float]:
-        lab, amt = labels[index], amounts[index]
+        lab, amt, w = labels[index], amounts[index], weights[index]
         return (
-            average_precision(lab, champion[index]),
-            average_precision(lab, challenger[index]),
-            decision_cost(lab, amt, champion[index], rules, review_cost, lost),
-            decision_cost(lab, amt, challenger[index], rules, review_cost, lost),
+            average_precision(lab, champion[index], w),
+            average_precision(lab, challenger[index], w),
+            decision_cost(lab, amt, champion[index], rules, review_cost, lost, w),
+            decision_cost(lab, amt, challenger[index], rules, review_cost, lost, w),
         )
 
     everything = np.arange(len(usable))
@@ -366,7 +399,9 @@ def evaluate(
     ap_diffs = np.empty(resamples)
     cost_diffs = np.empty(resamples)
     for draw in range(resamples):
-        index = rng.integers(0, len(usable), size=len(usable))
+        index = np.concatenate(
+            [members[rng.integers(0, len(members), size=len(members))] for members in strata]
+        )
         a, b, c, d = both(index)
         ap_diffs[draw] = b - a
         cost_diffs[draw] = d - c

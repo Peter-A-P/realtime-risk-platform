@@ -29,7 +29,8 @@ from __future__ import annotations
 import datetime as dt
 import time
 from collections import OrderedDict
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Final, Protocol
 
 from verdict.events.schema import DecisionEvent, ShadowEvent, TransactionEvent
@@ -112,6 +113,10 @@ class Outcome:
         shadow_payload: The shadow record as it goes on the wire.
         shadow_ns: Time the shadow took, reported apart from the champion's
             hops. Zero when there is no shadow.
+        features: The features the champion was served, which the shadow
+            was given too. The scorer stages them with the decision
+            (`verdict/history`), so history holds what the model saw rather
+            than a recomputation of it.
     """
 
     decision: DecisionEvent
@@ -122,6 +127,7 @@ class Outcome:
     shadow: ShadowEvent | None = None
     shadow_payload: bytes | None = None
     shadow_ns: int = 0
+    features: Mapping[str, float] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -228,6 +234,7 @@ class Decider:
             shadow=shadow,
             shadow_payload=shadow_payload,
             shadow_ns=shadow_ns,
+            features=served,
         )
 
     def _shadow(

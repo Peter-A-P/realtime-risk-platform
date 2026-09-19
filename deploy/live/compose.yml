@@ -72,16 +72,18 @@ services:
               --partitions "$$2" --replicas 1 --topic-config retention.ms="$$3"
           fi
         }
-        # PROVISIONAL, all of them: at 1,000 events a second these topics do
-        # not fit the disk at these retentions, and what keeps the history
-        # instead is ADR 14's open question.
-        # Two days of transactions: a day for the longest window a feature
-        # reads (24 hours), and a day for a replacement instance to replay it.
-        ensure transactions 1 172800000
-        # Nine days of labels: the seven-day delay (ADR 10) and two in hand.
-        ensure labels 1 777600000
-        ensure decisions 4 172800000
-        ensure shadow 4 172800000
+        # A day each (ADR 18). The topics are buffers: what the platform
+        # keeps is staged by the scorer and the label collector as it goes,
+        # and reduced to a weighted sample once labels are in. A day of
+        # transactions is also the longest window a feature reads (24 hours),
+        # which is what a replacement instance replays to rebuild its state;
+        # the broker deletes whole segments, so a little more than a day is
+        # always there.
+        ensure transactions 1 86400000
+        ensure labels 1 86400000
+        ensure decisions 4 86400000
+        ensure shadow 4 86400000
+        # Thirty days: read by a person, and small.
         ensure dead-letter 1 2592000000
         rpk topic list --brokers redpanda:9092
         test "$$(rpk cluster config get auto_create_topics_enabled -X admin.hosts=redpanda:9644)" = false

@@ -28,7 +28,7 @@ and the scorer consumes it (ADR 8) with a stand-in model and a load test.
 Week 4's latency work found where the time goes and published that (ADR 9,
 `docs/latency-budget.md`): three of the four costs belong to the measuring
 host, and the end-to-end figure still waits for a quiet machine (section 11).
-413 tests; `ruff`, `ruff format` and
+450 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -51,6 +51,16 @@ ADR 3 and `CLAUDE.md`:
   09's Terraform and scripts live here; every resource is tagged
   `project=verdict`; the budget and the teardown check are scoped to that tag.
   About CA$236 of the CA$350 line (PLAN.md section 6).
+
+**On 2026-09-19 Peter closed ADR 14's storage question: topics keep a day,
+and history is a sample.** ADR 18 and `verdict/history/`: the scorer stages
+every decision with its features before it checkpoints; a collector spools
+labels; an hourly compactor seals hours and, once a day's labels are all in,
+keeps every reviewed or declined row and a tenth of approved frauds and a
+hundredth of approved legitimate rows, each with its weight. The promotion
+gate reads the weight. The data volume is 150 GB. **Peter also asked that
+CPU-heavy work (training, load tests) wait for his green light**: another
+project uses the machine. Section 11 has the list and the estimate.
 
 ---
 
@@ -131,6 +141,13 @@ verdict/
     monitors.py      Fixed reference; daily verdict per feature and score; thresholds are
                      conventions and must not be tuned against any schedule.
     trigger.py       Same quantity drifted two consecutive days, none open: RetrainRequest.
+  history/           ADR 18. What the platform keeps.
+    sampling.py      The strata, the rates, and the draw: a salted hash of the event id.
+    spool.py         Hourly Arrow IPC files, appended per batch; sealed to zstd Parquet.
+    records.py       The staged row (transaction, 16 features, champion, shadow) and label.
+    labels.py        The label collector: consume, spool by label time, then checkpoint.
+    compact.py       Seal closed hours; finalise a day after its labels (7 days + 6 h);
+                     draw before joining; one row per event; write, then delete.
   review_queue/
     ranking.py       Expected loss, the hourly day simulation, score vs expected-loss
                      comparison paired by day. Named so it does not shadow stdlib queue.
@@ -183,7 +200,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Fifteen ADRs, in `docs/adr/`: 1 to 14, and 17. Read them before reopening anything they cover.
+Sixteen ADRs, in `docs/adr/`: 1 to 14, 17 and 18. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -200,7 +217,8 @@ Fifteen ADRs, in `docs/adr/`: 1 to 14, and 17. Read them before reopening anythi
 | 11 | Shadow on the champion's own features, timed apart, unable to break scoring; promotion only if the interval bound clears the margin, on labels that had arrived, with at least 50 frauds; rollback by a pointer read per event | Margins and prices are placeholders until the champion's variability is measured |
 | 12 | Drift: PSI and KS against a fixed reference; PSI 0.25, KS statistic 0.10 with p below 0.01, 500 values minimum; same quantity two consecutive days | **Amends PLAN.md 2.6**: no Evidently. **The thresholds must not be tuned against the development schedule**, or the sealed schedule grades nothing |
 | 13 | The queue ranks by expected loss; simulated a day at a time in hourly steps with expiry; paired by day | At fixed capacity the prices cannot reorder the queue, and a test says so. Scores must be calibrated before a result is published |
-| 14 | The live stack: its own VPC in `ca-central-1d`, no ingress rule, one spot instance (c6a.large, c5a.large or c7i.large) in a group of one, a data volume that outlives it, ECR for the image, SSM Session Manager for a person, a Cloudflare Tunnel for the dashboard; the budget and the tunnel token outside Terraform | **Open question, must close before go-live:** at 1,000 events a second history does not fit on a disk (about 260 GB at the provisional retentions, 1.9 TB of transactions over the window). Recommended: topics as buffers, a Parquet sink for what is kept, and a published sample with weights, which ADRs 11 and 13 must then accept |
+| 14 | The live stack: its own VPC in `ca-central-1d`, no ingress rule, one spot instance (c6a.large, c5a.large or c7i.large) in a group of one, a data volume that outlives it, ECR for the image, SSM Session Manager for a person, a Cloudflare Tunnel for the dashboard; the budget and the tunnel token outside Terraform | Its storage question (history does not fit on a disk at 1,000 events a second) was **closed by ADR 18** on 2026-09-19; the data volume is 150 GB |
+| 18 | History is a labelled, weighted sample: topics keep a day; every decision staged with its features before the checkpoint; days finalised seven days and six hours after they end; every reviewed or declined row kept, approved frauds at 0.10, approved legitimate at 0.01, each with weight 1 / rate; the promotion gate reads the weight | Rates are fixed before go-live and change only at a day boundary. The scorer's added cost on the hot path is **unmeasured** until the load test runs with and without a spool |
 | 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Pending Peter's review**: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code
@@ -269,8 +287,8 @@ unreachable.
 | 1 | ~~The go-live date~~ **Decided 2026-09-18**: as soon as the definition of done is met; sixty-day window (section 1) | | |
 | 2 | ~~Docker~~ **Done 2026-09-13**, on the personal desktop. The Redpanda stack runs (section 3) | | |
 | 3 | **Kaggle forum posting.** Rule 8.B asks that publicly shared competition code be posted to the competition's own forum. Arguably spent since 2019, cheap to honour, and it publishes under Peter's name | Peter | Go-live |
-| 4 | ~~A least-privilege AWS identity for 09~~ **Done 2026-09-18** (below). **Now: attach `deploy/aws/iam/deploy-policy.json`** to the same user as a second policy, `verdict-deploy`. It is what `terraform apply` needs; nothing is applied without Peter's go | Peter | Before the first `deploy/up.sh` |
-| 7 | **The storage question in ADR 14.** Keep a sample of legitimate traffic, with weights, instead of every row; or pay for disk; or lower the rate | Peter | Before go-live, and before week 6's queue evaluation reads the live history |
+| 4 | ~~A least-privilege AWS identity for 09~~ **Done 2026-09-18**; the deploy policy `verdict-deploy` attached by Peter on 2026-09-19. **Nothing is applied without Peter's go** | | |
+| 7 | ~~The storage question in ADR 14~~ **Decided 2026-09-19** (ADR 18): a day on each topic, and a weighted sample for the record. The original item: **The storage question in ADR 14.** Keep a sample of legitimate traffic, with weights, instead of every row; or pay for disk; or lower the rate | Peter | Before go-live, and before week 6's queue evaluation reads the live history |
 | 5 | **Review ADR 17.** Three choices about the real data, each reversible in one function: the card key, no device, the reference date. The one most worth a second opinion is having no device at all | Peter | Before week 5 trains on the real data |
 | 6 | ~~Kinesis and the 50 ms budget~~ **Decided 2026-09-18: Redpanda on the instance** (ADR 3). The original item: **Kinesis cannot meet the 50 ms budget as PLAN.md 2.4 measures it.** AWS documents about 200 ms average propagation for a polling consumer and about 70 ms with enhanced fan-out, before the scorer starts. Three options in ADR 3's open question: start the clock at the scorer, run Redpanda on the live instance instead, or keep Kinesis and publish what it measures. The first changes the one-liner's wording, the second the AWS story, the third the headline number | Peter | Before week 7's Kinesis client is written; nothing earlier depends on it |
 
@@ -471,6 +489,24 @@ decide what 04 claims.
 ---
 
 ## 11. What comes next
+
+**CPU-heavy work waits for Peter's green light** (2026-09-19): another project
+uses this machine, and every latency figure here has been spoiled once by a
+shared CPU. Estimated on this desktop (i5-10400F, 6 cores, no GPU), in the
+order it would run:
+
+| Work | Why it needs the CPU | Estimate |
+|---|---|---|
+| Load test with and without the history spool, memory and Redpanda, and with zstd on the decisions producer | ADR 18's cost on the hot path, and whether zstd is safe to switch on live | 45 minutes, idle machine required |
+| Features for training: replay the competition data and about 5 million synthetic events through the engine | Training reads the engine's features, never a second computation | 20 to 30 minutes |
+| Gradient-boosting champion on each track, with its interval | Week 5 | 20 to 40 minutes |
+| The leak's PR-AUC inflation: the same training on the unfixed engine | README's "Leak caught" column | 20 to 40 minutes |
+| FT-Transformer challenger, on CPU | Week 5; the heaviest item by far | 2 to 3 hours, can run overnight |
+| Rollback drill, five timed runs | Definition of done | 10 minutes |
+
+About 4 to 5 hours in all: a first session of about 2 hours (everything but
+the challenger), then the challenger on its own. Package installs (XGBoost,
+PyTorch CPU, ONNX Runtime) are downloads, not CPU, and can happen any time.
 
 In the order the plan sets, with nothing blocked except where noted:
 

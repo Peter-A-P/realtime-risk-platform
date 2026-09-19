@@ -23,9 +23,9 @@ variable "instance_types" {
 }
 
 variable "data_volume_gb" {
-  description = "The data volume. Sized in ADR 14 from measured bytes per event and the live retentions."
+  description = "The data volume. Sized in ADR 18 from measured bytes per row: a day of each topic, eight days of staged decisions and labels, and the window's kept sample."
   type        = number
-  default     = 100
+  default     = 150
 }
 
 variable "running" {

@@ -5,6 +5,9 @@
   placeholders until week 6 states the assumptions they stand for.
 - Date: 2026-09-15
 - Deciders: the build session, within `PLAN.md` section 2.7 as written
+- **Note, 2026-09-19 (ADR 18):** live history keeps every reviewed row at
+  weight 1, so the queue evaluation reads exact rows and needs no weights.
+  Anything that reads approved rows from history must use their weight.
 
 ## Context
 

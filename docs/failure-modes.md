@@ -46,3 +46,21 @@ decisions.
 **Still open.** Replaying the dead-letter topic once a fault is fixed is a
 manual step with no tool yet, and nothing alarms on the dead-letter count.
 Both belong with the dashboards and alarms, on the live stack.
+
+## Known before it happens: history the platform could lose (ADR 18)
+
+Not yet tried, so there is no observed behaviour; recorded now because the
+design chose to accept them, and each needs a chaos run before go-live.
+
+- **The label collector falls more than a day behind.** The labels topic
+  keeps a day, so labels older than that are gone. They show up a week later
+  as candidates with no label in that day's manifest, and those rows are not
+  kept. What is needed: the collector's lag as a metric, and an alert well
+  inside the day.
+- **A kernel crash, not a spot interruption.** The scorer stages rows without
+  an fsync, so a kernel crash can lose the last batches of rows whose
+  transactions were checkpointed. A spot interruption is a clean shutdown
+  and flushes them. Visible as fewer staged rows than decisions for the hour.
+- **The compactor does not run.** Staged hours pile up unsealed at about 284
+  bytes a row instead of 30, about a gigabyte an hour. What is needed: the
+  age of the oldest unsealed hour as a metric.

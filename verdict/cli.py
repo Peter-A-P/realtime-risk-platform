@@ -526,6 +526,13 @@ def score(
     metrics_host: Annotated[str, typer.Option(help="Interface the metrics listen on.")] = (
         "127.0.0.1"
     ),
+    history: Annotated[
+        Path | None,
+        typer.Option(help="Stage every decision with its features under this history root."),
+    ] = None,
+    compression: Annotated[
+        str, typer.Option(help="Producer compression for decisions: none or zstd (ADR 18).")
+    ] = "none",
 ) -> None:
     """Run the stream scorer until interrupted: the platform's decision path.
 
@@ -545,6 +552,8 @@ def score(
         flag: A champion pointer to follow.
         metrics_port: Where to serve metrics, or 0 for nowhere.
         metrics_host: The interface metrics listen on.
+        history: The history root (ADR 18), if decisions are to be staged.
+        compression: Producer batch compression.
     """
     import signal
     import threading
@@ -564,12 +573,22 @@ def score(
         FixedModel(StandInModel()) if flag is None else FlaggedModels(flag, _known_models())
     )
     metrics = ScorerMetrics()
-    stream = RedpandaStream(bootstrap or DEFAULT_BOOTSTRAP)
+    stream = RedpandaStream(bootstrap or DEFAULT_BOOTSTRAP, compression=compression)
+    staging = None
+    if history is not None:
+        from verdict.history import spool
+        from verdict.history.compact import HistoryPaths
+        from verdict.history.records import staged_schema
+
+        paths = HistoryPaths(history)
+        spool.recover(paths.staged)
+        staging = spool.SpoolWriter(paths.staged, staged_schema())
     scorer = StreamScorer(
         stream,
         decider=Decider(features=EngineFeatures(FeatureEngine()), models=models),
         group=group,
         on_decided=metrics.on_decided,
+        history=staging,
     )
     if metrics_port:
         start_http_server(metrics_port, addr=metrics_host, registry=metrics.registry)
@@ -588,6 +607,8 @@ def score(
     try:
         summary = service.run(scorer, stop=stop, metrics=metrics)
     finally:
+        if staging is not None:
+            staging.close()
         stream.close()
     typer.echo(
         f"stopped after {summary.polls} polls: {summary.decided} decided, "
@@ -729,6 +750,81 @@ def flush_probe(
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text + "\n", encoding="utf-8")
     typer.echo(text)
+
+
+history_app = typer.Typer(
+    name="history", help="What the platform keeps: ADR 18's sample.", no_args_is_help=True
+)
+app.add_typer(history_app)
+
+
+@history_app.command("labels")
+def history_labels(
+    root: Annotated[Path, typer.Option(help="The history root.")],
+    bootstrap: Annotated[str | None, typer.Option(help="Broker address.")] = None,
+) -> None:
+    """Collect labels into the label spool until interrupted.
+
+    Args:
+        root: The history root.
+        bootstrap: Broker address. Defaults to the compose stack's.
+    """
+    import signal
+    import threading
+
+    from verdict.history import spool
+    from verdict.history.compact import HistoryPaths
+    from verdict.history.labels import LabelCollector
+    from verdict.history.records import LABEL_SCHEMA
+    from verdict.stream.redpanda import DEFAULT_BOOTSTRAP, RedpandaStream
+
+    paths = HistoryPaths(root)
+    spool.recover(paths.labels)
+    writer = spool.SpoolWriter(paths.labels, LABEL_SCHEMA)
+    stream = RedpandaStream(bootstrap or DEFAULT_BOOTSTRAP)
+    collector = LabelCollector(stream, writer)
+    stop = threading.Event()
+
+    def ask_to_stop(signum: int, frame: object) -> None:
+        del signum, frame
+        stop.set()
+
+    signal.signal(signal.SIGINT, ask_to_stop)
+    signal.signal(signal.SIGTERM, ask_to_stop)
+    try:
+        while not stop.is_set():
+            collector.poll()
+    finally:
+        writer.close()
+        stream.close()
+    typer.echo(
+        f"stopped: {collector.stats.written} labels written, "
+        f"{collector.stats.unreadable} unreadable"
+    )
+
+
+@history_app.command("compact")
+def history_compact(
+    root: Annotated[Path, typer.Option(help="The history root.")],
+) -> None:
+    """Seal finished hours and finalise every day whose labels are all in.
+
+    Run hourly. Prints each day's manifest as it is finalised.
+
+    Args:
+        root: The history root.
+    """
+    from dataclasses import asdict
+
+    from verdict.history.compact import HistoryPaths, finalisable, finalise_day, seal_closed
+
+    paths = HistoryPaths(root)
+    now = dt.datetime.now(dt.UTC)
+    for name in seal_closed(paths, now):
+        typer.echo(f"sealed {name}")
+    for day in finalisable(paths, now):
+        manifest = finalise_day(paths, day, as_of=now)
+        typer.echo(json.dumps(asdict(manifest), sort_keys=True))
 
 
 flag_app = typer.Typer(

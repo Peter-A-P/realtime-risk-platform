@@ -78,6 +78,11 @@ dev = [
   # is how type checking quietly stops covering the interesting parts.
   "pandas-stubs>=2.2,<3",
   "types-PyYAML>=6.0,<7",
+  # pyarrow ships no types, and verdict/history calls it directly. The stubs
+  # track pyarrow 20 while the runtime is 25, so they describe an older API;
+  # what they cover of the history package has not changed between the two,
+  # and a stub that disagrees fails the type check rather than the build.
+  "pyarrow-stubs>=20,<21",
   # FastAPI's test client. Starlette 1.x deprecates httpx for it in favour of
   # httpx2, the Pydantic organisation's successor; v2 is its only major.
   "httpx2>=2.13,<3",
