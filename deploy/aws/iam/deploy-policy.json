@@ -48,13 +48,13 @@
       "Condition": {
         "StringEquals": {
           "ec2:CreateAction": [
-            "ec2:CreateVpc",
-            "ec2:CreateSubnet",
-            "ec2:CreateInternetGateway",
-            "ec2:CreateRouteTable",
-            "ec2:CreateSecurityGroup",
-            "ec2:CreateVolume",
-            "ec2:CreateLaunchTemplate",
+            "CreateVpc",
+            "CreateSubnet",
+            "CreateInternetGateway",
+            "CreateRouteTable",
+            "CreateSecurityGroup",
+            "CreateVolume",
+            "CreateLaunchTemplate",
             "RunInstances"
           ]
         }
@@ -298,6 +298,14 @@
         "ssm:TerminateSession"
       ],
       "Resource": "arn:aws:ssm:*:*:session/${aws:username}-*"
+    },
+    {
+      "Sid": "ReadWhyARequestWasRefused",
+      "Effect": "Allow",
+      "Action": [
+        "sts:DecodeAuthorizationMessage"
+      ],
+      "Resource": "*"
     }
   ]
 }

@@ -144,3 +144,16 @@ def test_the_deploy_identity_passes_only_its_own_role() -> None:
     assert len(passing) == 1
     assert passing[0]["Resource"] == "arn:aws:iam::*:role/verdict/*"
     assert passing[0]["Condition"]["StringEquals"]["iam:PassedToService"] == "ec2.amazonaws.com"
+
+
+def test_tag_on_create_names_actions_without_a_service_prefix() -> None:
+    """`ec2:CreateAction` holds `CreateVpc`, not `ec2:CreateVpc`.
+
+    With the prefix the condition never matches, every tagged create is
+    refused, and the deploy fails on its first resource. It did, on
+    2026-09-19, in a dry run before anything was applied.
+    """
+    for statement in _statements(DEPLOY_POLICY):
+        values = statement.get("Condition", {}).get("StringEquals", {}).get("ec2:CreateAction", [])
+        for value in values:
+            assert ":" not in value, f"{statement['Sid']}: {value}"
