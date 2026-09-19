@@ -167,7 +167,7 @@ def schedule_hash() -> None:
 @schedule_app.command("seal")
 def schedule_seal(
     secret: Annotated[str, typer.Option(prompt=True, hide_input=True, help="The sealed secret.")],
-    window_days: Annotated[float, typer.Option(help="Length of the live window in days.")] = 87.0,
+    window_days: Annotated[float, typer.Option(help="Length of the live window in days.")] = 60.0,
     name: Annotated[str, typer.Option(help="Name for the derived schedule.")] = "live",
     out: Annotated[Path, typer.Option(help="Where to write the commitment.")] = Path(
         "docs/sealed-schedule.json"

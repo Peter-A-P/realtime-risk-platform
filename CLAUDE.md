@@ -6,8 +6,10 @@ published latency budget, shadow deployment, drift-triggered retraining behind a
 gate, and an expected-loss review queue. The plan is in [PLAN.md](PLAN.md).
 
 The slot was a Feb to Apr 2027 build with a live window from Apr 5 2027. **The build
-started on 2026-09-12, about twenty weeks early**, so the week numbers in the plan are the
-schedule and the dates are not, and the go-live date is an open decision due before week 7.
+started on 2026-09-12, about twenty weeks early, and on 2026-09-18 the calendar was
+dropped**: go-live is as soon as the plan's full definition of done is met, the live
+window is sixty days, and the live stream is Redpanda on an EC2 instance in the AWS
+account project 04 uses (shared account only, every resource tagged `project=verdict`).
 Weeks 1 to 3 are done.
 
 ## Read first
@@ -45,7 +47,7 @@ without updating it is a week whose context lives only in one session's memory.
 - **The leakage test is never weakened to pass.** A failing leakage test means the
   feature is wrong.
 - **The regime schedule is sealed.** `events/generator/regimes.py` is hashed before go-live
-  and not edited until Jul 1 2027.
+  and not edited until the secret is revealed, the day after the sixty-day live window.
 - **Nothing promotes itself.** A model reaches production only by a merged pull request
   that carries the shadow evidence.
 - **Teardown is part of done.** `down.sh` must leave nothing billable; the test asserts it

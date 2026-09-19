@@ -1,6 +1,8 @@
-# 3. Redpanda locally, Kinesis live, behind one `Stream` interface
+# 3. Redpanda locally and live, behind one `Stream` interface
 
-- Status: accepted; **an open question added 2026-09-18**, pending Peter (see the end)
+- Status: **amended 2026-09-18**: the open question at the end is decided, and the live
+  stream is Redpanda on the instance, not Kinesis. The original decision is kept below as
+  it was taken
 - Date: 2026-09-12
 - Deciders: Peter Parker
 
@@ -111,7 +113,7 @@ The options, none taken yet:
    of milliseconds, and enhanced fan-out adds a consumer-shard-hour and a
    per-GB retrieval charge to the budget in `PLAN.md` section 6.
 
-Until this is decided, week 7's Kinesis client is not written; what every
+Until this was decided, week 7's Kinesis client was not written; what every
 option needs (the parity test between stream implementations, the teardown
 check, the budget alarms) is.
 
@@ -120,6 +122,41 @@ fan-out consumers with dedicated throughput* (the propagation-delay table),
 https://docs.aws.amazon.com/streams/latest/dev/enhanced-consumers.html ; and
 *Quotas and limits* (five `GetRecords` transactions per second per shard),
 https://docs.aws.amazon.com/streams/latest/dev/service-sizes-and-limits.html
+
+## Decision on the open question, 2026-09-18: option 2
+
+Peter chose option 2: **the live stack runs Redpanda on the instance**, and
+Kinesis is not used. Taken the same day the go-live date was pulled forward
+to as soon as the platform meets its definition of done.
+
+Why, in order:
+
+- The one-line claim, under 50 ms from ingest to decision, survives as
+  written. ADR 9 measured the scorer's flush at 3.99 ms at p50 inside the
+  broker's own network, which is where the live scorer will sit.
+- The Redpanda implementation exists and passes the stream contract suite
+  against a real broker. A Kinesis client, record aggregation and a second
+  implementation's parity run would have been about a week of work on the
+  critical path to go-live.
+- It costs less: no shard-hours.
+
+What it costs, recorded rather than hidden:
+
+- The live stream is a container on an instance, not a managed service. The
+  AWS example this project gives the portfolio becomes EC2, EBS, the spot
+  auto-scaling group, IAM, Terraform and the budget, not Kinesis.
+- A spot replacement is now a broker recovery, not only a consumer restart.
+  The broker's data directory goes on the separate EBS volume that is
+  reattached at boot (`PLAN.md` section 2.8), and recovery from a replacement
+  becomes one of week 8's chaos scenarios with its observed behaviour in
+  `docs/failure-modes.md`.
+- `stream/parity.py` still holds the in-process stream and Redpanda to a
+  reference that uses no stream. The Redpanda/Kinesis parity item in the
+  definition of done is replaced by that.
+
+Option 2 was rejected when this ADR was first written, for the two costs
+above. What changed is the measurement: Kinesis's documented propagation
+delay alone is larger than the budget, which was not known on 2026-09-12.
 
 ## Sources
 

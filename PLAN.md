@@ -4,15 +4,19 @@
 weeks ahead of its slot, after a dependency check found nothing in the portfolio blocking
 it (the plan's own sequence has 01, 08 and 09 independent).
 
-**Build:** nine weeks. The slot was Feb 1 to Apr 4 2027; the build started early, so the
-week numbers below are the schedule and the dates are not. **Live:** Apr 5 to Jun 30 2027
-as planned, torn down Jul 1, **but the go-live date is now an open decision**: starting
-five months early moves the live window unless the built platform waits, and the live
-window is what the AWS account timing in the plan repository's action 9 was arranged
-around (a free-plan account closes itself six months after opening). That decision is due
-before week 7, which is the first week that needs an AWS account, and it belongs in the
-plan repository's STATUS, not here. Nothing before week 7 costs anything: the build months
-run on the laptop.
+**Build:** nine weeks as planned. The slot was Feb 1 to Apr 4 2027; the build started early,
+so the week numbers below are the order of work and the dates are not.
+
+**Amended 2026-09-18, Peter's decisions.** The original calendar no longer applies.
+**Go-live is as soon as the definition of done in section 10 is met, in full**: nothing
+on it moves into the live window. **The live window is sixty days** from go-live, and the
+sealed schedule is revealed and the stack torn down the day after it ends; wherever this
+plan says "Apr 5 to Jun 30" or "Jul 1", read "the sixty-day window" and "the day after
+it". **The live stream is Redpanda on the instance, not Kinesis** (ADR 3, amended).
+**The AWS account is the one project 04 already uses**, shared as an account only: 09's
+Terraform, `up.sh` and `down.sh` live in this repository, every resource carries the tag
+`project=verdict`, and the budget and the teardown check are scoped to that tag. 04's code
+is not on 09's path. Access is a least-privilege identity for 09 alone.
 
 **Package:** `verdict`. **Fed by:** nothing in the portfolio; 01, 02 and 03 exist by then and
 their habits carry over. **Feeds:** 10 reads this platform's traces as one of its production
@@ -169,7 +173,11 @@ forty-thousand-dollar one is.
 
 ### 2.8 The live stack runs in one AWS region
 
-The managed stream is Amazon Kinesis (the portfolio's AWS example). Pulling a thousand
+**Amended 2026-09-18 (ADR 3):** the live stream is Redpanda on the instance, because AWS
+documents Kinesis's propagation delay as larger than the whole 50 ms budget. The broker's
+data directory sits on the reattached EBS volume, and the Kinesis paragraphs below are
+kept as the original plan. The managed stream was Amazon Kinesis (the portfolio's AWS
+example). Pulling a thousand
 events per second from Kinesis to a VPS on another cloud would cost more in egress than
 the compute, so the whole live stack, stream, consumers, stores, dashboard, runs in
 `ca-central-1` on one spot instance behind an auto-scaling group of size one, with state on
@@ -247,7 +255,7 @@ verdict/
   cli.py       verdict up | down | replay | loadtest | parity | drift-report | queue-eval | rollback-drill
 deploy/
   compose/     local stack: Redpanda, Redis, Postgres, MLflow, Prometheus, Grafana, the services
-  terraform/   AWS: Kinesis stream, spot ASG of one, EBS, IAM, CloudWatch budget alarms, security groups
+  terraform/   AWS: spot ASG of one running Redpanda and the services, EBS, IAM, CloudWatch budget alarms, security groups
   up.sh, down.sh   one command each; down leaves nothing billable
 docs/
   adr/         0001-platform-not-model, 0002-two-tracks, 0003-stream-choice, 0004-aggregation-engine,
@@ -299,8 +307,14 @@ weeks and 06 starts when 09 is live.
 
 ## 6. Cost
 
-Prices as of 2026-09-06, AWS `ca-central-1` public list prices; re-checked in March. The
-build months run on the laptop and cost nothing.
+Prices as of 2026-09-06, AWS `ca-central-1` public list prices; re-checked before
+go-live. The build months run locally and cost nothing.
+
+**Amended 2026-09-18:** a sixty-day window and no Kinesis. Scaling the table below by
+60/87 and dropping the Kinesis row: spot instance about CA$107, EBS about CA$11, egress
+about CA$4, so **about CA$122 for the live window**, plus the CA$14 of interview re-runs
+and the CA$100 reserve, about CA$236 against the CA$350 line. The original table is kept
+for the record.
 
 | Item | Basis | US$ | CA$ |
 |---|---|---:|---:|
@@ -360,9 +374,9 @@ sections in the ADRs.
 ## 10. Definition of done
 
 - [ ] Point-in-time correctness test exists, was written before the first feature, and has caught at least one real leak (or the plan says none occurred)
-- [ ] Online and offline features verified identical by automated test; Redpanda and Kinesis paths verified identical on the same replay
+- [ ] Online and offline features verified identical by automated test; every stream implementation verified identical to a no-stream reference on the same replay (Kinesis dropped, ADR 3)
 - [ ] p99 under 50 ms at the live rate, with the per-hop breakdown published and CIs across daily windows
-- [ ] Sustained throughput, uptime and interruption count over 87 live days published
+- [ ] Sustained throughput, uptime and interruption count over the sixty live days published
 - [ ] Shadow deployment demonstrated; promotion by non-inferiority with the interval shown; rollback drill timed five times
 - [ ] Drift monitors fired retraining behind a pull-request approval gate at least once, on a shift from the sealed schedule
 - [ ] Review queue ranked by expected loss; money caught per analyst-hour against score ranking, with CIs
@@ -371,7 +385,7 @@ sections in the ADRs.
 - [ ] Cost per million events from actual bills
 - [ ] Sixteen architecture decision records with public sources
 - [ ] Failure-mode analysis with observed behaviour and fix per scenario
-- [ ] Public dashboard live Apr 5 to Jun 30 at risk.peterparker.ca; stack up and down on one command; nothing billable after Jul 1
+- [ ] Public dashboard live for the sixty-day window at risk.peterparker.ca; stack up and down on one command; nothing tagged `project=verdict` billable the day after it ends
 - [ ] One rejected approach documented with evidence (Rule C)
 - [ ] Repository public at go-live, `v1.0.0` tagged; live-window report tagged `v1.1.0`
 

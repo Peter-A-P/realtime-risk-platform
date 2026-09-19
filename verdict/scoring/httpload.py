@@ -14,7 +14,7 @@ the same generated events so that their numbers can be set beside each other.
   client behind the same interpreter lock as the thing it is loading measures
   itself. The client is this process; the server is another.
 - **Three timestamps per transaction, not two.** `offered` is when the
-  transaction was due to be sent, `sent` is when a connection was free to send
+  transaction was handed to the client, `sent` is when a connection was free to send
   it, and `received` is when the answer came back. `end_to_end` runs from
   `offered`, which is the same thing the stream test measures from, and it
   includes `wait`, the time a transaction spent with no free connection.
@@ -70,7 +70,7 @@ class Exchange:
     """One request, in nanoseconds on this process's clock.
 
     Attributes:
-        offered_ns: When the transaction was due to be sent.
+        offered_ns: When the transaction was handed to the client to send.
         sent_ns: When a connection was free and the request began.
         received_ns: When the response was complete.
         status: The HTTP status.
@@ -222,7 +222,7 @@ def _send_one(connection: http.client.HTTPConnection, payload: bytes, offered_ns
     Args:
         connection: A connection, kept open between requests.
         payload: The transaction, as JSON.
-        offered_ns: When it was due.
+        offered_ns: When it was handed to the client.
 
     Returns:
         The exchange.
@@ -306,7 +306,12 @@ def run_once(
                 time.sleep(ahead / 1e9)
             elif ahead > 0:
                 time.sleep(0)
-            work.put((payload, max(due, time.perf_counter_ns())))
+            # Offered when handed to the client, not when it was scheduled: the
+            # pacing loop yields rather than sleeps under 2 ms, so a
+            # transaction can leave up to 2 ms before its slot, and timing it
+            # from the slot made waits negative and end to end short. The
+            # stream test times the actual hand-off too.
+            work.put((payload, time.perf_counter_ns()))
         offered_seconds = (time.perf_counter_ns() - started) / 1e9
         for _ in threads:
             work.put(None)

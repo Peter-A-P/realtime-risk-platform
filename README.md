@@ -72,9 +72,31 @@ subtracted quietly ([ADR 9](docs/adr/0009-latency-budget.md),
 | Flush and checkpoint, once per batch | tens of ms per batch whatever the batch holds, which is a throughput ceiling before it is a latency one | **the platform's** |
 
 The scorer's own work, per hop at p99: features 0.340 ms, model 0.003 ms, rules 0.065 ms,
-hand-off 0.048 ms. The end-to-end table stays empty: the runs that would fill it were
-taken while another project on the same machine was training a model, and a 99th
-percentile does not survive that.
+hand-off 0.048 ms.
+
+End to end on the build laptop, measured on an idle machine at 1,000 transactions a
+second with the stand-in model; milliseconds, mean of the per-run figure with a 95
+percent interval. Local figures, not the live claim:
+
+| Path | Runs | p50 | p95 | p99 | Decided |
+|---|---|---|---|---|---|
+| In-process stream (no broker) | 5 | 1.16 (1.14 to 1.17) | 1.98 (1.95 to 2.01) | 5.50 (3.48 to 7.52) | all |
+| Redpanda, from inside its Docker network | 20 | 11.94 (11.36 to 12.53) | 24.21 (16.33 to 32.09) | 52.81 (36.27 to 69.34) | all |
+
+With the forwarder out of the path, the median and the 95th percentile sit well inside 50
+ms and the 99th does not reliably: 13 of 20 runs came in under it, and the rest lost it to
+stalls on the broker's side that are not yet explained (the broker's health check was
+tested and ruled out). From the Windows host, each run's figure depends on which path the
+forwarder gave its connections, so it is reported by mode, not averaged.
+
+**The transport comparison.** The same load into the synchronous HTTP endpoint, with no
+broker on either side: over one connection it decided every transaction but ran at its
+limit (p99 96 to 132 ms in four runs, and one run fell a second behind and stayed there);
+over two, four or eight connections its p99 dropped to between 6 and 49 ms, and it refused
+16.5 to 39.1 percent of transactions undecided, because they arrived after later ones and
+the engine will not score out of order. The stream consumer decided every one, in order,
+at 5.50 ms. That is the argument for scoring from a stream, measured
+([docs/latency-budget.md](docs/latency-budget.md)).
 
 **One approach tried and rejected: tuning the Kafka client.** The 47 ms looked like a
 client setting, and `linger.ms=0` and `fetch.wait.max.ms=5` each appeared to fix it in a
@@ -84,7 +106,7 @@ caching, showed both the fast and the slow behaviour in about the same proportio
 shipped settings. The first result was run order. What the setting sweep could not do, the
 comparison against the same client inside the broker's network did in one run.
 
-**Live window, Apr 5 to Jun 30 2027**
+**Live window**
 
 | Sustained events/s | Uptime % | Interruptions recovered | Drift triggers / retrains approved | Champion vs challenger PR-AUC (95% CI) | Cost per million events |
 |---|---|---|---|---|---|
@@ -114,7 +136,7 @@ judges, plus the mapping that puts the real data through all three.
 | Wire schema, versioned and closed | [verdict/events/schema.py](verdict/events/schema.py) | A transaction carries no label, no score and no feature. A test asserts it |
 | Entity graph: cards, devices, merchants | [verdict/events/generator/entities.py](verdict/events/generator/entities.py) | Fraud is a property of a graph, not a row |
 | Three fraud patterns | [verdict/events/generator/scenarios.py](verdict/events/generator/scenarios.py) | Card testing, account takeover, merchant collusion |
-| Sealed regime schedule | [verdict/events/generator/regimes.py](verdict/events/generator/regimes.py) | Design public, development schedule public, live realisation sealed until Jul 1 2027 |
+| Sealed regime schedule | [verdict/events/generator/regimes.py](verdict/events/generator/regimes.py) | Design public, development schedule public, live realisation sealed until the live window ends |
 | Raw event log | [verdict/events/rawlog.py](verdict/events/rawlog.py) | Three files. Ground truth is kept out of the transaction log, and a test reads the bytes to prove it |
 | Replay, in time order | [verdict/events/replay.py](verdict/events/replay.py) | Refuses an out-of-order log rather than sorting it quietly |
 | Real data onto events | [verdict/events/ieee_cis_events.py](verdict/events/ieee_cis_events.py) | A card is issuer, product, billing region and account start day. No device or merchant is invented to fill the schema, which is at version 2 so it can say so |
@@ -167,8 +189,9 @@ published latency budget. A challenger runs in shadow; promotion needs a non-inf
 result and a person; rollback is a flag, drilled and timed. Drift monitors open a
 retraining pull request with the evidence; merging it is the approval. The review queue is
 ranked by expected loss, and the evaluation shows what that buys per analyst-hour. The
-live stack runs in one AWS region on a spot instance with Kinesis as the stream; locally,
-the same code runs on Docker Compose with Redpanda. Sixteen architecture decision records
+live stack runs in one AWS region on a spot instance with Redpanda as the stream, the same
+broker the local Docker Compose stack runs, because AWS documents Kinesis's delivery delay
+as larger than the whole latency budget ([ADR 3](docs/adr/0003-stream-choice.md)). Sixteen architecture decision records
 explain every choice with its public sources.
 
 ## Part of a portfolio

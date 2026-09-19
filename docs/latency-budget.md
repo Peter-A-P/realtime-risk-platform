@@ -136,29 +136,128 @@ cannot tell a fast pipeline from a queue that has stopped growing.
 ADR 9 lists the two remedies, why neither is adopted in week 4, and what
 evidence should decide them.
 
-## End-to-end figures
+## End-to-end figures, on an idle machine
 
-**Provisional, and not yet the published result.** The runs that would fill
-this table were taken while another project on the same machine was training a
-model, and the tails show it: the in-process backend, which touches no network
-and no broker, produced a 99th percentile between 20 ms and 288 ms across five
-runs of the same configuration. A p50 survives that; a p95 or p99 does not.
+Measured 2026-09-18 from 23:20 to 23:57 UTC, after the machine had spent five
+minutes under 15 percent CPU, with no other job's Python running at any point
+and the CPU logged around every run (the history below explains why that
+gate exists). 1,000 transactions per second offered, 20,000
+per run, the first 1,000 of each run excluded, the week 4 stand-in model.
+Milliseconds; mean of the per-run figure across runs, with a 95 percent t
+interval.
 
-What is here is the untuned baseline, kept because it is what the first
-measurement said and because the timer artefact above is measured against it:
+| Path | Runs | p50 | p95 | p99 | Decided |
+|---|---|---|---|---|---|
+| In-process stream, Windows host | 5 | 1.16 [1.14, 1.17] | 1.98 [1.95, 2.01] | 5.50 [3.48, 7.52] | all |
+| In-process stream, Linux container | 5 | 0.50 [0.49, 0.51] | 0.92 [0.89, 0.96] | 5.93 [2.97, 8.88] | all |
+| Redpanda, from inside its network | 20 | 11.94 [11.36, 12.53] | 24.21 [16.33, 32.09] | 52.81 [36.27, 69.34] | all |
+| Redpanda, from the Windows host | 5 | two modes, see below | | | all |
+
+From `latency-week4-memory.json`, `latency-week4-memory-in-network.json`, the
+four `latency-week4-redpanda-in-network-healthcheck-*.json` blocks, and
+`latency-week4-redpanda.json`. The in-process rows have the load producer in
+the scorer's own process, so they are a ceiling on what the scorer adds, not a
+floor.
+
+**Inside its network, Redpanda holds a p50 near 12 ms and a p95 near 17 ms in
+most runs, and the 99th percentile is where the budget is lost.** 13 of the 20
+runs had a p99 under 50 ms; the other 7 ranged from 55 to 132 ms. The slow runs
+are episodes, not a standing queue (in all but one, the median over the last
+tenth of the run stays near 11 ms), and in four of the seven the flush's own
+p99 rises from about 1.6 ms to between 10 and 37 ms, so at least some of it
+is on the broker's side of the flush. What, is not known. It is not the broker's health check (below). One earlier set of
+five runs in the same place, `latency-week4-redpanda-in-network.json`, had a
+run whose queue grew to several seconds (p99 16.7 s) and four clean runs; that
+size of stall did not recur in the twenty after it, and it is reported rather
+than dropped.
+
+**From the Windows host the runs split by connection, not by setting.** Two of
+five had a p50 near 13 ms and a p99 near 32 ms, two sat at a p50 near 76 ms
+with a fast flush, and one was slow throughout (flush p50 79 ms). The port
+forwarder (host cost 3, above) assigns a connection its path when it opens, and
+the scorer opens two, a consumer and a producer; either drawing the slow path
+puts about 60 ms under every decision. The t interval across those five runs
+(p50 61.67, from -0.32 to 123.67) is arithmetic on two populations and is not
+reported as a figure.
+
+**What this does and does not say about the 50 ms budget.** On this laptop, with
+the forwarder out of the path, the median and the 95th percentile are well
+inside it and the 99th percentile is not reliably: 52.81 ms on average, with
+runs on both sides. It is a local, Docker-on-Windows, single-core-broker
+measurement of a stand-in model, and ADR 9 keeps the published claim for the
+live stack. It is the best local evidence of where the live stack's tail will
+be decided: at the broker, not in the scorer, whose own hops stay under 0.5 ms
+at p99 in every run above.
+
+### Rejected: the broker's health check as the cause of the stalls
+
+The health check runs `rpk` inside the broker's container every five seconds,
+on a broker started with `--smp=1 --overprovisioned`, which made it the obvious
+suspect. Tested in four blocks of five runs, alternating on, off, off, on, so
+drift over the half hour could not pass for an effect:
+
+| Block | Health check | p50 | p99 | Runs with p99 over 50 ms |
+|---|---|---|---|---|
+| 1 | on | 13.13 [10.63, 15.63] | 73.84 [10.96, 136.72] | 3 of 5 |
+| 2 | off | 11.33 [11.11, 11.54] | 37.94 [22.08, 53.80] | 1 of 5 |
+| 3 | off | 11.85 [10.83, 12.87] | 65.62 [15.23, 116.02] | 3 of 5 |
+| 4 | on | 11.47 [11.23, 11.71] | 33.82 [23.62, 44.02] | 0 of 5 |
+
+Stalling runs appear with it on and with it off, in about equal number. The
+broker is back on the compose file's own health check.
+
+## The transport comparison (Rule C candidate 3)
+
+The same events at the same rate into the HTTP endpoint (`verdict
+http-loadtest`), the endpoint in its own process, writing its decisions
+nowhere so that neither side has a broker in it; set beside the in-process
+stream above, which also has none.
+
+| Connections | Decided | p50 | p95 | p99 |
+|---|---|---|---|---|
+| 1 | all | 4 runs 2.1 to 2.4; 1 run fell behind | | 4 runs 96 to 132; 1 run 1,774 |
+| 2 | 83.5 percent | 1.44 [1.31, 1.56] | 5.26 [-0.88, 11.40] | 49.24 [39.66, 58.81] |
+| 4 | 61.4 percent | 1.70 [1.67, 1.73] | 2.22 [2.08, 2.35] | 7.75 [1.02, 14.48] |
+| 8 | 60.9 percent | 1.69 [1.67, 1.70] | 2.14 [2.06, 2.21] | 6.03 [1.95, 10.12] |
+
+From `latency-week4-http-c{1,2,4,8}.json`, taken in the same idle window.
+"Decided" is the share the endpoint answered 200; the rest it refused with
+409 as arriving after a later transaction, which the engine will not fold into
+windows that have moved past it.
+
+- **One connection keeps order and runs at its limit.** A request takes about
+  0.8 ms there and back, so a single connection carries 1,000 a second with
+  little to spare: four of five runs kept up with a p99 near 100 ms from
+  requests queueing behind each other, and one fell behind by a second and did
+  not recover (963 a second achieved).
+- **More connections buy headroom by giving up order.** Over two or more, the
+  tail drops to single-digit milliseconds at four and eight, and 16.5 to 39.1
+  percent of transactions are refused undecided. A refused transaction is not a
+  slow decision; it is no decision.
+- **The stream does both.** The in-process consumer decided every transaction,
+  in order, at a p99 of 5.50 ms on the same host. The consumer reads one
+  ordered partition by construction, which is the whole of ADR 8's argument,
+  and here it is measured.
+
+Two things this does not settle. The HTTP load client is Python, so which side
+limits the single connection, client or endpoint, is not separated; `PLAN.md`
+names k6 for this load, and a client outside Python would settle it. And the
+endpoint here writes nowhere; with a durable write per request it would pay a
+flush per decision where the consumer pays one per batch, which can only widen
+the gap.
+
+## Before the idle machine: the untuned baseline
+
+What the first measurement said, kept because the host costs above are
+measured against it:
 
 | Stream | p50 | p95 | p99 |
 |---|---|---|---|
 | In-process | 1.40 [1.30, 1.50] | 3.57 [2.30, 4.84] | 17.47 [1.12, 33.82] |
 | Redpanda | 59.30 [27.60, 91.00] | 110.00 [48.92, 171.07] | 150.29 [50.91, 249.67] |
 
-Milliseconds, mean across five runs with a 95 percent t interval, from the
-`-untuned.json` artefacts: no fine-grained timer, the load producer in the
-scorer's thread, and the port forwarder in the path. All three costs above are
-inside those numbers. They are a starting point, not a result.
-
-The table is completed by re-running the load tests on an idle host, which
-is the one outstanding piece of week 4.
+From the `-untuned.json` artefacts: no fine-grained timer, the load producer
+in the scorer's thread, and the port forwarder in the path.
 
 ## Second attempt, 2026-09-18: what it established, and what it could not
 
@@ -183,13 +282,17 @@ ADR 9 found the forwarder with a probe; this is the whole scorer showing the
 same thing. The batch size falls with it, which is the per-batch ceiling
 (above) relaxing when the fixed cost falls.
 
-**2. The in-process stream's tail was mostly the Windows host.** The same
-backend with no broker, whose p99 on Windows has never been below about
-100 ms since the first run: 17.54 ms at p99 (3.76 to 31.32) in the Linux
-container against 323.12 ms (129.37 to 516.87) on the host, both under the
-same other job. The median barely moves (0.75 ms against 3.34 ms). The
-Windows tail is the scheduler and the interpreter lock on this host, which the
-live stack does not have.
+**2. Withdrawn the same evening: "the in-process stream's tail was mostly the
+Windows host."** Kept here rather than edited over, as `docs/leak-caught.md`
+keeps its corrections. The claim was that the in-process stream's p99 of
+323.12 ms on the Windows host against 17.54 ms in a Linux container, both
+measured beside the other job, showed a Windows-specific tail. Measured on an
+idle machine a few hours later, the two are the same: p99 5.50 ms on Windows
+and 5.93 ms in the container (the section below). The difference was the other
+job, which bore harder on one process than on the other; a comparison between
+two measurements that each shared the CPU is not a comparison. The claim also
+said the Windows p99 "has never been below about 100 ms since the first run",
+which was false on its face: the untuned baseline's p99 was 17.47 ms.
 
 **3. Open: stalls inside the network.** Inside the broker's network the median
 end to end over the last tenth of each run is 23 to 34 ms, flush p99 is at
@@ -200,7 +303,8 @@ candidate that is not: the broker's health check runs `rpk` inside its
 container every five seconds, on a broker started with `--smp=1
 --overprovisioned`, and a stall every five seconds would produce a p95 of this
 shape. It is an A/B test (health check on and off, shuffled) for an idle host,
-not something to conclude from these runs.
+not something to conclude from these runs. Tested that night on an idle machine: it is
+not the health check (the table under "End-to-end figures" above).
 
 **What the HTTP runs show, and do not.** At 1,000 per second offered, the
 endpoint decided every transaction over one connection but completed only
@@ -210,7 +314,10 @@ transactions as arriving after later ones (409). The refusal share is a
 matter of order, not of CPU, and is the structural half of Rule C candidate 3:
 more connections buy throughput only by delivering out of order, and the
 engine will not score out of order. The achieved rates are not published:
-a throughput ceiling is exactly what a shared CPU lowers, and which side binds
+a throughput ceiling is exactly what a shared CPU lowers, and on the idle
+machine every configuration reached about 1,000 a second (992 on average over
+one connection, 1,000 over more), so the 287 to 488 measured here was the other
+job, and which side binds
 (the Python client or the endpoint) is not separated by these runs. `PLAN.md`
 names k6 for the HTTP load; a client outside Python would answer the second
 question.

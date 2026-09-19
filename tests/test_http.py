@@ -200,3 +200,6 @@ def test_a_small_http_load_run_measures_every_exchange_it_offered() -> None:
     for hop in httpload.SERVER_HOPS:
         assert result.server[hop]["p50"] >= 0.0
     assert set(result.backlog) == {"early_p50", "late_p50"}
+    # A transaction cannot wait a negative time for a connection. The first
+    # version timed from the scheduled slot, sent up to 2 ms early, and did.
+    assert result.wait["p50"] >= 0.0

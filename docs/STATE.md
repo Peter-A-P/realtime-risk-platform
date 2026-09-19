@@ -35,6 +35,23 @@ still empty and stay that way until they are real.
 The build started on 2026-09-12, about twenty weeks ahead of its Feb 2027
 slot, after a check that nothing in the portfolio blocks it.
 
+**On 2026-09-18 Peter dropped the calendar and asked for go-live as soon as
+possible.** Decided that day, and recorded in `PLAN.md` (header, 2.8, 6, 10),
+ADR 3 and `CLAUDE.md`:
+
+- **Go-live when the full definition of done (PLAN.md section 10) is met.**
+  Nothing is deferred into the live window, including the chaos tests and the
+  72-hour dry run.
+- **The live window is sixty days.** The sealed schedule is derived over 60
+  days, revealed and the stack torn down the day after. Every "Jul 1 2027" in
+  the repository means that day now.
+- **The live stream is Redpanda on the instance** (ADR 3, option 2). No
+  Kinesis client is written.
+- **AWS is the account project 04 already uses, shared as an account only.**
+  09's Terraform and scripts live here; every resource is tagged
+  `project=verdict`; the budget and the teardown check are scoped to that tag.
+  About CA$236 of the CA$350 line (PLAN.md section 6).
+
 ---
 
 ## 2. The machine, and what it cannot do
@@ -241,12 +258,20 @@ unreachable.
 
 | # | Item | Who | When it bites |
 |---|---|---|---|
-| 1 | **The go-live date.** It was Apr 5 2027. Starting twenty weeks early unfixes it, and the AWS account timing in the plan's action 9 was arranged around it (a free-plan account closes itself six months after opening) | Peter | Before week 7, the first week that needs an AWS account. Nothing before then costs anything |
+| 1 | ~~The go-live date~~ **Decided 2026-09-18**: as soon as the definition of done is met; sixty-day window (section 1) | | |
 | 2 | ~~Docker~~ **Done 2026-09-13**, on the personal desktop. The Redpanda stack runs (section 3) | | |
 | 3 | **Kaggle forum posting.** Rule 8.B asks that publicly shared competition code be posted to the competition's own forum. Arguably spent since 2019, cheap to honour, and it publishes under Peter's name | Peter | Go-live |
-| 4 | AWS budget alarms before the first resource exists | Peter | Week 7 |
+| 4 | **A least-privilege AWS identity for 09** in 04's account, and a named profile `verdict` on this machine. The session writes the policy JSON when the Terraform's resource list is known; the tag-scoped CA$350 budget with alarms at 50, 80 and 100 percent is created before any other resource | Peter | Before the first `terraform apply` |
 | 5 | **Review ADR 17.** Three choices about the real data, each reversible in one function: the card key, no device, the reference date. The one most worth a second opinion is having no device at all | Peter | Before week 5 trains on the real data |
-| 6 | **Kinesis cannot meet the 50 ms budget as PLAN.md 2.4 measures it.** AWS documents about 200 ms average propagation for a polling consumer and about 70 ms with enhanced fan-out, before the scorer starts. Three options in ADR 3's open question: start the clock at the scorer, run Redpanda on the live instance instead, or keep Kinesis and publish what it measures. The first changes the one-liner's wording, the second the AWS story, the third the headline number | Peter | Before week 7's Kinesis client is written; nothing earlier depends on it |
+| 6 | ~~Kinesis and the 50 ms budget~~ **Decided 2026-09-18: Redpanda on the instance** (ADR 3). The original item: **Kinesis cannot meet the 50 ms budget as PLAN.md 2.4 measures it.** AWS documents about 200 ms average propagation for a polling consumer and about 70 ms with enhanced fan-out, before the scorer starts. Three options in ADR 3's open question: start the clock at the scorer, run Redpanda on the live instance instead, or keep Kinesis and publish what it measures. The first changes the one-liner's wording, the second the AWS story, the third the headline number | Peter | Before week 7's Kinesis client is written; nothing earlier depends on it |
+
+**Before sealing:** the docstrings in `regimes.py` say "Jul 1 2027". That
+file is hashed, so changing the text is a deliberate edit with
+`docs/generator-hashes.json` updated in the same commit and the reason in the
+message, done once, before `verdict schedule seal --window-days 60`.
+
+**`risk.peterparker.ca`** needs a DNS record pointing at the live stack. Where
+the zone is hosted is not recorded here yet.
 
 Nothing else is blocked. Weeks 4, 5 and 6, including the broker-backed latency
 measurement, can be built on this machine.
@@ -315,6 +340,9 @@ here is a platform latency or throughput figure: nothing is scored yet.
 | Send to receive, producer in its own process vs in the scorer's thread | 8.64 ms vs 70.57 ms at p50, 12 shuffled runs | ADR 9 |
 | Flush, from the Windows host | 47.72 ms at p50 on 9 of 12 connections, 7.10 ms on 3 | `docs/latency-week4-flush-host.json` |
 | Flush, from inside the broker's Docker network | 3.99 ms at p50 on 10 of 10 connections | `docs/latency-week4-flush-in-network.json` |
+| End to end, in-process stream, idle machine | p50 1.16, p95 1.98, p99 5.50 ms, 5 runs | `docs/latency-week4-memory.json` |
+| End to end, Redpanda inside its network, idle machine | p50 11.94, p95 24.21, p99 52.81 ms, 20 runs | `docs/latency-week4-redpanda-in-network-healthcheck-*.json` |
+| HTTP endpoint, 1 / 2 / 4 / 8 connections at 1,000/s | decided 100 / 83.5 / 61.4 / 60.9 percent | `docs/latency-week4-http-c*.json` |
 
 **Two of these were published wrong and then corrected.** The leak's impact was
 first measured on a synthetic stream truncated to seconds and reported as if
@@ -435,24 +463,32 @@ In the order the plan sets, with nothing blocked except where noted:
    `docs/provisional/2026-09-18/` with a note, and `docs/latency-budget.md`
    has a section on what survives: inside the broker's network the scorer's
    flush is about 2 ms against about 55 ms through the forwarder; the
-   in-process stream's Windows tail (p99 323 ms) is 17.5 ms in a Linux
-   container; HTTP over 2, 4 and 8 connections refused 25.8, 28.7 and 10.5
+   in-process stream's Windows tail (p99 323 ms) looked like 17.5 ms in a
+   Linux container (**withdrawn that evening**: on an idle machine both are
+   about 5.5 ms; the gap was the other job); HTTP over 2, 4 and 8 connections refused 25.8, 28.7 and 10.5
    percent as out of order. Open: mid-run stalls inside the network (p95 133
    to 845 ms) that are neither the commit nor a queue; the broker's
    five-second `rpk` health check on `--smp=1 --overprovisioned` is the
    candidate to A/B on an idle host. `verdict loadtest` now takes
    `--bootstrap`, and the container command in `docs/latency-budget.md` is
    checked. **Gate the next attempt on total CPU, not a process name.**
-   **Still waiting on a quiet machine:** the end-to-end table in
-   `docs/latency-budget.md`, which needs
-   `verdict loadtest --stream memory --out docs/latency-week4-memory.json` and
-   the same with `--stream redpanda`, on an idle host; and the transport
-   comparison, which is `verdict http-loadtest --rate 1000 --connections N`
-   for N of 1, 2, 4 and 8 beside the stream run at the same rate. The runs
-   taken on 2026-09-17 were discarded rather than published: project 12 was
-   training a model, and the in-process backend, which touches no network at
-   all, gave a p99 between 20 ms and 288 ms across five runs of one
-   configuration. A p50 survives that; a p99 does not.
+   **Done on an idle machine, 2026-09-18 23:20 to 23:57 UTC** (Peter stopped
+   the other jobs; the watcher waited for five minutes under 15 percent CPU
+   and logged it around every run; no other Python job ran). The end-to-end
+   table in `docs/latency-budget.md` is filled: in-process stream p50 1.16,
+   p99 5.50 ms; Redpanda inside its network, 20 runs, p50 11.94, p95 24.21,
+   p99 52.81 ms (13 of 20 runs under 50 ms at p99, the rest losing it to
+   broker-side stalls whose cause is not known); from the Windows host, two
+   modes by forwarder connection. The broker's health check was A/B tested
+   in ABBA blocks and **ruled out** as the cause of the stalls. The transport
+   comparison is done too: HTTP over one connection decides everything but
+   runs at its limit (p99 96 to 132 ms, one run in five fell a second
+   behind); over two or more it refuses 16.5 to 39.1 percent as out of order.
+   The HTTP client's "offered" time was fixed first (it timed from the
+   scheduled slot, and the pacing loop sends up to 2 ms early, so waits came
+   out negative). Open: what stalls the broker's side of the flush in about a
+   third of runs; and a non-Python HTTP load client (k6, as PLAN.md names) to
+   separate client from endpoint on the single connection.
 
    A functional check on 2026-09-18, at 500/s on a busy machine and **not a
    result**, showed the shape the comparison is likely to have, and it is
