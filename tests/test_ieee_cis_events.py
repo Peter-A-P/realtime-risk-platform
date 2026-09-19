@@ -36,9 +36,10 @@ from verdict.events.ieee_cis_events import (
     write_event_log,
 )
 from verdict.events.rawlog import LABELS_FILE, TRANSACTIONS_FILE, read_labels, read_transactions
-from verdict.events.schema import EntryMode, TransactionEvent
-from verdict.features.engine import FeatureEngine, FeatureRow
+from verdict.events.schema import EntryMode
+from verdict.features.engine import FeatureEngine
 from verdict.features.replay_check import check_replay, is_sampled
+from verdict.features.unfixed import ObserveImmediatelyEngine
 from verdict.store.features import FEATURE_SET, EntityKind, feature_names
 from verdict.store.leakage import check_point_in_time
 
@@ -121,27 +122,6 @@ def a_replay() -> list[dict[str, str | None]]:
     rows.append(a_row(TransactionID=str(ident), TransactionDT=str(burst_at + 5), addr1=""))
     rows.sort(key=lambda row: int(str(row["TransactionDT"])))
     return rows
-
-
-class ObserveImmediatelyEngine(FeatureEngine):
-    """The engine before the same-instant fix: serve, then observe at once.
-
-    The same bug `tests/test_engine.py` keeps as a fixture, restated here
-    because test modules are not importable from one another in this layout.
-    """
-
-    def process(self, event: TransactionEvent) -> list[FeatureRow]:
-        """Serve, then observe immediately, which is the bug.
-
-        Args:
-            event: The event.
-
-        Returns:
-            The features, which can include events sharing this instant.
-        """
-        rows = self.serve(event)
-        self.observe(event)
-        return rows
 
 
 # --- the clock and the money ----------------------------------------------

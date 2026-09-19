@@ -28,7 +28,7 @@ and the scorer consumes it (ADR 8) with a stand-in model and a load test.
 Week 4's latency work found where the time goes and published that (ADR 9,
 `docs/latency-budget.md`): three of the four costs belong to the measuring
 host, and the end-to-end figure still waits for a quiet machine (section 11).
-489 tests; `ruff`, `ruff format` and
+498 tests; `ruff`, `ruff format` and
 `mypy --strict` all clean. Nothing has been scored yet, so the README's headline tables are
 still empty and stay that way until they are real.
 
@@ -205,7 +205,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Seventeen ADRs, in `docs/adr/`: 1 to 15, 17 and 18. Read them before reopening anything they cover.
+Eighteen ADRs, in `docs/adr/`: 1 to 15, 17, 18 and 19. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -224,8 +224,9 @@ Seventeen ADRs, in `docs/adr/`: 1 to 15, 17 and 18. Read them before reopening a
 | 13 | The queue ranks by expected loss; simulated a day at a time in hourly steps with expiry; paired by day | At fixed capacity the prices cannot reorder the queue, and a test says so. Scores must be calibrated before a result is published |
 | 14 | The live stack: its own VPC in `ca-central-1d`, no ingress rule, one spot instance (c6a.large, c5a.large or c7i.large) in a group of one, a data volume that outlives it, ECR for the image, SSM Session Manager for a person, a Cloudflare Tunnel for the dashboard; the budget and the tunnel token outside Terraform | Its storage question (history does not fit on a disk at 1,000 events a second) was **closed by ADR 18** on 2026-09-19; the data volume is 150 GB |
 | 18 | History is a labelled, weighted sample: topics keep a day; every decision staged with its features before the checkpoint; days finalised seven days and six hours after they end; every reviewed or declined row kept, approved frauds at 0.10, approved legitimate at 0.01, each with weight 1 / rate; the promotion gate reads the weight | Rates are fixed before go-live and change only at a day boundary. The scorer's added cost on the hot path is **unmeasured** until the load test runs with and without a spool |
-| 15 | Spot recovery. The feeds resume exactly: `GeneratorRun` snapshots on the data volume every 30 s, restores byte for byte, sends at least once and never skips; a fresh start deep in a window is refused; `sealed` checks the secret against the commitment before running | **Open:** the scorer's rebuild after a replacement, and the engine's memory at the live rate (about 8.5 kB per event retained on a first measurement; 24 hours at 1,000 a second will not fit in 4 GB as it stands) |
-| 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Pending Peter's review**: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
+| 15 | Spot recovery. The feeds resume exactly: `GeneratorRun` snapshots on the data volume every 30 s, restores byte for byte, sends at least once and never skips; a fresh start deep in a window is refused; `sealed` checks the secret against the commitment before running | **Open:** the scorer's rebuild after a replacement, and the engine's memory at the live rate (about 4.7 kB per entity and 900 B per held event, measured; 24 hours at 1,000 a second is about 33 GB against 4 GB) |
+| 19 | Champion and challenger: tracks replayed through the scorer's own engine path; split in time at 70 percent; XGBoost with fixed parameters and early stopping; an FT-Transformer challenger; ONNX export refused unless it scores as the fitted model does; PR-AUC with stratified bootstrap intervals; only synthetic-trained models ship | Synthetic fraud is too easy (champion 0.9996): scenario tuning is Peter's call before sealing |
+| 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Accepted by Peter on 2026-09-19**, all three choices as written: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code
 
@@ -295,7 +296,7 @@ unreachable.
 | 3 | **Kaggle forum posting.** Rule 8.B asks that publicly shared competition code be posted to the competition's own forum. Arguably spent since 2019, cheap to honour, and it publishes under Peter's name | Peter | Go-live |
 | 4 | ~~A least-privilege AWS identity for 09~~ **Done 2026-09-18**; the deploy policy `verdict-deploy` attached by Peter on 2026-09-19. **Nothing is applied without Peter's go** | | |
 | 7 | ~~The storage question in ADR 14~~ **Decided 2026-09-19** (ADR 18): a day on each topic, and a weighted sample for the record. The original item: **The storage question in ADR 14.** Keep a sample of legitimate traffic, with weights, instead of every row; or pay for disk; or lower the rate | Peter | Before go-live, and before week 6's queue evaluation reads the live history |
-| 5 | **Review ADR 17.** Three choices about the real data, each reversible in one function: the card key, no device, the reference date. The one most worth a second opinion is having no device at all | Peter | Before week 5 trains on the real data |
+| 5 | ~~Review ADR 17~~ **Done 2026-09-19**: Peter accepted all three choices (the card key, no device, the 2017-12-01 reference date) as written. Week 5 can train on the real data | | |
 | 6 | ~~Kinesis and the 50 ms budget~~ **Decided 2026-09-18: Redpanda on the instance** (ADR 3). The original item: **Kinesis cannot meet the 50 ms budget as PLAN.md 2.4 measures it.** AWS documents about 200 ms average propagation for a polling consumer and about 70 ms with enhanced fan-out, before the scorer starts. Three options in ADR 3's open question: start the clock at the scorer, run Redpanda on the live instance instead, or keep Kinesis and publish what it measures. The first changes the one-liner's wording, the second the AWS story, the third the headline number | Peter | Before week 7's Kinesis client is written; nothing earlier depends on it |
 
 **Before sealing:** the docstrings in `regimes.py` say "Jul 1 2027". That
@@ -541,6 +542,33 @@ in SSM with `aws ssm put-parameter --profile verdict --region ca-central-1
 --name /verdict/schedule-secret --type SecureString --value ... --tags
 Key=project,Value=verdict`, as with the tunnel token, and commit
 `docs/sealed-schedule.json`.
+
+**CPU session, 2026-09-19** (Peter's green light; projects 06 and 08 were
+running jobs too, so nothing timing-sensitive was measured):
+
+- **Engine memory** (`docs/engine-footprint.json`): about 4,700 bytes per
+  entity and 900 per held event; a day of 24-hour windows at 1,000 a second
+  is about 33 GB against a 4 GB instance. **Blocks go-live; Peter's call**
+  among the options in ADR 15.
+- **Real-track champion** (`docs/champion-real.json`, ADR 19): test PR-AUC
+  0.0750 (0.0715 to 0.0789), base rate 0.035; model hop p99 0.10 ms.
+- **Real-track challenger** (`docs/challenger-real.json`): FT-Transformer
+  0.0492 (0.0473 to 0.0514); minus the champion -0.0258 (-0.0288 to
+  -0.0230); hop p99 0.48 ms. 810 s to fit.
+- **Leak inflation** (`docs/leak-inflation.json`, `docs/leak-caught.md`):
+  none measurable; the leak changes 4 of 152,415 test rows.
+- **Synthetic champion** (`docs/champion-synthetic.json`): 0.9996, because
+  the generator's fraud is too easy (session transaction count alone scores
+  0.64). **Peter's call:** tune `scenarios.py` before sealing, as PLAN.md
+  section 8 planned. The synthetic challenger waits for that decision.
+  The champion ships in `verdict/models/artifacts/` for the dry run.
+- **Not yet run:** the latency load tests with and without the history
+  spool and with zstd, and the five timed rollback drills. Both need an idle
+  machine; the drill works (7 to 12 ms on trial runs).
+- Training tables and models live at
+  `C:/Dev/POCs Dev/09-realtime-risk-platform/models/`, outside OneDrive and
+  outside git; `verdict train replay | champion | challenger | leak`
+  rebuild them.
 
 In the order the plan sets, with nothing blocked except where noted:
 

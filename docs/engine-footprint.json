@@ -1,0 +1,119 @@
+{
+  "measured_at": "2026-09-19T16:40:08+00:00",
+  "host": "Windows AMD64, Python 3.13.5",
+  "rate_per_second": 1000.0,
+  "population": {
+    "cards": 200000,
+    "devices": 150000,
+    "merchants": 4000,
+    "shared_device_rate": 0.12,
+    "max_devices_per_card": 3,
+    "colluding_merchant_rate": 0.004
+  },
+  "samples": [
+    {
+      "events": 50000,
+      "entities": 91845,
+      "rss_bytes": 506109952,
+      "seconds": 8.718822299997555
+    },
+    {
+      "events": 100000,
+      "entities": 150997,
+      "rss_bytes": 829825024,
+      "seconds": 15.853710800001863
+    },
+    {
+      "events": 150000,
+      "entities": 193761,
+      "rss_bytes": 1082032128,
+      "seconds": 23.02978830000211
+    },
+    {
+      "events": 200000,
+      "entities": 226449,
+      "rss_bytes": 1281404928,
+      "seconds": 29.810306599996693
+    },
+    {
+      "events": 250000,
+      "entities": 252423,
+      "rss_bytes": 1448251392,
+      "seconds": 36.68404239999654
+    },
+    {
+      "events": 300000,
+      "entities": 272969,
+      "rss_bytes": 1589391360,
+      "seconds": 43.841744699995616
+    },
+    {
+      "events": 350000,
+      "entities": 290024,
+      "rss_bytes": 1714061312,
+      "seconds": 51.12031869999919
+    },
+    {
+      "events": 400000,
+      "entities": 304649,
+      "rss_bytes": 1827454976,
+      "seconds": 58.39998989999731
+    },
+    {
+      "events": 450000,
+      "entities": 316897,
+      "rss_bytes": 1928724480,
+      "seconds": 66.28851069999655
+    },
+    {
+      "events": 500000,
+      "entities": 327654,
+      "rss_bytes": 2023366656,
+      "seconds": 74.34834969999793
+    },
+    {
+      "events": 550000,
+      "entities": 337008,
+      "rss_bytes": 2111651840,
+      "seconds": 82.27551849999873
+    },
+    {
+      "events": 600000,
+      "entities": 345317,
+      "rss_bytes": 2194534400,
+      "seconds": 90.34764780000114
+    },
+    {
+      "events": 650000,
+      "entities": 352648,
+      "rss_bytes": 2283474944,
+      "seconds": 98.39655420000054
+    },
+    {
+      "events": 700000,
+      "entities": 359128,
+      "rss_bytes": 2358222848,
+      "seconds": 106.64475790000142
+    },
+    {
+      "events": 750000,
+      "entities": 364884,
+      "rss_bytes": 2429366272,
+      "seconds": 114.85688189999928
+    },
+    {
+      "events": 800000,
+      "entities": 370101,
+      "rss_bytes": 2498228224,
+      "seconds": 123.07420579999598
+    }
+  ],
+  "bytes_per_entity": 4720.460301078659,
+  "bytes_per_event": 901.4509718611904,
+  "events_per_second_served": 6499.398689038383,
+  "day_estimate_gb": 32.77949678421099,
+  "notes": [
+    "per-event cost is shared evenly across features; a feature on a longer window may hold more per event than one on a shorter window, so the day estimate is an order of magnitude, not a sizing",
+    "entities at the end: 370,101; the population may not have been seen in full"
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "track": "real data, offline",
+  "champion": "champion-45cb5eab977f",
+  "challenger": "challenger-cf68373da312",
+  "cutoff": "2018-04-08T09:35:11.700000+00:00",
+  "test": {
+    "rows": 152415,
+    "frauds": 5299
+  },
+  "champion_pr_auc": {
+    "value": 0.07503837311068964,
+    "low": 0.07152132821597369,
+    "high": 0.07887095227013645,
+    "rows": 152415,
+    "frauds": 5299,
+    "resamples": 1000
+  },
+  "challenger_pr_auc": {
+    "value": 0.0492489383317371,
+    "low": 0.04726773943519425,
+    "high": 0.051390469494384305,
+    "rows": 152415,
+    "frauds": 5299,
+    "resamples": 1000
+  },
+  "challenger_minus_champion": {
+    "value": -0.02578943477895254,
+    "low": -0.028754440571032436,
+    "high": -0.02304878563719549,
+    "rows": 152415,
+    "frauds": 5299,
+    "resamples": 1000
+  },
+  "fit": {
+    "settings": {
+      "token_dim": 32,
+      "blocks": 2,
+      "heads": 4,
+      "dropout": 0.1,
+      "batch": 2048,
+      "learning_rate": 0.001,
+      "max_epochs": 12,
+      "patience": 2,
+      "seed": 20270405
+    },
+    "epochs": 8,
+    "best_epoch": 6,
+    "validation_pr_auc_by_epoch": [
+      0.05751,
+      0.06448,
+      0.06576,
+      0.06639,
+      0.06719,
+      0.06939,
+      0.06916,
+      0.06868
+    ],
+    "seconds": 809.7
+  },
+  "model_hop_ms": {
+    "p50": 0.2203,
+    "p99": 0.4848330000000007,
+    "calls": 5000.0
+  }
+}

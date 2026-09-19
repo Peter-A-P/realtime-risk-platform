@@ -104,11 +104,16 @@ services:
       - --history=/data/history
       - --metrics-host=0.0.0.0
       - --metrics-port=9108
+      # The champion pointer, on the volume so a rollback survives a
+      # replacement. Started at the shipped champion only if it does not exist.
+      - --flag=/data/flags/champion.json
+      - --initial-champion=champion
     depends_on:
       redpanda:
         condition: service_healthy
     volumes:
       - /data/history:/data/history
+      - /data/flags:/data/flags
     # A stop never splits a batch (scoring/service.py); give it time to finish.
     stop_grace_period: 30s
     restart: unless-stopped

@@ -127,14 +127,29 @@ the overcount cannot come back. It is the same kind of mistake as the second
 catch below: correct pieces joined through a key that answers a slightly
 different question.
 
-**The offline PR-AUC inflation is not measured here**, because there is no
-model yet: model work is week 5. The plan asks for that number, so week 5
-trains the champion twice, once on features from the fixed engine and once on
-features from the unfixed one, and reports the difference. The unfixed
-implementation is kept as a fixture in `tests/test_engine.py` for exactly that
-purpose rather than deleted. On 312 rows out of 590,540, the honest
-expectation is that the difference will be small and possibly not separable
-from noise, and that is worth reporting either way.
+**The offline PR-AUC inflation was measured on 2026-09-19, and there is none
+to find on this data** (`docs/leak-inflation.json`, `verdict train leak`, real
+track, offline). The champion was trained twice on the same split, once on
+features from the fixed engine and once from the unfixed one
+(`verdict/features/unfixed.py`, where the fixture now lives so the
+measurement can import it), and each tested on its own features:
+
+| Comparison, test PR-AUC on 152,415 rows, 5,299 frauds | Difference (95% CI, paired bootstrap) |
+|---|---|
+| Model trained and tested on leaky features, minus the same on fixed features | -0.0009 (-0.0014 to -0.0003) |
+| The same fixed-trained model, tested on leaky features minus fixed features | -0.00002 (-0.00004 to -0.000001) |
+| For scale: the fixed model refitted with another seed, minus the original | +0.0003 (-0.0003 to +0.0010) |
+
+The leak touches 4 of the 152,415 test rows. Holding the model fixed, it
+moves test PR-AUC by two hundred-thousandths, and in the wrong direction for
+an inflation. Retraining on leaky features moves it by about as much as
+changing the seed does. So on the real data the leak's cost to the offline
+number is below what this measurement can separate from refitting, and the
+answer to "what would the leak have claimed" is: nothing measurable. That is
+not a reason to have tolerated it. It was wrong on 65 rows by definition, the
+test that caught it is what makes the number above checkable, and a stream
+with more same-instant events (bursts at whole-second resolution) would
+carry more of it.
 
 ## The second catch, which is the more useful story
 

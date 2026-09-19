@@ -55,6 +55,30 @@ feature engine. Counts from the file; build desktop, Python 3.13.5.
 A count of violations is not a rate, so it carries no interval: it is zero for the sample
 checked, and the sample is fixed by a hash of the card identifier rather than chosen.
 
+**What has been measured: the models (real-data track, offline)**
+
+Trained as of a cutoff on the transactions whose labels had arrived by it, tested on every
+transaction after it; PR-AUC with 95% bootstrap intervals ([ADR 19](docs/adr/0019-champion-and-challenger.md)).
+
+| Model | Test PR-AUC (95% CI) | Scoring one transaction, p99 |
+|---|---|---|
+| Base rate, for scale | 0.035 | |
+| Champion: gradient-boosted trees | 0.0750 (0.0715 to 0.0789) | 0.10 ms |
+| Challenger: FT-Transformer | 0.0492 (0.0473 to 0.0514) | 0.48 ms |
+| Challenger minus champion, paired | -0.0258 (-0.0288 to -0.0230) | |
+| The same-instant leak's inflation of the champion's PR-AUC | none measurable: -0.00002 (-0.00004 to -0.000001) on the same model | |
+
+Low, on purpose: this track has only the card velocity and amount features the engine can
+compute in a stream, and a card here has a median of one transaction. Leaderboard models on
+this data use hundreds of columns no stream would have. The challenger loses by an interval
+that excludes zero, which the promotion gate would refuse. The leak, which the point-in-time
+test caught, changes 4 of 152,415 test rows ([docs/leak-caught.md](docs/leak-caught.md)).
+
+On the synthetic track the champion's test PR-AUC is 0.9996 (0.9995 to 0.9996), which says
+the generator's fraud is too easy, not that the model is good: one feature, the number of
+transactions in a session, ranks it at 0.64 on its own. The scenarios are to be made harder
+before the live window's schedule is sealed.
+
 **What has been measured: latency, and where the time goes**
 
 Not the latency figure, which is the live stack's and comes later. The first local runs
@@ -165,9 +189,9 @@ judges, plus the mapping that puts the real data through all three.
 | What the platform keeps | [verdict/history/](verdict/history/) | Every decision staged with the features it was served before its transaction is checkpointed; once labels are in, every reviewed or declined row and a published sample of the rest, each weighted so totals come out right ([ADR 18](docs/adr/0018-history-is-a-weighted-sample.md)). On a replay the weighted PR-AUC and decision cost match the full data's, and read without the weights they do not |
 | The live feeds | [verdict/live/feed.py](verdict/live/feed.py) | The generator played in real time: each transaction at its event time, each label a week later, from two runs of one deterministic stream. Each feed saves its place, and a run restored after a spot replacement continues byte for byte, sending at least once and skipping nothing ([ADR 15](docs/adr/0015-spot-and-recovery.md)) |
 | The public dashboard | [verdict/observe/dashboard.py](verdict/observe/dashboard.py) | Grafana, anonymous and read-only behind the tunnel, provisioned from code. A test checks every panel's query against the metrics the platform exports |
-| Decisions 1 to 15, 17 and 18 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; the latency budget and what the host costs; labels arrive late and nothing reads them early; shadow and promotion; drift thresholds; queue ranking; the live stack's shape; surviving a spot replacement; what a card, device and moment are on the real data; history as a weighted sample |
+| Decisions 1 to 15, 17 to 19 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; the latency budget and what the host costs; labels arrive late and nothing reads them early; shadow and promotion; drift thresholds; queue ranking; the live stack's shape; surviving a spot replacement; the champion and challenger; what a card, device and moment are on the real data; history as a weighted sample |
 
-489 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
+498 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
 
 **The leakage test caught a real leak on the day the first features were written**, which
 is what it was written a week earlier for. Two transactions sharing a timestamp saw each

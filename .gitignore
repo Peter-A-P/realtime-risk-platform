@@ -41,6 +41,10 @@ mlruns/
 feature_repo/data/
 loadtest/results/raw/
 *.onnx
+# Except the models that ship in the image. Only synthetic-track models go
+# here: nothing trained on the competition data may be redistributed
+# (docs/data.md, ADR 19), and those live outside the repository entirely.
+!verdict/models/artifacts/*.onnx
 
 # OS and editors
 .DS_Store

@@ -1,0 +1,46 @@
+{
+  "track": "real data, offline",
+  "test_rows": 152415,
+  "test_frauds": 5299,
+  "test_rows_whose_features_differ": 4,
+  "fixed_pr_auc": {
+    "value": 0.07503899599201114,
+    "low": 0.07152154910423514,
+    "high": 0.07887142574942528,
+    "rows": 152415,
+    "frauds": 5299,
+    "resamples": 1000
+  },
+  "leaky_pr_auc": {
+    "value": 0.07418391094679141,
+    "low": 0.07074696805464778,
+    "high": 0.07807871143949836,
+    "rows": 152415,
+    "frauds": 5299,
+    "resamples": 1000
+  },
+  "inflation": {
+    "value": -0.0008550850452197223,
+    "low": -0.0013848233895122496,
+    "high": -0.000349813069727098,
+    "rows": 152415,
+    "frauds": 5299,
+    "resamples": 1000
+  },
+  "refit_noise_same_data_other_seed": {
+    "value": 0.00032080594856026545,
+    "low": -0.00034645985995085843,
+    "high": 0.0009959427546165302,
+    "rows": 152415,
+    "frauds": 5299,
+    "resamples": 1000
+  },
+  "same_model_leaky_minus_fixed_test_features": {
+    "value": -1.6073735036536974e-05,
+    "low": -4.089472522779171e-05,
+    "high": -1.3435910493547755e-06,
+    "rows": 152415,
+    "frauds": 5299,
+    "resamples": 1000
+  }
+}

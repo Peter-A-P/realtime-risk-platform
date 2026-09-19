@@ -55,9 +55,33 @@ dependencies = [
   # directly. Pre-1.0, so the minor is pinned: the exposition format and the
   # registry API have both changed between minors.
   "prometheus-client>=0.24,<0.25",
+  # Resident memory for `verdict engine-footprint` (ADR 15). Feast already
+  # depends on it; pinned because this project now calls it. v7 is the current
+  # major, and its memory_info fields are the ones read.
+  "psutil>=7,<8",
+  # The scorer runs the champion and challenger as ONNX (scoring/onnx_model.py),
+  # so the image needs the runtime and not the training libraries. v1 is the
+  # only major; minors add operators and have not removed any this uses.
+  "onnxruntime>=1.30,<2",
 ]
 
 [project.optional-dependencies]
+# Week 5's training, kept out of the image: the instance only scores.
+train = [
+  # The champion (models/train.py). v3 is the current major; its Booster
+  # slicing and iteration_range are what the export relies on.
+  "xgboost>=3.4,<4",
+  # XGBoost to ONNX. Pre-2.0; its converter supports opset 15, which is what
+  # export_onnx asks for, and a minor that drops that would fail the export.
+  "onnxmltools>=1.16,<2",
+  "onnx>=1.23,<2",
+]
+# The challenger (models/challenger.py): an FT-Transformer in PyTorch, on the
+# CPU. Install from the CPU wheel index, or pip pulls the CUDA build. v2 is the
+# current major, and its legacy ONNX exporter is what export_challenger calls.
+challenger = [
+  "torch>=2.14,<3",
+]
 dev = [
   # Test runner. v8 is the current major; v9 will change collection hooks.
   "pytest>=8.3,<9",
@@ -83,6 +107,8 @@ dev = [
   # what they cover of the history package has not changed between the two,
   # and a stub that disagrees fails the type check rather than the build.
   "pyarrow-stubs>=20,<21",
+  # psutil's types, for the footprint measurement.
+  "types-psutil>=7,<8",
   # FastAPI's test client. Starlette 1.x deprecates httpx for it in favour of
   # httpx2, the Pydantic organisation's successor; v2 is its only major.
   "httpx2>=2.13,<3",
@@ -117,6 +143,14 @@ strict = true
 warn_unreachable = true
 disallow_any_explicit = false
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# ONNX Runtime and onnxmltools ship no types and no stubs exist for either.
+# Each is called in one place (scoring/onnx_model.py, models/train.py), behind
+# a typed function whose results are converted to numpy at once, so what is
+# unchecked is confined to those few lines rather than spread through the code.
+module = ["onnxruntime", "onnxruntime.*", "onnxmltools", "onnxmltools.*"]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]

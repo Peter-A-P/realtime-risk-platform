@@ -82,18 +82,31 @@ that are wrong in a known direction. The plan was to replay the
 (ADR 4, ADR 18). That is not built, and a measurement taken on 2026-09-19 says
 it needs rethinking first:
 
-**The feature engine retains about 8.5 kB per event** over the first 60,000
-events of a live-sized population (`tracemalloc`, 20,000 to 60,000 events,
-508 MB at 60,000). Much of that is per-entity setup that stops growing once
-the population has been seen, but the part that grows with events is not
-measured yet, and even a few hundred bytes per event is tens of gigabytes
-for 24 hours at 1,000 a second. The instance has 4 GB. Before the scorer's
-recovery is designed, the engine's steady-state memory at the live rate has
-to be measured (it needs a few million events through the engine, which is
-CPU work on the list waiting for a quiet machine), and the options are:
-windows kept as time buckets rather than events (bounded per entity, exact
-at bucket edges and approximate inside them, which the leakage test would
-have to be taught), a smaller population, a lower rate, or a larger instance.
+**The feature engine's memory, measured on 2026-09-19** (`verdict
+engine-footprint`, `docs/engine-footprint.json`: 800,000 events at the live
+population, resident memory sampled every 50,000 and fitted against entities
+and events). **About 4,700 bytes per tracked entity and about 900 bytes per
+event while it is inside the windows.** Nine of the sixteen features hold 24
+hours; at 1,000 events a second that is about 33 GB for a full day of
+windows, against an instance of 4 GB. A first look had put it at 8.5 kB per
+event, before the per-entity part was separated out.
+
+So the scorer cannot hold 24 hours of windows at the live rate on the live
+instance, and its recovery cannot be designed until that is decided. The
+options, for Peter, with what each costs:
+
+1. **Windows kept as time buckets** (for example one-minute buckets for the
+   24-hour features): bounded per entity whatever the rate. The definition
+   of each 24-hour feature changes to "at one-minute resolution", the
+   reference evaluation and the leakage test are taught the same definition,
+   and the engine's aggregators are rewritten and re-tested. The most work,
+   and the only option that keeps both the rate and the instance.
+2. **A lower live rate**, about 100 a second: about 3 GB, still tight
+   beside the broker. Changes the one-line claim.
+3. **A memory-optimised instance** (32 GB or more): the rest unchanged, at
+   several times the instance cost.
+4. **Shorter windows** (1 hour instead of 24): a change to the feature set
+   the plan and the leakage test are built on.
 
 ## Consequences
 

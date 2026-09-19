@@ -25,6 +25,7 @@ from verdict.features.engine import (
     StaleQueryError,
 )
 from verdict.features.sinks import DualSink, OfflineParquetSink
+from verdict.features.unfixed import ObserveImmediatelyEngine
 from verdict.features.verify import served_lookup_from_offline
 from verdict.store.features import FEATURE_SET, NO_EVENTS, evaluate_spec
 from verdict.store.leakage import check_point_in_time
@@ -214,31 +215,6 @@ def test_an_unknown_entity_reports_no_history_rather_than_failing() -> None:
 
 
 # --- the unfixed engine, kept on purpose ------------------------------------
-
-
-class ObserveImmediatelyEngine(FeatureEngine):
-    """The engine as it was before the same-instant leak was found.
-
-    Kept deliberately, for two reasons. It is the fixture that proves the
-    leakage check can still fail, which a check that only ever passes cannot
-    claim. And week 5 trains the champion on features from both engines to
-    measure what the leak would have added to the offline PR-AUC, which is
-    the number `docs/leak-caught.md` currently has to leave open.
-    """
-
-    def process(self, event: TransactionEvent) -> list:  # type: ignore[type-arg]
-        """Serve, then observe immediately, which is the bug.
-
-        Args:
-            event: The event.
-
-        Returns:
-            The features, computed before this event but after any event
-            sharing its timestamp.
-        """
-        rows = self.serve(event)
-        self.observe(event)
-        return rows
 
 
 def test_the_unfixed_engine_is_caught_at_second_resolution(tmp_path: Path) -> None:

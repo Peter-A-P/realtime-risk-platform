@@ -205,11 +205,13 @@ def memory_backend() -> Backend:
     return Backend("memory", broker.open, topics, send)
 
 
-def redpanda_backend(bootstrap: str | None = None) -> Backend:
+def redpanda_backend(bootstrap: str | None = None, *, compression: str = "none") -> Backend:
     """The local Redpanda broker, with fresh topics per run and its own producer.
 
     Args:
         bootstrap: Broker address. Defaults to the compose stack's.
+        compression: The scorer's producer compression (ADR 18), measured
+            here before the live stack switches it on.
 
     Returns:
         The backend.
@@ -219,7 +221,7 @@ def redpanda_backend(bootstrap: str | None = None) -> Backend:
     address = bootstrap or DEFAULT_BOOTSTRAP
 
     def open_stream() -> Stream:
-        return RedpandaStream(address)
+        return RedpandaStream(address, compression=compression)
 
     def topics() -> Topics:
         admin = RedpandaStream(address)
@@ -359,7 +361,12 @@ def _ms(values_ns: list[int], q: float) -> float:
 
 
 def run_once(
-    backend: Backend, events: list[TransactionEvent], *, rate: float, warmup: int
+    backend: Backend,
+    events: list[TransactionEvent],
+    *,
+    rate: float,
+    warmup: int,
+    history: Path | None = None,
 ) -> RunResult:
     """Send events at a rate through the scorer and time every decision.
 
@@ -368,6 +375,8 @@ def run_once(
         events: What to send, in time order.
         rate: Target sends per second.
         warmup: Decisions to leave out of the statistics.
+        history: Stage every decision under this directory, as the live
+            scorer does (ADR 18), so the run measures that cost too.
 
     Returns:
         The run's measurements.
@@ -385,6 +394,12 @@ def run_once(
         samples.append((event.event_id, sample))
 
     scorer_stream = backend.open()
+    spool = None
+    if history is not None:
+        from verdict.history.records import staged_schema
+        from verdict.history.spool import SpoolWriter
+
+        spool = SpoolWriter(history / uuid.uuid4().hex[:8], staged_schema())
     scorer = StreamScorer(
         scorer_stream,
         decider=Decider(
@@ -395,6 +410,7 @@ def run_once(
         dead_letter_topic=topics.dead_letter,
         group=f"scorer-{uuid.uuid4().hex[:8]}",
         on_decided=on_decided,
+        history=spool,
     )
 
     def score_until_done() -> None:
@@ -420,6 +436,8 @@ def run_once(
             raise RuntimeError(msg)
     finally:
         done.set()
+        if spool is not None:
+            spool.close()
         scorer_stream.close()
         topics.teardown()
         timers.__exit__(None, None, None)

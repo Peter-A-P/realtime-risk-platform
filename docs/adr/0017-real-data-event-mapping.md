@@ -1,10 +1,11 @@
 # 17. What a card, a device and a moment are on the real-data track
 
-- Status: accepted, 2026-09-14, **pending review by Peter Parker**. Taken
-  during the build so the real-data track could run; each choice is
-  measured below and each is reversible by changing one function.
-- Date: 2026-09-14
-- Deciders: the build session, for Peter Parker's review
+- Status: accepted, 2026-09-14; **reviewed and accepted by Peter Parker on
+  2026-09-19**, all three choices as written. Taken during the build so the
+  real-data track could run; each choice is measured below and each is
+  reversible by changing one function.
+- Date: 2026-09-14, reviewed 2026-09-19
+- Deciders: the build session; Peter Parker, on review
 - Numbered 17 rather than 8 because `PLAN.md` section 4 already assigns 8 to
   16 to decisions planned for later weeks.
 

@@ -448,6 +448,12 @@ def loadtest(
         str | None, typer.Option(help="Broker address, for redpanda. Defaults to the host's.")
     ] = None,
     out: Annotated[Path | None, typer.Option(help="Also write the report here.")] = None,
+    history: Annotated[
+        bool, typer.Option(help="Stage every decision to a temporary spool, as live (ADR 18).")
+    ] = False,
+    compression: Annotated[
+        str, typer.Option(help="The scorer's producer compression on redpanda: none or zstd.")
+    ] = "none",
 ) -> None:
     """Drive the scorer at a fixed rate and report latency per hop.
 
@@ -463,11 +469,14 @@ def loadtest(
         bootstrap: The broker's address. From inside the compose network it
             is `redpanda:9092`, which avoids the host's port forwarder (ADR 9).
         out: Where to write the JSON report, if anywhere.
+        history: Whether to stage decisions, as the live scorer does.
+        compression: Producer compression for the scorer's writes.
 
     Raises:
         typer.BadParameter: If the stream is not one this build knows.
     """
     import platform
+    import tempfile
     from dataclasses import asdict
 
     from verdict.scoring import loadtest as load
@@ -476,17 +485,24 @@ def loadtest(
         case "memory":
             backend = load.memory_backend()
         case "redpanda":
-            backend = load.redpanda_backend(bootstrap)
+            backend = load.redpanda_backend(bootstrap, compression=compression)
         case _:
             msg = f"unknown stream {stream!r}; use memory or redpanda"
             raise typer.BadParameter(msg)
 
     sent = load.generate_events(events, rate=rate)
-    results = [load.run_once(backend, sent, rate=rate, warmup=warmup) for _ in range(runs)]
+    with tempfile.TemporaryDirectory(prefix="verdict-history-") as staging:
+        spool_root = Path(staging) if history else None
+        results = [
+            load.run_once(backend, sent, rate=rate, warmup=warmup, history=spool_root)
+            for _ in range(runs)
+        ]
     report = {
         "track": "synthetic live, local",
         "stream": backend.name,
         "model": "stand-in-0 (not trained; see verdict/scoring/model.py)",
+        "history_staged": history,
+        "compression": compression if stream == "redpanda" else None,
         "features": "served by the in-process engine",
         "load_producer_ran_in": results[0].producer,
         "bootstrap": bootstrap if stream == "redpanda" else None,
@@ -533,6 +549,17 @@ def score(
     compression: Annotated[
         str, typer.Option(help="Producer compression for decisions: none or zstd (ADR 18).")
     ] = "none",
+    initial_champion: Annotated[
+        str | None,
+        typer.Option(
+            help="With --flag: if the pointer does not exist yet, point it at the shipped "
+            "model in this role (champion). Never moves an existing pointer."
+        ),
+    ] = None,
+    shadow: Annotated[
+        str | None,
+        typer.Option(help="Score the shipped model in this role (challenger) in shadow."),
+    ] = None,
 ) -> None:
     """Run the stream scorer until interrupted: the platform's decision path.
 
@@ -554,6 +581,8 @@ def score(
         metrics_host: The interface metrics listen on.
         history: The history root (ADR 18), if decisions are to be staged.
         compression: Producer batch compression.
+        initial_champion: The role a new pointer starts at.
+        shadow: The role to score in shadow (ADR 11).
     """
     import signal
     import threading
@@ -565,12 +594,17 @@ def score(
     from verdict.scoring import service
     from verdict.scoring.consumer import StreamScorer
     from verdict.scoring.core import Decider, EngineFeatures
-    from verdict.scoring.flags import FlaggedModels
+    from verdict.scoring.flags import FlaggedModels, set_champion
     from verdict.scoring.model import FixedModel, ModelSource, StandInModel
+    from verdict.scoring.registry import version_of
     from verdict.stream.redpanda import DEFAULT_BOOTSTRAP, RedpandaStream
 
-    models: ModelSource = (
-        FixedModel(StandInModel()) if flag is None else FlaggedModels(flag, _known_models())
+    known = _known_models()
+    if flag is not None and initial_champion is not None and not flag.exists():
+        set_champion(flag, version_of(initial_champion), known)
+    models: ModelSource = FixedModel(StandInModel()) if flag is None else FlaggedModels(flag, known)
+    shadow_models: ModelSource | None = (
+        None if shadow is None else FixedModel(known[version_of(shadow)])
     )
     metrics = ScorerMetrics()
     stream = RedpandaStream(bootstrap or DEFAULT_BOOTSTRAP, compression=compression)
@@ -585,7 +619,9 @@ def score(
         staging = spool.SpoolWriter(paths.staged, staged_schema())
     scorer = StreamScorer(
         stream,
-        decider=Decider(features=EngineFeatures(FeatureEngine()), models=models),
+        decider=Decider(
+            features=EngineFeatures(FeatureEngine()), models=models, shadow=shadow_models
+        ),
         group=group,
         on_decided=metrics.on_decided,
         history=staging,
@@ -1020,6 +1056,229 @@ def live_labels(
     )
 
 
+@app.command(name="engine-footprint")
+def engine_footprint(
+    events: Annotated[int, typer.Option(help="The most events to serve.")] = 800_000,
+    out: Annotated[Path, typer.Option(help="Where to write the report.")] = Path(
+        "docs/engine-footprint.json"
+    ),
+) -> None:
+    """Measure the feature engine's memory as events pass through it (ADR 15).
+
+    CPU and memory heavy: about two minutes and 2.5 GB at the default.
+
+    Args:
+        events: The most events to serve.
+        out: Where to write the report.
+    """
+    from dataclasses import asdict
+
+    from verdict.features.footprint import measure
+
+    report = measure(events)
+    out.write_text(json.dumps(asdict(report), indent=2) + "\n", encoding="utf-8")
+    typer.echo(
+        f"{report.bytes_per_entity:,.0f} bytes an entity, {report.bytes_per_event:,.0f} an "
+        f"event held; a day at the live rate is about {report.day_estimate_gb:,.1f} GB"
+    )
+
+
+train_app = typer.Typer(
+    name="train", help="Week 5: the champion, the challenger, the leak.", no_args_is_help=True
+)
+app.add_typer(train_app)
+
+_TRACK = Annotated[str, typer.Option(help="real (offline, the competition data) or synthetic.")]
+_WORK = Annotated[
+    Path,
+    typer.Option(help="Where tables and models go; outside git and outside any synced folder."),
+]
+
+
+def _work(work: Path, track: str) -> Path:
+    folder = work / track
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
+@train_app.command("replay")
+def train_replay(
+    track: _TRACK,
+    work: _WORK,
+    days: Annotated[float, typer.Option(help="Stream time, for synthetic.")] = 10.0,
+    unfixed: Annotated[
+        bool, typer.Option(help="Serve from the unfixed engine, for the leak measurement.")
+    ] = False,
+) -> None:
+    """Replay a track through the engine into a training table.
+
+    Args:
+        track: real or synthetic.
+        work: The working directory.
+        days: Stream time, for synthetic.
+        unfixed: Use the engine with the same-instant leak.
+    """
+    import os
+
+    from verdict.features.unfixed import ObserveImmediatelyEngine
+    from verdict.models.champion import replay
+
+    source = os.environ.get("VERDICT_IEEE_CIS_DIR")
+    report = replay(
+        track,
+        _work(work, track) / ("leaky.parquet" if unfixed else "fixed.parquet"),
+        source=Path(source) if source else None,
+        days=days,
+        engine=ObserveImmediatelyEngine() if unfixed else None,
+    )
+    typer.echo(
+        f"served {report.served:,}, kept {report.kept:,} ({report.frauds:,} frauds) "
+        f"into {report.path}"
+    )
+
+
+@train_app.command("champion")
+def train_champion(
+    track: _TRACK,
+    work: _WORK,
+    report: Annotated[Path, typer.Option(help="Where the report goes.")],
+) -> None:
+    """Fit, test, export and time the champion on a replayed track.
+
+    Args:
+        track: real or synthetic.
+        work: The working directory holding the track's table.
+        report: The JSON report.
+    """
+    from verdict.models.champion import train_track
+
+    folder = _work(work, track)
+    result = train_track(track, folder / "fixed.parquet", folder / "champion.onnx")
+    report.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    tested = result["test_pr_auc"]
+    typer.echo(
+        f"{result['model']}: test PR-AUC {tested['value']:.4f} "
+        f"({tested['low']:.4f} to {tested['high']:.4f}), {result['track']}"
+    )
+
+
+@train_app.command("challenger")
+def train_challenger(
+    track: _TRACK,
+    work: _WORK,
+    report: Annotated[Path, typer.Option(help="Where the report goes.")],
+) -> None:
+    """Fit the FT-Transformer on the champion's split and compare them, paired.
+
+    Args:
+        track: real or synthetic.
+        work: The working directory holding the table and the champion.
+        report: The JSON report.
+    """
+    from verdict.models.champion import challenge_track
+
+    folder = _work(work, track)
+    result = challenge_track(
+        track, folder / "fixed.parquet", folder / "champion.onnx", folder / "challenger.onnx"
+    )
+    report.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    diff = result["challenger_minus_champion"]
+    typer.echo(
+        f"challenger minus champion: {diff['value']:+.4f} ({diff['low']:+.4f} to "
+        f"{diff['high']:+.4f}), {result['track']}"
+    )
+
+
+@train_app.command("leak")
+def train_leak(
+    work: _WORK,
+    report: Annotated[Path, typer.Option(help="Where the report goes.")],
+) -> None:
+    """What the same-instant leak would have added to the real track's PR-AUC.
+
+    Needs `train replay --track real` run twice, with and without `--unfixed`.
+
+    Args:
+        work: The working directory.
+        report: The JSON report.
+    """
+    from verdict.models.champion import leak_inflation
+
+    folder = _work(work, "real")
+    result = leak_inflation(folder / "fixed.parquet", folder / "leaky.parquet")
+    report.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    diff = result["inflation"]
+    typer.echo(
+        f"leaky minus fixed PR-AUC: {diff['value']:+.4f} ({diff['low']:+.4f} to "
+        f"{diff['high']:+.4f}); {result['test_rows_whose_features_differ']} test rows differ"
+    )
+
+
+@app.command(name="rollback-drill")
+def rollback_drill(
+    champion: Annotated[Path, typer.Option(help="The ONNX champion rolled back from.")],
+    runs: Annotated[int, typer.Option(help="Timed runs.")] = 5,
+    out: Annotated[Path | None, typer.Option(help="Where the report goes.")] = None,
+) -> None:
+    """Time the rollback flag: flip it, and time the old champion's first decision.
+
+    Rolls back from the ONNX champion to the stand-in, on the in-process
+    stream at 1,000 transactions a second, `runs` times.
+
+    Args:
+        champion: The model rolled back from.
+        runs: How many times.
+        out: The JSON report.
+    """
+    import platform
+    import tempfile
+    from dataclasses import asdict
+
+    from verdict.scoring.drill import run_drill
+    from verdict.scoring.loadtest import generate_events
+    from verdict.scoring.model import StandInModel
+    from verdict.scoring.onnx_model import OnnxModel
+    from verdict.scoring.timing import t_interval
+
+    new = OnnxModel(champion)
+    old = StandInModel()
+    known: dict[str, Model] = {old.version: old, new.version: new}
+    events = generate_events(6_000, rate=1_000.0)
+    results = []
+    with tempfile.TemporaryDirectory(prefix="verdict-drill-") as folder:
+        for index in range(runs):
+            results.append(
+                run_drill(
+                    Path(folder) / f"champion-{index}.json",
+                    known,
+                    old=old.version,
+                    new=new.version,
+                    events=events,
+                )
+            )
+    seconds = [r.seconds_to_old_champion for r in results]
+    interval = t_interval(seconds)
+    mean, low, high = interval.mean, interval.low, interval.high
+    report = {
+        "track": "synthetic live, local",
+        "rolled_back_from": new.version,
+        "rolled_back_to": old.version,
+        "rate_per_second": 1_000.0,
+        "runs": [asdict(r) for r in results],
+        "seconds_to_old_champion": {"mean": mean, "low": low, "high": high},
+        "host": f"{platform.system()} {platform.machine()}, Python {platform.python_version()}",
+        "measured_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+    }
+    if out is not None:
+        out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    typer.echo(
+        f"old champion deciding {mean * 1000:.1f} ms after the flag "
+        f"({low * 1000:.1f} to {high * 1000:.1f}), {runs} runs; "
+        f"decisions by the rolled-back model after the flag: "
+        f"{sum(r.decisions_by_new_after_rollback for r in results)}"
+    )
+
+
 observe_app = typer.Typer(
     name="observe", help="What the platform shows about itself.", no_args_is_help=True
 )
@@ -1057,16 +1316,15 @@ DEFAULT_FLAG = Path("data/flags/champion.json")
 def _known_models() -> dict[str, Model]:
     """The models this build can score with, by version.
 
-    Week 4 has one. Week 5 adds the champion and challenger, and this is where
-    they are registered.
+    The stand-in, and every ONNX model shipped in `verdict/models/artifacts`
+    (`scoring/registry.py`).
 
     Returns:
         Version to model.
     """
-    from verdict.scoring.model import StandInModel
+    from verdict.scoring.registry import known_models
 
-    stand_in = StandInModel()
-    return {stand_in.version: stand_in}
+    return known_models()
 
 
 @flag_app.command("show")

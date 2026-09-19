@@ -26,15 +26,18 @@ from __future__ import annotations
 import datetime as dt
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from pathlib import Path
+from typing import Any, Protocol
 
 import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
 import pyarrow.compute as pc
+import pyarrow.parquet as pq
 
 from verdict.events.schema import LabelEvent, TransactionEvent
 from verdict.features.engine import FeatureEngine
+from verdict.history.sampling import draw
 from verdict.models.inputs import MODEL_INPUTS, matrix
 from verdict.scoring.core import EngineFeatures
 from verdict.store.features import FEATURE_SET, FeatureSpec
@@ -76,17 +79,24 @@ class Replayed:
     unlabelled: int
 
 
-def replay_table(events: Iterable[TransactionEvent], labels: Mapping[str, LabelEvent]) -> Replayed:
+def replay_table(
+    events: Iterable[TransactionEvent],
+    labels: Mapping[str, LabelEvent],
+    *,
+    engine: FeatureEngine | None = None,
+) -> Replayed:
     """Serve every event's features through the scorer's own engine path.
 
     Args:
         events: The events, in event-time order; the engine refuses a late one.
         labels: Each event's label, by event id.
+        engine: The engine to serve from. The platform's own by default; the
+            leak measurement passes the unfixed one (`features/unfixed.py`).
 
     Returns:
         The rows, with weight 1, and the count of events without a label.
     """
-    source = EngineFeatures(FeatureEngine())
+    source = EngineFeatures(engine or FeatureEngine())
     rows: list[dict[str, Any]] = []
     unlabelled = 0
     for event in events:
@@ -183,3 +193,102 @@ def at_cutoff(table: pa.Table, cutoff: dt.datetime) -> TrainingSet:
         event_ids=tuple(str(e) for e in usable["event_id"].to_pylist()),
         excluded_unarrived=excluded,
     )
+
+
+class Labelled(Protocol):
+    """A transaction with its label: a generated or a mapped record."""
+
+    @property
+    def event(self) -> TransactionEvent:
+        """The transaction."""
+        ...
+
+    @property
+    def label(self) -> LabelEvent:
+        """Its outcome."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayReport:
+    """What a replay to Parquet served and kept.
+
+    Attributes:
+        path: The Parquet file.
+        served: Events served through the engine, every one of them.
+        kept: Rows written.
+        frauds: Frauds among them, all kept.
+        legit_rate: The share of legitimate rows kept, each weighted by its
+            inverse.
+    """
+
+    path: Path
+    served: int
+    kept: int
+    frauds: int
+    legit_rate: float
+
+
+def replay_to_parquet(
+    records: Iterable[Labelled],
+    path: Path,
+    *,
+    engine: FeatureEngine | None = None,
+    legit_rate: float = 1.0,
+    batch: int = 100_000,
+) -> ReplayReport:
+    """Serve a long stream through the engine and write training rows as it goes.
+
+    Every event is served, so every window is exactly what the scorer would
+    have held; only the writing is sampled. Every fraud is kept, and a
+    legitimate row is kept when the hash draw of its id falls under
+    `legit_rate` (the same salted draw as ADR 18's sample), with weight
+    `1 / legit_rate`, so estimates and fits that use the weight come out as
+    on the full stream.
+
+    Args:
+        records: Transactions with their labels, in event-time order.
+        path: Where to write the Parquet file.
+        engine: The engine to serve from; the platform's own by default.
+        legit_rate: The share of legitimate rows to keep, in (0, 1].
+        batch: Rows per write.
+
+    Returns:
+        What was served and kept.
+
+    Raises:
+        ValueError: If the rate is not a probability that keeps something.
+    """
+    if not 0.0 < legit_rate <= 1.0:
+        msg = f"legit_rate must be in (0, 1], got {legit_rate}"
+        raise ValueError(msg)
+    source = EngineFeatures(engine or FeatureEngine())
+    schema = training_schema()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    served = kept = frauds = 0
+    rows: list[dict[str, Any]] = []
+    with pq.ParquetWriter(path, schema, compression="zstd") as writer:
+        for record in records:
+            event, label = record.event, record.label
+            features = source.serve(event)
+            served += 1
+            if not label.is_fraud and draw(event.event_id) >= legit_rate:
+                continue
+            row: dict[str, Any] = {
+                "event_id": event.event_id,
+                "event_time": event.event_time,
+                "amount_cents": event.amount_cents,
+                "label_time": label.label_time,
+                "is_fraud": label.is_fraud,
+                "weight": 1.0 if label.is_fraud else 1.0 / legit_rate,
+            }
+            row.update(features)
+            rows.append(row)
+            kept += 1
+            frauds += int(label.is_fraud)
+            if len(rows) >= batch:
+                writer.write_table(pa.Table.from_pylist(rows, schema=schema))
+                rows = []
+        if rows:
+            writer.write_table(pa.Table.from_pylist(rows, schema=schema))
+    return ReplayReport(path=path, served=served, kept=kept, frauds=frauds, legit_rate=legit_rate)

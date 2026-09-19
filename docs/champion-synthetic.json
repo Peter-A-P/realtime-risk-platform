@@ -1,0 +1,70 @@
+{
+  "track": "synthetic, offline replay",
+  "model": "champion-9c7b11fd35bb",
+  "inputs": [
+    "card_txn_count_1h",
+    "card_txn_count_24h",
+    "card_amount_sum_1h",
+    "card_amount_mean_24h",
+    "card_amount_max_24h",
+    "card_seconds_since_last",
+    "card_distinct_merchants_24h",
+    "device_txn_count_1h",
+    "device_distinct_cards_1h",
+    "device_distinct_cards_24h",
+    "device_amount_mean_1h",
+    "merchant_txn_count_1h",
+    "merchant_distinct_cards_1h",
+    "merchant_amount_mean_1h",
+    "session_txn_count",
+    "session_amount_sum",
+    "amount_cents"
+  ],
+  "table_rows": 1400713,
+  "cutoff": "2027-01-14T23:59:57.542828+00:00",
+  "train": {
+    "rows": 975791,
+    "frauds": 369162,
+    "excluded_unarrived_labels": 0
+  },
+  "test": {
+    "rows": 424922,
+    "frauds": 165473
+  },
+  "fit": {
+    "params": {
+      "objective": "binary:logistic",
+      "eval_metric": "aucpr",
+      "tree_method": "hist",
+      "max_depth": 6,
+      "eta": 0.05,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "min_child_weight": 1.0,
+      "lambda": 1.0,
+      "nthread": 6,
+      "seed": 20270405
+    },
+    "trees": 886,
+    "fit_rows": 829422,
+    "early_stopping_rows": 146369,
+    "seconds": 68.2
+  },
+  "test_pr_auc": {
+    "value": 0.9995847006288299,
+    "low": 0.9995373085405787,
+    "high": 0.9996339750679055,
+    "rows": 424922,
+    "frauds": 165473,
+    "resamples": 1000
+  },
+  "onnx_parity": {
+    "rows_checked": 5000,
+    "tolerance": 0.0001
+  },
+  "model_hop_ms": {
+    "p50": 0.0743,
+    "p99": 0.1464190000000004,
+    "calls": 5000.0
+  }
+}
