@@ -92,6 +92,34 @@ _SESSION_SECONDS: Final = 1800.0
 _RECURRING_SHARE: Final = 0.035
 """Share of legitimate transactions that are recurring charges."""
 
+BIG_TICKET_SHARE: Final = 0.015
+"""Legitimate purchases far above the card's usual: a flight, a laptop, a
+repair. Honest cardholders do what a takeover does sometimes, and a model
+that has never seen them learns that every large amount is fraud (ADR 21)."""
+
+BIG_TICKET_MULTIPLIER: Final[tuple[float, float]] = (3.0, 12.0)
+"""How far above the usual a big-ticket purchase goes."""
+
+NEW_DEVICE_SHARE: Final = 0.01
+"""Legitimate transactions from a device the card has not used before: a new
+phone, a borrowed laptop, a hotel's terminal."""
+
+KIOSK_DEVICE_SHARE: Final = 0.004
+"""Share of devices that are shared terminals: a kiosk, a ticket machine, a
+point of sale in a shop. Many cards pass through them honestly, which is what
+a card-testing device looks like from the outside (ADR 21)."""
+
+KIOSK_USE_SHARE: Final = 0.03
+"""Share of legitimate transactions made at a shared terminal."""
+
+PROMOTION_SHARE: Final = 0.02
+"""Share of legitimate transactions drawn to whichever merchant is having a
+busy hour: a sale, a ticket release, a delivery window. A merchant's hourly
+count and distinct cards rise for honest reasons too."""
+
+PROMOTION_MERCHANTS: Final = 3
+"""Merchants promoted at any one time."""
+
 DEFAULT_START: Final = dt.datetime(2027, 1, 1, tzinfo=dt.UTC)
 """Neutral default start time. The live window sets its own."""
 
@@ -318,9 +346,21 @@ class Generator:
             np.searchsorted(graph.category_merchant_cum[category], draws.unit(), side="right")
         )
         merchant = int(members[min(position, len(members) - 1)])
+        if draws.unit() < PROMOTION_SHARE:
+            # This hour's busy merchants, from the hour itself: no state, and
+            # the same stream on every replay.
+            slot = int(elapsed // 3600.0) * PROMOTION_MERCHANTS
+            slot += int(draws.unit() * PROMOTION_MERCHANTS)
+            merchant = int(_stable_choice(slot, graph.population.merchants))
+            category = int(graph.merchant_category[merchant])
 
         devices = graph.devices_of(card)
         device = int(devices[int(draws.unit() * devices.size)]) if devices.size else 0
+        if draws.unit() < NEW_DEVICE_SHARE:
+            device = min(int(draws.unit() * graph.population.devices), graph.population.devices - 1)
+        elif draws.unit() < KIOSK_USE_SHARE:
+            kiosks = max(1, int(graph.population.devices * KIOSK_DEVICE_SHARE))
+            device = int(_stable_choice(int(draws.unit() * kiosks), graph.population.devices))
 
         log_amount = (
             0.5 * float(graph.card_amount_mu[card])
@@ -328,7 +368,11 @@ class Generator:
             + regime.amount_log_shift
             + self.config.amount_sigma * draws.normal()
         )
-        amount_cents = max(1, int(round(float(np.exp(log_amount)) * 100)))
+        amount = float(np.exp(log_amount))
+        if draws.unit() < BIG_TICKET_SHARE:
+            low, high = BIG_TICKET_MULTIPLIER
+            amount *= low + (high - low) * draws.unit()
+        amount_cents = max(1, int(round(amount * 100)))
 
         entry_mode = graph.entry_mode_for(
             category, is_online_device=bool(graph.device_is_mobile[device])
@@ -649,6 +693,23 @@ def config_fingerprint(config: GeneratorConfig) -> str:
         SHA-256, hex.
     """
     return hashlib.sha256(repr(config).encode("utf-8")).hexdigest()
+
+
+def _stable_choice(index: int, count: int) -> int:
+    """Map a small index to an entity, the same way on every run.
+
+    Used for the shared terminals and the promoted merchants, which have to
+    be the same entities in every replay of a seed without the driver keeping
+    any state for them.
+
+    Args:
+        index: The slot.
+        count: How many entities there are.
+
+    Returns:
+        An entity index.
+    """
+    return (index * 2_654_435_761) % count
 
 
 def _choose_scenario(regime: Regime, draw: float) -> FraudScenario:

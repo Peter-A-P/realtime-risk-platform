@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import Counter
+
 import numpy as np
 import pytest
 
@@ -9,7 +11,12 @@ from verdict.events.generator.entities import EntityGraph, Population
 from verdict.events.generator.regimes import DEV_SCHEDULE, Regime
 from verdict.events.generator.scenarios import (
     CARD_TESTING_AMOUNT_CENTS,
+    CARD_TESTING_DEVICES,
+    CARD_TESTING_GAP_SECONDS,
+    CARD_TESTING_MERCHANTS,
     TAKEOVER_AMOUNT_MULTIPLIER,
+    TAKEOVER_KNOWN_DEVICE_SHARE,
+    card_session,
     mean_attack_duration,
     mean_attack_size,
     plan_attack,
@@ -34,55 +41,76 @@ def baseline() -> Regime:
     return DEV_SCHEDULE.regimes[0]
 
 
-def test_card_testing_is_one_device_against_many_cards(
+def test_card_testing_is_a_few_devices_against_many_cards(
     graph: EntityGraph, rng: np.random.Generator, baseline: Regime
 ) -> None:
-    """The signature is in the graph, not in any single transaction."""
+    """The signature is still in the graph, from a small pool of devices (ADR 21)."""
     events = plan_attack(FraudScenario.CARD_TESTING, rng, graph, baseline, 100.0, 1)
-    assert len({event.device_index for event in events}) == 1
-    assert len({event.merchant_index for event in events}) == 1
+    assert len({event.device_index for event in events}) <= CARD_TESTING_DEVICES[1]
+    assert len({event.merchant_index for event in events}) <= CARD_TESTING_MERCHANTS[1]
     assert len({event.card_index for event in events}) > len(events) * 0.8
     assert all(event.entry_mode is EntryMode.ECOMMERCE for event in events)
     assert all(event.amount_cents <= CARD_TESTING_AMOUNT_CENTS[1] for event in events)
 
 
-def test_card_testing_is_a_burst(
+def test_card_testing_is_paced_to_stay_under_a_velocity_rule(
     graph: EntityGraph, rng: np.random.Generator, baseline: Regime
 ) -> None:
-    """Minutes, not days: a velocity window has to be able to see it."""
+    """Minutes apart, not seconds: at least the smallest gap between attempts."""
     events = plan_attack(FraudScenario.CARD_TESTING, rng, graph, baseline, 100.0, 1)
-    span = events[-1].at_seconds - events[0].at_seconds
-    assert span < 3600.0
+    gaps = np.diff([event.at_seconds for event in events])
+    assert gaps.min() >= CARD_TESTING_GAP_SECONDS[0]
 
 
-def test_takeover_uses_a_device_the_card_has_never_used(
+def test_an_attack_session_is_the_one_its_card_would_have(
     graph: EntityGraph, rng: np.random.Generator, baseline: Regime
 ) -> None:
-    events = plan_attack(FraudScenario.ACCOUNT_TAKEOVER, rng, graph, baseline, 100.0, 1)
-    card = events[0].card_index
-    known = {int(device) for device in graph.devices_of(card)}
-    assert len({event.card_index for event in events}) == 1
-    assert events[0].device_index not in known
+    """No attack runs in one long session nobody honest ever has (ADR 21)."""
+    for scenario in (FraudScenario.CARD_TESTING, FraudScenario.ACCOUNT_TAKEOVER):
+        for event in plan_attack(scenario, rng, graph, baseline, 100.0, 1):
+            assert event.session_token == card_session(event.card_index, event.at_seconds)
 
 
-def test_takeover_spends_above_the_card_s_own_usual(
+def test_takeovers_sometimes_run_from_the_card_s_own_device(
+    graph: EntityGraph, baseline: Regime
+) -> None:
+    rng = np.random.default_rng(21)
+    own = 0
+    plans = 400
+    for number in range(plans):
+        events = plan_attack(FraudScenario.ACCOUNT_TAKEOVER, rng, graph, baseline, 0.0, number)
+        known = {int(device) for device in graph.devices_of(events[0].card_index)}
+        assert len({event.card_index for event in events}) == 1
+        own += events[0].device_index in known
+    assert own / plans == pytest.approx(TAKEOVER_KNOWN_DEVICE_SHARE, abs=0.08)
+
+
+def test_takeover_spends_about_as_the_card_does(
     graph: EntityGraph, rng: np.random.Generator, baseline: Regime
 ) -> None:
-    """Unusual for this card, not unusual in general: that is the point."""
+    """Within the published multipliers of the card's own usual amount."""
     events = plan_attack(FraudScenario.ACCOUNT_TAKEOVER, rng, graph, baseline, 100.0, 1)
     typical = float(np.exp(graph.card_amount_mu[events[0].card_index])) * 100
-    assert min(event.amount_cents for event in events) >= typical * (
-        TAKEOVER_AMOUNT_MULTIPLIER[0] * 0.99
-    )
+    for event in events:
+        assert typical * TAKEOVER_AMOUNT_MULTIPLIER[0] * 0.99 <= event.amount_cents
+        assert event.amount_cents <= typical * TAKEOVER_AMOUNT_MULTIPLIER[1] * 1.01
 
 
-def test_collusion_concentrates_on_one_colluding_merchant(
+def test_collusion_centres_on_a_colluding_merchant_but_uses_fronts(
     graph: EntityGraph, rng: np.random.Generator, baseline: Regime
 ) -> None:
+    """The ring is built around one colluding merchant and hides behind others.
+
+    Half its charges go through front merchants in the same category (ADR 21),
+    because a merchant whose own hourly count, distinct cards and mean amount
+    name the episode is found by one feature and teaches the model nothing.
+    """
     events = plan_attack(FraudScenario.MERCHANT_COLLUSION, rng, graph, baseline, 100.0, 1)
-    merchants = {event.merchant_index for event in events}
-    assert len(merchants) == 1
-    assert bool(graph.merchant_is_colluding[merchants.pop()])
+    merchants = [event.merchant_index for event in events]
+    counts = Counter(merchants)
+    assert len(counts) > 1, "every charge went through the colluding merchant"
+    assert bool(graph.merchant_is_colluding[counts.most_common(1)[0][0]])
+    assert len({int(graph.merchant_category[m]) for m in merchants}) == 1
     assert len({event.card_index for event in events}) > 5
 
 

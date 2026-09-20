@@ -1200,6 +1200,40 @@ def train_challenger(
     )
 
 
+@train_app.command("compare")
+def train_compare(
+    track: _TRACK,
+    work: _WORK,
+    report: Annotated[Path, typer.Option(help="The challenger report to bring up to date.")],
+) -> None:
+    """Recompute the paired comparison after one of the two models is rebuilt.
+
+    Refitting the champion does not need the challenger refitted with it: both
+    are exported, so the comparison can be scored again from the files. The
+    challenger's fit block is kept, because that fit is the one being reported.
+
+    Args:
+        track: real or synthetic.
+        work: The working directory holding the table and both models.
+        report: The existing challenger report, rewritten in place.
+    """
+    from verdict.models.champion import compare_models
+
+    folder = _work(work, track)
+    result = compare_models(
+        track, folder / "fixed.parquet", folder / "champion.onnx", folder / "challenger.onnx"
+    )
+    previous = json.loads(report.read_text(encoding="utf-8")) if report.exists() else {}
+    if "fit" in previous:
+        result["fit"] = previous["fit"]
+    report.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    diff = result["challenger_minus_champion"]
+    typer.echo(
+        f"challenger minus champion: {diff['value']:+.4f} ({diff['low']:+.4f} to "
+        f"{diff['high']:+.4f}), {result['track']}"
+    )
+
+
 @train_app.command("leak")
 def train_leak(
     work: _WORK,

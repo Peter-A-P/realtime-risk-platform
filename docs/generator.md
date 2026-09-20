@@ -64,11 +64,25 @@ All three are publicly documented card-fraud patterns, cited in ADR 2. Each
 plans a whole attack up front; the driver merges it into the legitimate stream
 in time order, so attacks overlap ordinary traffic.
 
+**Made harder on 2026-09-19 (ADR 21).** The first version was caught at a
+PR-AUC of 0.9996, mostly because every attack ran in one long session. The
+table below is the current one; the first version's parameters are in ADR 21.
+
 | Pattern | Signature | Size | Pacing | Amounts |
 |---|---|---|---|---|
-| Card testing | One device, many cards, one card-not-present merchant | 25 to 140 cards | 0.8 to 6 s apart | 50 to 600 cents |
-| Account takeover | One card on a device it has never used, in categories it does not use | 3 to 14 events | 90 to 1,800 s apart | 2.5x to 18x that card's usual |
-| Merchant collusion | One colluding merchant, many cards, inflated tickets | 15 to 90 cards | 30 to 300 s apart | 1.4x to 6x the merchant's usual |
+| Card testing | One to three devices, many cards, one to three card-not-present merchants | 4 to 30 cards | 20 to 900 s apart | 100 to 4,000 cents |
+| Account takeover | One card; a device it has never used, or 35% of the time one it has; half its purchases in the card's own categories | 3 to 14 events | 300 to 5,400 s apart | 0.9x to 4x that card's usual |
+| Merchant collusion | A colluding merchant, many cards; half the ring's charges go through front merchants in the same category | 15 to 90 cards | 60 to 900 s apart | 1.0x to 1.5x the merchant's usual |
+
+Every attack's online transactions carry the session its card would have
+carried anyway, one per card per half hour, so a busy session is no longer a
+giveaway. On the legitimate side, 1.5 percent of purchases are big tickets at
+3x to 12x the card's usual, 1 percent come from a device the card has not used
+before, 3 percent go through shared terminals (a fixed 0.4 percent of devices,
+so many cards pass through one device honestly), and 2 percent are drawn to
+whichever three merchants are having a busy hour. The busy merchants and the
+terminals are derived from the hour and a fixed mapping rather than from
+state, so a replay of a seed is the same stream.
 
 Sizes are multiplied by the regime's attack intensity. None of these is
 detectable from a single row, which is the point: each one is a bet that the

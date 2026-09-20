@@ -74,10 +74,30 @@ this data use hundreds of columns no stream would have. The challenger loses by 
 that excludes zero, which the promotion gate would refuse. The leak, which the point-in-time
 test caught, changes 4 of 152,415 test rows ([docs/leak-caught.md](docs/leak-caught.md)).
 
-On the synthetic track the champion's test PR-AUC is 0.9996 (0.9995 to 0.9996), which says
-the generator's fraud is too easy, not that the model is good: one feature, the number of
-transactions in a session, ranks it at 0.64 on its own. The scenarios are to be made harder
-before the live window's schedule is sealed.
+**What has been measured: the models (synthetic track, offline replay)**
+
+Ten days of generated stream replayed through the same engine; 17,809,525 transactions
+served, 1,400,900 kept as a weighted sample, tested on 420,684
+([ADR 19](docs/adr/0019-champion-and-challenger.md)). These are the two models that ship in
+the image.
+
+| Model | Test PR-AUC (95% CI) | Scoring one transaction, p99 |
+|---|---|---|
+| Base rate, for scale | 0.030 | |
+| Champion: gradient-boosted trees | 0.8427 (0.8393 to 0.8464) | 0.20 ms |
+| Challenger: FT-Transformer | 0.8012 (0.7978 to 0.8050) | 0.36 ms |
+| Challenger minus champion, paired | -0.0415 (-0.0437 to -0.0392) | |
+
+The challenger loses on both tracks by an interval that excludes zero, so the promotion gate
+refuses it on both, which is a more useful result than a challenger that wins.
+
+The first version of this generator gave the champion 0.9996, which was a fact about the
+generator and not about the model: every attack ran in one long session, and that single
+feature ranked the test set at 0.64 on its own. The scenarios were rewritten to be much
+harder before the schedule is sealed, and no single feature now ranks above 0.05
+([ADR 21](docs/adr/0021-harder-synthetic-fraud.md)). The synthetic stream is still far
+easier than the real one, by design: the live window is there to show the platform's
+velocity and entity-graph features working, not to make fraud undetectable.
 
 **What has been measured: latency, and where the time goes**
 
@@ -130,6 +150,17 @@ over two, four or eight connections its p99 dropped to between 6 and 49 ms, and 
 the engine will not score out of order. The stream consumer decided every one, in order,
 at 5.50 ms. That is the argument for scoring from a stream, measured
 ([docs/latency-budget.md](docs/latency-budget.md)).
+
+**A measurement that was wrong, and nearly shipped the worse model.** The synthetic
+champion first timed at 3.05 ms per transaction, over the 3 ms it is budgeted, so it was
+capped at half the trees at a cost of 0.007 PR-AUC. The measurement had been taken while
+another project held the machine at 72 percent. Re-timed idle, in both orders, the uncapped
+model is 0.20 ms, fifteen times inside the budget, and the cap was reverted. Two checks
+would have caught it for free: the identical fit took 223.7 s under load and 98.3 s idle,
+and the other track's champion scores 374 trees in 0.10 ms, which makes 3 ms for four times
+the trees impossible on its face
+([ADR 19](docs/adr/0019-champion-and-challenger.md),
+[docs/latency-budget.md](docs/latency-budget.md)).
 
 **One approach tried and rejected: tuning the Kafka client.** The 47 ms looked like a
 client setting, and `linger.ms=0` and `fetch.wait.max.ms=5` each appeared to fix it in a

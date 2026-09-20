@@ -69,31 +69,69 @@ def test_the_in_process_stream_is_identical_to_no_stream(replay: list[Transactio
 
 
 class Tampering(MemoryStream):
-    """Adds a cent to the amount of the 200th transaction it delivers."""
+    """Adds a cent to the amount of one transaction, named by the test."""
 
-    delivered = 0
+    target_event_id = ""
+    tampered = 0
 
     def consume(
         self, topic: str, group: str, *, max_records: int = 500, timeout_seconds: float = 1.0
     ) -> Sequence[Record]:
-        """Deliver as usual, with one cent added to the 200th transaction."""
+        """Deliver as usual, with one cent added to the transaction named."""
         records = list(
             super().consume(topic, group, max_records=max_records, timeout_seconds=timeout_seconds)
         )
         if topic != "transactions":
             return records
         for index, record in enumerate(records):
-            Tampering.delivered += 1
-            if Tampering.delivered == 200:
-                event = TransactionEvent.model_validate_json(record.value)
-                changed = event.model_copy(update={"amount_cents": event.amount_cents + 1})
-                records[index] = dataclasses.replace(record, value=changed.to_json().encode())
+            event = TransactionEvent.model_validate_json(record.value)
+            if event.event_id != Tampering.target_event_id:
+                continue
+            changed = event.model_copy(update={"amount_cents": event.amount_cents + 1})
+            records[index] = dataclasses.replace(record, value=changed.to_json().encode())
+            Tampering.tampered += 1
         return records
+
+
+def seen_again(replay: Sequence[TransactionEvent]) -> int:
+    """The first transaction whose card, device or merchant comes round again.
+
+    A one cent change reaches a later transaction only through a window that
+    holds it, so the fault has to be planted on an entity the replay visits
+    twice. Which positions qualify is the generator's business and changes
+    with it: this was a fixed index 199 until the scenarios were made harder
+    (ADR 21), after which position 199 was a card, device and merchant never
+    seen again, and the test failed for a reason that had nothing to do with
+    parity. Finding the position keeps the assertion exactly as strong and
+    stops it depending on the stream's luck.
+
+    Args:
+        replay: The transactions, in order.
+
+    Returns:
+        The index to tamper with.
+
+    Raises:
+        AssertionError: If no entity in the replay is visited twice, which
+            would make the planted fault unobservable and the test a lie.
+    """
+    for index, event in enumerate(replay):
+        if any(
+            later.card_id == event.card_id
+            or later.device_id == event.device_id
+            or later.merchant_id == event.merchant_id
+            for later in replay[index + 1 :]
+        ):
+            return index
+    msg = "no transaction shares a card, device or merchant with a later one"
+    raise AssertionError(msg)
 
 
 def test_a_stream_that_changes_one_payload_is_caught(replay: list[TransactionEvent]) -> None:
     """The planted fault: one cent on one transaction, and the check must see it."""
-    Tampering.delivered = 0
+    position = seen_again(replay)
+    Tampering.target_event_id = replay[position].event_id
+    Tampering.tampered = 0
     broker, stream = a_memory_path(Tampering)
     path = through(
         "tampering",
@@ -103,16 +141,17 @@ def test_a_stream_that_changes_one_payload_is_caught(replay: list[TransactionEve
         decisions_topic="decisions",
         reader=broker.open(),
     )
+    assert Tampering.tampered == 1
     report = compare(reference(replay), path)
     assert not report.clean
-    tampered = replay[199].event_id
+    tampered = replay[position].event_id
     at_the_event = [d for d in report.disagreements if d.event_id == tampered]
     assert [d.what for d in at_the_event] == ["transaction"], report.summary()
     # And its effect: a later transaction whose window held the changed amount.
     later = {d.event_id for d in report.disagreements if d.what not in {"transaction", "decision"}}
     positions = {event.event_id: index for index, event in enumerate(replay)}
-    assert later
-    assert all(positions[event_id] > 199 for event_id in later)
+    assert later, report.summary()
+    assert all(positions[event_id] > position for event_id in later)
 
 
 class Redelivering(MemoryStream):

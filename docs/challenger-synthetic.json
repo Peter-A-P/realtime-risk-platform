@@ -1,0 +1,68 @@
+{
+  "track": "synthetic, offline replay",
+  "champion": "champion-e5a47977542c",
+  "challenger": "challenger-136b21035bfe",
+  "cutoff": "2027-01-14T23:59:58.963973+00:00",
+  "test": {
+    "rows": 420684,
+    "frauds": 161237
+  },
+  "champion_pr_auc": {
+    "value": 0.8426600827351288,
+    "low": 0.839316438733537,
+    "high": 0.8464055762804253,
+    "rows": 420684,
+    "frauds": 161237,
+    "resamples": 1000
+  },
+  "challenger_pr_auc": {
+    "value": 0.8011989965275621,
+    "low": 0.7978049568906475,
+    "high": 0.8050378669546163,
+    "rows": 420684,
+    "frauds": 161237,
+    "resamples": 1000
+  },
+  "challenger_minus_champion": {
+    "value": -0.04146108620756672,
+    "low": -0.04371155569604801,
+    "high": -0.03918196137196192,
+    "rows": 420684,
+    "frauds": 161237,
+    "resamples": 1000
+  },
+  "model_hop_ms": {
+    "p50": 0.2159,
+    "p99": 0.3627140000000003,
+    "calls": 5000.0
+  },
+  "fit": {
+    "settings": {
+      "token_dim": 32,
+      "blocks": 2,
+      "heads": 4,
+      "dropout": 0.1,
+      "batch": 2048,
+      "learning_rate": 0.001,
+      "max_epochs": 12,
+      "patience": 2,
+      "seed": 20270405
+    },
+    "epochs": 11,
+    "best_epoch": 9,
+    "validation_pr_auc_by_epoch": [
+      0.71595,
+      0.75719,
+      0.7735,
+      0.78585,
+      0.79194,
+      0.79718,
+      0.8009,
+      0.80383,
+      0.80891,
+      0.80817,
+      0.80112
+    ],
+    "seconds": 4107.8
+  }
+}

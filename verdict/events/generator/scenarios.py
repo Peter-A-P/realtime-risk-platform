@@ -18,6 +18,28 @@ than on a single row. Sources are cited in `docs/adr/0002-two-tracks.md`.
 Each scenario plans a whole attack up front as a list of `PlannedEvent`, with
 absolute times. The driver merges those plans into the legitimate stream in
 time order, so an attack overlaps normal traffic the way it would in life.
+
+## Made harder on 2026-09-19 (ADR 21)
+
+The first version was far too easy to catch: a champion scored 0.9996 PR-AUC
+on it, and the number of transactions in a session alone scored 0.64, because
+every attack ran in one long session no legitimate card ever had. Attackers
+who are caught that easily are not the ones a fraud platform exists for. So:
+
+- **Sessions look like everyone's.** An attack's online transactions take the
+  same per-card, per-half-hour session a legitimate one would, rather than one
+  session across the whole attack.
+- **Card testing is slow and spread out**: a handful to a few dozen cards,
+  minutes apart rather than seconds, from a small pool of devices, at a few
+  merchants, for amounts that overlap ordinary small purchases.
+- **Takeovers spend like the owner, only more so**: amounts from just under
+  to four times the card's usual, sometimes from a device the card already
+  uses (malware, a stolen phone), and half the time in the card's own
+  categories.
+- **Collusion inflates gently**: 5 to 80 percent over the merchant's ticket.
+
+The legitimate side gets its own look-alikes in `driver.py`: big-ticket
+purchases and first-time devices happen to honest cardholders too.
 """
 
 from __future__ import annotations
@@ -46,33 +68,68 @@ TAKEOVER_CATEGORIES: Final[tuple[MerchantCategory, ...]] = (
 )
 """Where a taken-over account gets spent: resellable and remote."""
 
-CARD_TESTING_SIZE_RANGE: Final[tuple[int, int]] = (25, 140)
-"""Cards touched in one testing burst, before regime intensity."""
+CARD_TESTING_SIZE_RANGE: Final[tuple[int, int]] = (4, 30)
+"""Cards touched in one testing run, before regime intensity."""
 
-CARD_TESTING_GAP_SECONDS: Final[tuple[float, float]] = (0.8, 6.0)
-"""Seconds between attempts in a burst. Card testing is rapid-fire: the
-attacker is working through a list and wants an answer, not a purchase."""
+CARD_TESTING_GAP_SECONDS: Final[tuple[float, float]] = (20.0, 900.0)
+"""Seconds between attempts. Slow enough to stay under a velocity rule: the
+careful tester trades speed for not being noticed."""
 
-CARD_TESTING_AMOUNT_CENTS: Final[tuple[int, int]] = (50, 600)
-"""Small amounts: the point is the authorisation, not the goods."""
+CARD_TESTING_AMOUNT_CENTS: Final[tuple[int, int]] = (100, 4_000)
+"""Small, but inside the range of ordinary small purchases."""
+
+CARD_TESTING_DEVICES: Final[tuple[int, int]] = (1, 3)
+"""Devices the tester rotates through."""
+
+CARD_TESTING_MERCHANTS: Final[tuple[int, int]] = (1, 3)
+"""Merchants the tester spreads the attempts over."""
 
 TAKEOVER_SIZE_RANGE: Final[tuple[int, int]] = (3, 14)
 """Transactions in one takeover, before regime intensity."""
 
-TAKEOVER_GAP_SECONDS: Final[tuple[float, float]] = (90.0, 1800.0)
-"""Takeovers run over hours, not seconds."""
+TAKEOVER_GAP_SECONDS: Final[tuple[float, float]] = (300.0, 5_400.0)
+"""Takeovers run over hours, paced like the owner's own spending."""
 
-TAKEOVER_AMOUNT_MULTIPLIER: Final[tuple[float, float]] = (2.5, 18.0)
-"""How far above the card's own usual amount a takeover spends."""
+TAKEOVER_AMOUNT_MULTIPLIER: Final[tuple[float, float]] = (0.9, 4.0)
+"""How the takeover's amounts compare with the card's own usual."""
+
+TAKEOVER_KNOWN_DEVICE_SHARE: Final = 0.35
+"""Takeovers run from a device the card already uses: malware, a stolen phone."""
+
+TAKEOVER_OWN_CATEGORY_SHARE: Final = 0.5
+"""Takeover purchases made in the card's own spending categories."""
 
 COLLUSION_SIZE_RANGE: Final[tuple[int, int]] = (15, 90)
 """Cards run through a colluding merchant in one episode."""
 
-COLLUSION_GAP_SECONDS: Final[tuple[float, float]] = (30.0, 300.0)
+COLLUSION_GAP_SECONDS: Final[tuple[float, float]] = (60.0, 900.0)
 """Collusion is paced to look like ordinary trading."""
 
-COLLUSION_AMOUNT_MULTIPLIER: Final[tuple[float, float]] = (1.4, 6.0)
-"""Inflation over the merchant's usual ticket."""
+COLLUSION_AMOUNT_MULTIPLIER: Final[tuple[float, float]] = (1.0, 1.5)
+"""Inflation over the merchant's usual ticket: enough to pay, not to show."""
+
+COLLUSION_FRONT_SHARE: Final = 0.5
+"""Share of a collusion ring's charges put through front merchants in the same
+category rather than the colluding merchant itself, so no one merchant's
+figures carry the whole episode."""
+
+SESSION_SECONDS: Final = 1800.0
+"""Online activity is sessioned per card per half hour, fraud or not."""
+
+
+def card_session(card: int, at_seconds: float) -> str:
+    """The session a card's online transaction belongs to, as for everyone.
+
+    Args:
+        card: The card index.
+        at_seconds: Seconds since the start of the window.
+
+    Returns:
+        The session identifier, the same one a legitimate transaction on this
+        card in this half hour would carry.
+    """
+    return f"ses-{card:08d}-{int(at_seconds // SESSION_SECONDS)}"
+
 
 _MEAN_GAP_SECONDS: Final[dict[FraudScenario, float]] = {
     FraudScenario.CARD_TESTING: sum(CARD_TESTING_GAP_SECONDS) / 2,
@@ -250,23 +307,29 @@ def _plan_card_testing(
         The burst's events, in time order.
     """
     size = _scaled_size(rng, CARD_TESTING_SIZE_RANGE, regime.attack_intensity)
-    device = int(rng.integers(0, graph.population.devices))
-    merchant = _pick_merchant_in(rng, graph, CARD_TESTING_CATEGORIES)
+    devices = rng.integers(
+        0,
+        graph.population.devices,
+        size=int(rng.integers(CARD_TESTING_DEVICES[0], CARD_TESTING_DEVICES[1] + 1)),
+    )
+    merchants = [
+        _pick_merchant_in(rng, graph, CARD_TESTING_CATEGORIES)
+        for _ in range(int(rng.integers(CARD_TESTING_MERCHANTS[0], CARD_TESTING_MERCHANTS[1] + 1)))
+    ]
     cards = rng.integers(0, graph.population.cards, size=size)
     gaps = rng.uniform(*CARD_TESTING_GAP_SECONDS, size=size)
     amounts = rng.integers(CARD_TESTING_AMOUNT_CENTS[0], CARD_TESTING_AMOUNT_CENTS[1], size=size)
     times = start_seconds + np.cumsum(gaps)
-    session = f"ses-atk-{attack_number:09d}"
     return [
         PlannedEvent(
             at_seconds=float(times[i]),
             card_index=int(cards[i]),
-            device_index=device,
-            merchant_index=merchant,
+            device_index=int(devices[int(rng.integers(0, devices.size))]),
+            merchant_index=merchants[int(rng.integers(0, len(merchants)))],
             amount_cents=int(amounts[i]),
             entry_mode=EntryMode.ECOMMERCE,
             scenario=FraudScenario.CARD_TESTING,
-            session_token=session,
+            session_token=card_session(int(cards[i]), float(times[i])),
             attack_number=attack_number,
             sequence=i,
         )
@@ -295,33 +358,45 @@ def _plan_takeover(
     """
     size = _scaled_size(rng, TAKEOVER_SIZE_RANGE, regime.attack_intensity)
     card = int(rng.integers(0, graph.population.cards))
-    known = {int(d) for d in graph.devices_of(card)}
-    device = int(rng.integers(0, graph.population.devices))
-    # A takeover on a device the card already uses is not a takeover; it is
-    # the card's owner. Redraw a bounded number of times, then accept.
-    for _ in range(8):
-        if device not in known:
-            break
+    owned = graph.devices_of(card)
+    known = {int(d) for d in owned}
+    if owned.size and rng.random() < TAKEOVER_KNOWN_DEVICE_SHARE:
+        # Malware or a stolen phone: the takeover runs from the card's own device.
+        device = int(owned[int(rng.integers(0, owned.size))])
+    else:
         device = int(rng.integers(0, graph.population.devices))
+        for _ in range(8):
+            if device not in known:
+                break
+            device = int(rng.integers(0, graph.population.devices))
+    profile = int(graph.card_profile[card])
 
     card_mu = float(graph.card_amount_mu[card])
     multipliers = rng.uniform(*TAKEOVER_AMOUNT_MULTIPLIER, size=size)
     gaps = rng.uniform(*TAKEOVER_GAP_SECONDS, size=size)
     times = start_seconds + np.cumsum(gaps)
-    session = f"ses-atk-{attack_number:09d}"
     events: list[PlannedEvent] = []
     for i in range(size):
         amount = float(np.exp(card_mu)) * float(multipliers[i])
+        if rng.random() < TAKEOVER_OWN_CATEGORY_SHARE:
+            category = int(
+                np.searchsorted(graph.profile_category_cum[profile], rng.random(), side="right")
+            )
+            merchant = _pick_merchant_in(
+                rng, graph, (CATEGORIES[min(category, len(CATEGORIES) - 1)],)
+            )
+        else:
+            merchant = _pick_merchant_in(rng, graph, TAKEOVER_CATEGORIES)
         events.append(
             PlannedEvent(
                 at_seconds=float(times[i]),
                 card_index=card,
                 device_index=device,
-                merchant_index=_pick_merchant_in(rng, graph, TAKEOVER_CATEGORIES),
+                merchant_index=merchant,
                 amount_cents=max(1, int(round(amount * 100))),
                 entry_mode=EntryMode.ECOMMERCE,
                 scenario=FraudScenario.ACCOUNT_TAKEOVER,
-                session_token=session,
+                session_token=card_session(card, float(times[i])),
                 attack_number=attack_number,
                 sequence=i,
             )
@@ -356,6 +431,7 @@ def _plan_collusion(
     merchant = int(eligible[int(rng.integers(0, eligible.size))])
     merchant_mu = float(graph.merchant_amount_mu[merchant])
     category = int(graph.merchant_category[merchant])
+    fronts = graph.category_merchants[category]
     cards = rng.integers(0, graph.population.cards, size=size)
     multipliers = rng.uniform(*COLLUSION_AMOUNT_MULTIPLIER, size=size)
     gaps = rng.uniform(*COLLUSION_GAP_SECONDS, size=size)
@@ -365,19 +441,29 @@ def _plan_collusion(
         card = int(cards[i])
         devices = graph.devices_of(card)
         device = int(devices[int(rng.integers(0, devices.size))]) if devices.size else 0
+        charged = (
+            int(fronts[int(rng.integers(0, len(fronts)))])
+            if rng.random() < COLLUSION_FRONT_SHARE
+            else merchant
+        )
         amount = float(np.exp(merchant_mu)) * float(multipliers[i])
+        entry_mode = graph.entry_mode_for(
+            category, is_online_device=bool(graph.device_is_mobile[device])
+        )
         events.append(
             PlannedEvent(
                 at_seconds=float(times[i]),
                 card_index=card,
                 device_index=device,
-                merchant_index=merchant,
+                merchant_index=charged,
                 amount_cents=max(1, int(round(amount * 100))),
-                entry_mode=graph.entry_mode_for(
-                    category, is_online_device=bool(graph.device_is_mobile[device])
-                ),
+                entry_mode=entry_mode,
                 scenario=FraudScenario.MERCHANT_COLLUSION,
-                session_token=f"ses-atk-{attack_number:09d}",
+                session_token=(
+                    card_session(card, float(times[i]))
+                    if entry_mode is EntryMode.ECOMMERCE
+                    else None
+                ),
                 attack_number=attack_number,
                 sequence=i,
             )

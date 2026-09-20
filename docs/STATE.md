@@ -205,7 +205,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Nineteen ADRs, in `docs/adr/`: 1 to 15 and 17 to 20. Read them before reopening anything they cover.
+Twenty ADRs, in `docs/adr/`: 1 to 15 and 17 to 21. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -225,8 +225,9 @@ Nineteen ADRs, in `docs/adr/`: 1 to 15 and 17 to 20. Read them before reopening 
 | 14 | The live stack: its own VPC in `ca-central-1d`, no ingress rule, one spot instance (r7i.large, r6i.large or r5.large, 16 GB, since ADR 20) in a group of one, a data volume that outlives it, ECR for the image, SSM Session Manager for a person, a Cloudflare Tunnel for the dashboard; the budget and the tunnel token outside Terraform | Its storage question (history does not fit on a disk at 1,000 events a second) was **closed by ADR 18** on 2026-09-19; the data volume is 150 GB |
 | 18 | History is a labelled, weighted sample: topics keep a day; every decision staged with its features before the checkpoint; days finalised seven days and six hours after they end; every reviewed or declined row kept, approved frauds at 0.10, approved legitimate at 0.01, each with weight 1 / rate; the promotion gate reads the weight | Rates are fixed before go-live and change only at a day boundary. The scorer's added cost on the hot path is **unmeasured** until the load test runs with and without a spool |
 | 15 | Spot recovery. The feeds resume exactly: `GeneratorRun` snapshots on the data volume every 30 s, restores byte for byte, sends at least once and never skips; a fresh start deep in a window is refused; `sealed` checks the secret against the commitment before running | **Open:** the scorer's rebuild after a replacement, and the engine's memory at the live rate (about 4.7 kB per entity and 900 B per held event, measured; 24 hours at 1,000 a second is about 33 GB against 4 GB) |
-| 19 | Champion and challenger: tracks replayed through the scorer's own engine path; split in time at 70 percent; XGBoost with fixed parameters and early stopping; an FT-Transformer challenger; ONNX export refused unless it scores as the fitted model does; PR-AUC with stratified bootstrap intervals; only synthetic-trained models ship | Synthetic fraud is too easy (champion 0.9996): scenario tuning is Peter's call before sealing |
+| 19 | Champion and challenger: tracks replayed through the scorer's own engine path; split in time at 70 percent; XGBoost with fixed parameters and early stopping; an FT-Transformer challenger; ONNX export refused unless it scores as the fitted model does; PR-AUC with stratified bootstrap intervals; only synthetic-trained models ship | Superseded on the synthetic track by ADR 21: after the generator was made harder the champion scores 0.8427 (0.8393 to 0.8464) and the challenger loses by -0.0415 (-0.0437 to -0.0392), so the gate refuses it on both tracks. The record also carries the model hop that was measured on a busy machine and the cap it nearly bought |
 | 20 | The six day-long features at hourly resolution: window `[floor_hour(t - 24h), t)`, a definition the reference and leakage test share; bucketed aggregators in arrays, distinct by latest bucket; instance r7i.large (16 GB) | Engine about 6 GB at the live rate, measured at scale (`docs/engine-footprint-steady.json`); the whole instance is measured in the dry run |
+| 21 | The synthetic fraud is much harder: attacks take their cards' own sessions, card testing is slow and spread, takeovers spend like the owner and often from a known device, collusion is gentle and uses front merchants; legitimate traffic gains big tickets, new devices, shared terminals and busy merchants | Champion on the synthetic track falls from 0.9996 to 0.8427 (0.8393 to 0.8464), no single feature above 0.05. Done before sealing, as it had to be |
 | 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Accepted by Peter on 2026-09-19**, all three choices as written: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code
@@ -561,11 +562,27 @@ running jobs too, so nothing timing-sensitive was measured):
   -0.0230); hop p99 0.48 ms. 810 s to fit.
 - **Leak inflation** (`docs/leak-inflation.json`, `docs/leak-caught.md`):
   none measurable; the leak changes 4 of 152,415 test rows.
-- **Synthetic champion** (`docs/champion-synthetic.json`): 0.9996, because
-  the generator's fraud is too easy (session transaction count alone scores
-  0.64). **Peter's call:** tune `scenarios.py` before sealing, as PLAN.md
-  section 8 planned. The synthetic challenger waits for that decision.
-  The champion ships in `verdict/models/artifacts/` for the dry run.
+- **Synthetic champion and challenger** (`docs/champion-synthetic.json`,
+  `docs/challenger-synthetic.json`, ADR 19 and ADR 21): on the harder
+  generator, champion 0.8427 (0.8393 to 0.8464) against a base rate of
+  0.030, challenger 0.8012 (0.7978 to 0.8050), the paired difference
+  -0.0415 (-0.0437 to -0.0392), so the gate refuses the challenger on this
+  track as on the real one. Hops p99 0.20 ms and 0.36 ms. Both ship in
+  `verdict/models/artifacts/` (`champion-e5a47977542c`,
+  `challenger-136b21035bfe`), so the dry run exercises the pair the live
+  stack will carry.
+- **A latency number taken on a busy machine cost most of an evening.** The
+  synthetic champion measured 3.047 ms p99 while project 12 held the CPU at
+  72 percent, which is over budget, so it was capped at 700 trees for
+  -0.007 PR-AUC. Idle, the same model is 0.20 ms. The cap was reverted;
+  `MAX_ROUNDS` is 2,000. Check total CPU before and after every timing, and
+  sanity-check against a known figure: the real track's 374 trees at
+  0.101 ms made 3 ms for 1,496 trees impossible on its face. Written up in
+  ADR 19 and `docs/latency-budget.md` rather than quietly corrected.
+- **Refitting does not reproduce a model id.** The version is the SHA-256 of
+  the ONNX bytes; XGBoost's parallel histogram build is not bit-stable, so
+  the same command gives a new id and a PR-AUC that agrees to 7 decimals.
+  Provenance, not reproducibility, is what the hash buys.
 - **Then, on an idle machine** (06 stopped by Peter, 08 idle): the
   **rollback drill**, five runs, 5.8 ms (5.4 to 6.2) from flag to the old
   champion deciding, none by the rolled-back model after it

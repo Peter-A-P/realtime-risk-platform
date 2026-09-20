@@ -192,6 +192,44 @@ def train_track(track: str, table_path: Path, model_path: Path) -> dict[str, Any
     }
 
 
+def compare_models(
+    track: str, table_path: Path, champion_path: Path, challenger_path: Path
+) -> dict[str, Any]:
+    """Score two exported models on the same test rows and compare them, paired.
+
+    Used when one of them has been rebuilt: the comparison is recomputed from
+    the files, without refitting the other.
+
+    Args:
+        track: For the report.
+        table_path: The replayed table both were trained on.
+        champion_path: The champion's ONNX file.
+        challenger_path: The challenger's ONNX file.
+
+    Returns:
+        Both PR-AUCs with intervals, and the paired difference.
+    """
+    from verdict.scoring.onnx_model import OnnxModel, model_version
+
+    split = split_by_time(pq.read_table(table_path), wait_for_labels=track == "synthetic")
+    labels, weights = split.test.labels, split.test.weights
+    champion = OnnxModel(champion_path).score_matrix(split.test.inputs)
+    challenger = OnnxModel(challenger_path, prefix="challenger").score_matrix(split.test.inputs)
+    return {
+        "track": "real data, offline" if track == "real" else "synthetic, offline replay",
+        "champion": model_version(champion_path),
+        "challenger": model_version(challenger_path, "challenger"),
+        "cutoff": split.cutoff.isoformat(),
+        "test": {"rows": len(labels), "frauds": int(labels.sum())},
+        "champion_pr_auc": asdict(pr_auc(labels, champion, weights)),
+        "challenger_pr_auc": asdict(pr_auc(labels, challenger, weights)),
+        "challenger_minus_champion": asdict(
+            paired_difference(labels, champion, challenger, weights)
+        ),
+        "model_hop_ms": _model_hop(challenger_path, split.test.inputs),
+    }
+
+
 def leak_inflation(fixed_path: Path, leaky_path: Path) -> dict[str, Any]:
     """What the same-instant leak would have added to the offline PR-AUC.
 

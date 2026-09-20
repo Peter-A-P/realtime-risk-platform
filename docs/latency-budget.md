@@ -60,6 +60,35 @@ under 0.5 ms at the 99th percentile, with a stand-in model. The remaining hop,
 `ingest`, is the wait from the send to the scorer starting work, and it is
 where the rest of this document lives: 59.1 ms at p50 in the same runs.
 
+**With the real models in place**, single-row scoring measured on an idle
+machine over 5,000 calls each (`models/champion._model_hop`), against the
+3 ms the model hop is budgeted (ADR 9):
+
+| Model | Trees or epochs | p50 | p99 |
+|---|---|---|---|
+| Champion, real track | 374 trees | 0.041 | 0.101 |
+| Champion, synthetic track (shipped) | 1,496 trees | 0.126 | 0.200 |
+| Challenger, FT-Transformer (shipped) | epoch 9 | 0.216 | 0.363 |
+
+### A measurement taken on a busy machine, and what it nearly cost
+
+The synthetic champion first measured **3.047 ms** at p99, which is over
+budget, and the response was to cap it at 700 trees and give up 0.007 test
+PR-AUC to get back inside. That run was taken while another project held the
+machine at 72 percent. Re-timed idle, twice and in both orders, the same
+uncapped model is 0.127 / 0.218 ms and the capped one 0.064 / 0.099 ms: twice
+the trees for twice the time, and fifteen times the headroom the budget asks
+for. The cap was reverted (ADR 19).
+
+Two checks would have caught it without re-running anything. The same fit
+took 223.7 s under load and 98.3 s idle, so the machine had plainly changed;
+and the real track's champion scores 374 trees in 0.101 ms, which makes 3 ms
+for four times the trees impossible on its face. A contended measurement is
+not noise around a true value, it is a different number, and here it argued
+for shipping the worse of two models. Every timing in this document is taken
+on an idle machine with the total CPU checked before and after, and that now
+includes the model hop.
+
 ## The three costs that belong to the host
 
 Each was mistaken for a platform property first. Each is measured on its own.
