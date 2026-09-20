@@ -24,10 +24,10 @@ engine served them (ADR 6, features computed once):
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Final, Protocol
 
 import numpy as np
 import numpy.typing as npt
@@ -38,8 +38,9 @@ import pyarrow.parquet as pq
 from verdict.events.schema import LabelEvent, TransactionEvent
 from verdict.features.engine import FeatureEngine
 from verdict.history.sampling import draw
-from verdict.models.inputs import MODEL_INPUTS, matrix
+from verdict.models.inputs import MODEL_INPUTS, matrix, vector
 from verdict.scoring.core import EngineFeatures
+from verdict.scoring.model import BatchModel
 from verdict.store.features import FEATURE_SET, FeatureSpec
 
 _TIME = pa.timestamp("us", tz="UTC")
@@ -227,6 +228,57 @@ class ReplayReport:
     kept: int
     frauds: int
     legit_rate: float
+
+
+SCORE_BATCH: Final = 20_000
+"""Rows given to a model in one call by `serve_and_score`."""
+
+
+def serve_and_score(
+    records: Iterable[Labelled],
+    *,
+    model: BatchModel,
+    engine: FeatureEngine | None = None,
+    batch: int = SCORE_BATCH,
+) -> Iterator[tuple[Labelled, Mapping[str, float], float]]:
+    """Serve a stream through the engine and score it, in batches.
+
+    Every event is served on its own, in order, so the windows are exactly
+    what the scorer would have held. Only the model call is batched, because
+    a per-row call over millions of transactions spends most of its time in
+    ONNX Runtime's call overhead rather than in the model. The scores are
+    therefore identical to the scorer's, and the run is not.
+
+    Args:
+        records: Transactions with their labels, in event-time order.
+        model: The model to score with.
+        engine: The engine to serve from; the platform's own by default.
+        batch: Rows given to the model in one call.
+
+    Yields:
+        Each record with the features it was served and its score, in the
+        order the records arrived.
+    """
+    source = EngineFeatures(engine or FeatureEngine())
+    rows: list[list[float]] = []
+    pending: list[tuple[Labelled, Mapping[str, float]]] = []
+
+    def scored() -> Iterator[tuple[Labelled, Mapping[str, float], float]]:
+        if not rows:
+            return
+        scores = model.score_matrix(np.asarray(rows, dtype=np.float64))
+        for (record, features), score in zip(pending, scores, strict=True):
+            yield record, features, float(score)
+        rows.clear()
+        pending.clear()
+
+    for record in records:
+        features = source.serve(record.event)
+        rows.append(vector(features, record.event))
+        pending.append((record, features))
+        if len(rows) >= batch:
+            yield from scored()
+    yield from scored()
 
 
 def replay_to_parquet(

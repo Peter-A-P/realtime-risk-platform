@@ -99,6 +99,35 @@ harder before the schedule is sealed, and no single feature now ranks above 0.05
 easier than the real one, by design: the live window is there to show the platform's
 velocity and entity-graph features working, not to make fraud undetectable.
 
+**What has been measured: the review queue**
+
+Ranking the queue by expected loss rather than by the model's score
+([ADR 13](docs/adr/0013-queue-ranking.md)), measured on the queue the platform
+would actually hold: the stream replayed through the scorer's own engine, scored by the
+shipped champion, decided by the shipped rules, and collected over thirteen days the
+champion was never trained on ([ADR 22](docs/adr/0022-the-queue-is-measured-on-the-queue-the-platform-would-hold.md)).
+458,446 items queued out of 23,531,714 transactions; 2,304 reviews a day against about
+35,000 arrivals, so 93 percent of the queue is never opened.
+
+| Ranking policy | $ caught per analyst-hour |
+|---|---|
+| By the model's score | 169.50 |
+| By expected loss | 266.95 |
+| Difference, mean over days (95% CI) | **97.46 (48.03 to 150.44)** |
+
+At stated prices: 500 cents an analyst review, 30 percent of a fraud recovered anyway by
+chargeback, eight analysts at twelve reviews an hour, an item worth nothing after four
+hours. Change them and rerun `verdict queue-eval`. The queue here is 41 percent fraud,
+far richer than a real team's, which follows from a 3 percent base rate meeting a 0.84
+PR-AUC model at a 0.50 review threshold; the comparison between the two policies is what
+carries, not the absolute dollars.
+
+The first version of this measurement covered three days from the start of the stream,
+which is inside the champion's own training window, and reported 221.69, more than double.
+Two numbers gave it away: the queue came out 65.7 percent fraud instead of 40.8, and half
+as many transactions reached it. Scores on data a model was fitted to are sharper than it
+can really manage.
+
 **What has been measured: latency, and where the time goes**
 
 Not the latency figure, which is the live stack's and comes later. The first local runs

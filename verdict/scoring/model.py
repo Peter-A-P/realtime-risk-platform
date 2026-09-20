@@ -19,6 +19,9 @@ import math
 from collections.abc import Mapping
 from typing import Final, Protocol, runtime_checkable
 
+import numpy as np
+import numpy.typing as npt
+
 from verdict.events.schema import TransactionEvent
 from verdict.store.features import NO_EVENTS
 
@@ -42,6 +45,34 @@ class Model(Protocol):
 
         Returns:
             A score in [0, 1].
+        """
+        ...
+
+
+@runtime_checkable
+class BatchModel(Protocol):
+    """A model that scores many rows at once.
+
+    `Model` scores one event, which is what a decision needs. An offline run
+    over millions of transactions needs the batched form instead, because a
+    per-row call spends most of its time in ONNX Runtime's call overhead
+    rather than in the model. Only the exported models have it, and nothing
+    in the scorer's path uses it.
+    """
+
+    @property
+    def version(self) -> str:
+        """An identifier written into every decision the model makes."""
+        ...
+
+    def score_matrix(self, rows: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Fraud probabilities for many rows at once.
+
+        Args:
+            rows: One row per event, in `MODEL_INPUTS` order.
+
+        Returns:
+            One probability per row.
         """
         ...
 

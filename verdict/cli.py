@@ -1259,6 +1259,121 @@ def train_leak(
     )
 
 
+@app.command(name="drift-report")
+def drift_report(
+    days: Annotated[float, typer.Option(help="Days of synthetic stream to replay.")] = 50.0,
+    after_days: Annotated[
+        float, typer.Option(help="The champion's cutoff: before it, the reference.")
+    ] = 7.0,
+    report: Annotated[Path, typer.Option(help="Where the report goes.")] = Path(
+        "docs/drift-report.json"
+    ),
+    rate: Annotated[float, typer.Option(help="Share of each day judged, by hash draw.")] = 0.03,
+) -> None:
+    """Run the drift monitors over a replayed stream and report what fires.
+
+    The days before `after_days` build the fixed reference, which is the
+    champion's training window; every day after is judged against it, and the
+    trigger is asked once per day as the scheduled job would ask it. The
+    development schedule's regime days are reported beside the firings so the
+    delay can be read (ADR 12).
+
+    Args:
+        days: Days of synthetic stream to replay.
+        after_days: The champion's cutoff, in days from the stream's start.
+        report: Where the JSON report goes.
+        rate: Share of each day's transactions the monitors judge on.
+    """
+    from verdict.drift.monitors import DailyReport
+    from verdict.drift.run import run_report
+    from verdict.models.champion import SYNTHETIC, synthetic_records
+    from verdict.review_queue.evaluate import write_report
+    from verdict.scoring.onnx_model import OnnxModel
+    from verdict.scoring.registry import ARTIFACTS
+
+    def say(judged: DailyReport) -> None:
+        drifted = ", ".join(sorted(judged.drifted())) or "none"
+        typer.echo(f"{judged.day.isoformat()}: {drifted}", err=True)
+
+    result = run_report(
+        synthetic_records(days),
+        model=OnnxModel(ARTIFACTS / "champion.onnx"),
+        cutoff=SYNTHETIC.start_time + dt.timedelta(days=after_days),
+        schedule=SYNTHETIC.schedule,
+        start_time=SYNTHETIC.start_time,
+        rate=rate,
+        on_day=say,
+    )
+    write_report(result, report)
+    opened = result["first_request"]
+    drifted_days = sum(1 for day in result["days"] if day["drifted"])
+    typer.echo(
+        f"{result['days_judged']} days judged, {drifted_days} with drift; "
+        + (
+            "no retraining request opened"
+            if opened is None
+            else f"first request on {opened['opened_on']} "
+            f"after {opened['after_days_judged']} days judged, on "
+            f"{', '.join(opened['quantities'])}"
+        )
+    )
+
+
+@app.command(name="queue-eval")
+def queue_eval(
+    days: Annotated[float, typer.Option(help="Days of synthetic stream to replay.")] = 20.0,
+    after_days: Annotated[
+        float, typer.Option(help="Collect only from this day on: the champion's cutoff.")
+    ] = 7.0,
+    report: Annotated[Path, typer.Option(help="Where the report goes.")] = Path(
+        "docs/queue-eval.json"
+    ),
+    analysts: Annotated[int, typer.Option(help="Analysts on shift.")] = 8,
+    reviews_per_hour: Annotated[
+        int, typer.Option(help="Reviews one analyst completes in an hour.")
+    ] = 12,
+) -> None:
+    """Measure expected-loss ranking of the review queue against score ranking.
+
+    Replays the synthetic stream unsampled through the scorer's own engine,
+    scores it with the shipped champion and decides it with the shipped
+    rules, then runs both ranking policies over the same days (ADR 13).
+
+    Everything is served, so the windows are what the scorer would have held,
+    but the queue is collected only from `after_days`, because the champion
+    is fitted on the first seven days of this same stream and a queue built
+    from those would measure its memory rather than either policy.
+
+    Args:
+        days: Days of synthetic stream to replay.
+        after_days: Collect only from this day of the stream on.
+        report: Where the JSON report goes.
+        analysts: Analysts on shift.
+        reviews_per_hour: Reviews one analyst completes in an hour.
+    """
+    from verdict.models.champion import SYNTHETIC, synthetic_records
+    from verdict.review_queue.evaluate import evaluate_queue, write_report
+    from verdict.scoring.onnx_model import OnnxModel
+    from verdict.scoring.registry import ARTIFACTS
+
+    result = evaluate_queue(
+        synthetic_records(days),
+        model=OnnxModel(ARTIFACTS / "champion.onnx"),
+        collect_after=SYNTHETIC.start_time + dt.timedelta(days=after_days),
+        analysts=analysts,
+        reviews_per_analyst_hour=reviews_per_hour,
+    )
+    write_report(result, report)
+    caught = result["caught_per_analyst_hour_cents"]
+    typer.echo(
+        f"queue over {result['days']} days: {result['queued']:,} of "
+        f"{result['scored_after_cutoff']:,} scored after the cutoff, "
+        f"{result['queue_fraud_share']:.1%} fraud; expected loss minus score "
+        f"${caught['difference'] / 100:,.2f} per analyst-hour "
+        f"(${caught['low'] / 100:,.2f} to ${caught['high'] / 100:,.2f})"
+    )
+
+
 @app.command(name="rollback-drill")
 def rollback_drill(
     champion: Annotated[Path, typer.Option(help="The ONNX champion rolled back from.")],

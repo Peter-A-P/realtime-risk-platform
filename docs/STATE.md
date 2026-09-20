@@ -205,7 +205,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Twenty ADRs, in `docs/adr/`: 1 to 15 and 17 to 21. Read them before reopening anything they cover.
+Twenty-one ADRs, in `docs/adr/`: 1 to 15 and 17 to 22. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -228,6 +228,7 @@ Twenty ADRs, in `docs/adr/`: 1 to 15 and 17 to 21. Read them before reopening an
 | 19 | Champion and challenger: tracks replayed through the scorer's own engine path; split in time at 70 percent; XGBoost with fixed parameters and early stopping; an FT-Transformer challenger; ONNX export refused unless it scores as the fitted model does; PR-AUC with stratified bootstrap intervals; only synthetic-trained models ship | Superseded on the synthetic track by ADR 21: after the generator was made harder the champion scores 0.8427 (0.8393 to 0.8464) and the challenger loses by -0.0415 (-0.0437 to -0.0392), so the gate refuses it on both tracks. The record also carries the model hop that was measured on a busy machine and the cap it nearly bought |
 | 20 | The six day-long features at hourly resolution: window `[floor_hour(t - 24h), t)`, a definition the reference and leakage test share; bucketed aggregators in arrays, distinct by latest bucket; instance r7i.large (16 GB) | Engine about 6 GB at the live rate, measured at scale (`docs/engine-footprint-steady.json`); the whole instance is measured in the dry run |
 | 21 | The synthetic fraud is much harder: attacks take their cards' own sessions, card testing is slow and spread, takeovers spend like the owner and often from a known device, collusion is gentle and uses front merchants; legitimate traffic gains big tickets, new devices, shared terminals and busy merchants | Champion on the synthetic track falls from 0.9996 to 0.8427 (0.8393 to 0.8464), no single feature above 0.05. Done before sealing, as it had to be |
+| 22 | The review queue is measured on the queue the platform would hold: the stream through the scorer's own engine, the shipped champion and rules, arrivals unsampled, and nothing counted from the champion's training window | Expected loss beats score ranking by $97.46 an hour (48.03 to 150.44) over thirteen unseen days. The first run, inside the training window, said 221.69: more than double |
 | 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Accepted by Peter on 2026-09-19**, all three choices as written: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code

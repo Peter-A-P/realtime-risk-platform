@@ -1,0 +1,27 @@
+{
+  "track": "synthetic, offline replay",
+  "model": "champion-8d960d985749",
+  "scored_after_cutoff": 23531714,
+  "cutoff": "2027-01-08T00:00:00+00:00",
+  "queued": 458446,
+  "queued_share": 0.019482,
+  "queue_fraud_share": 0.408081,
+  "days": 13,
+  "costs": {
+    "review_cost_cents": 500,
+    "recovery_rate": 0.3
+  },
+  "capacity": {
+    "analysts": 8,
+    "reviews_per_analyst_hour": 12,
+    "reviews_per_day": 2304
+  },
+  "caught_per_analyst_hour_cents": {
+    "by_score": 16949.67,
+    "by_expected_loss": 26695.36,
+    "difference": 9745.69,
+    "low": 4803.13,
+    "high": 15044.39,
+    "resamples": 2000
+  }
+}
