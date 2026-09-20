@@ -1,6 +1,6 @@
 {
   "track": "synthetic, offline replay",
-  "champion": "champion-e5a47977542c",
+  "champion": "champion-8d960d985749",
   "challenger": "challenger-136b21035bfe",
   "cutoff": "2027-01-14T23:59:58.963973+00:00",
   "test": {
@@ -32,8 +32,8 @@
     "resamples": 1000
   },
   "model_hop_ms": {
-    "p50": 0.2159,
-    "p99": 0.3627140000000003,
+    "p50": 0.2151,
+    "p99": 0.36630200000000007,
     "calls": 5000.0
   },
   "fit": {

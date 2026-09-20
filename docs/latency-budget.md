@@ -67,8 +67,8 @@ machine over 5,000 calls each (`models/champion._model_hop`), against the
 | Model | Trees or epochs | p50 | p99 |
 |---|---|---|---|
 | Champion, real track | 374 trees | 0.041 | 0.101 |
-| Champion, synthetic track (shipped) | 1,496 trees | 0.126 | 0.200 |
-| Challenger, FT-Transformer (shipped) | epoch 9 | 0.216 | 0.363 |
+| Champion, synthetic track (shipped) | 1,496 trees | 0.134 | 0.215 |
+| Challenger, FT-Transformer (shipped) | epoch 9 | 0.215 | 0.366 |
 
 ### A measurement taken on a busy machine, and what it nearly cost
 
@@ -77,7 +77,7 @@ budget, and the response was to cap it at 700 trees and give up 0.007 test
 PR-AUC to get back inside. That run was taken while another project held the
 machine at 72 percent. Re-timed idle, twice and in both orders, the same
 uncapped model is 0.127 / 0.218 ms and the capped one 0.064 / 0.099 ms: twice
-the trees for twice the time, and fifteen times the headroom the budget asks
+the trees for twice the time, and fourteen times the headroom the budget asks
 for. The cap was reverted (ADR 19).
 
 Two checks would have caught it without re-running anything. The same fit

@@ -116,8 +116,8 @@ every one; legitimate rows at 5 percent, weight 20). Trained as of
 | | Test PR-AUC (95% CI) | Model hop, single row, p50 / p99 |
 |---|---|---|
 | Base rate (a model that knows nothing) | 0.030 | |
-| Champion, XGBoost, 1,496 trees | 0.8427 (0.8393 to 0.8464) | 0.126 / 0.200 ms |
-| Challenger, FT-Transformer, epoch 9 of 11 | 0.8012 (0.7978 to 0.8050) | 0.216 / 0.363 ms |
+| Champion, XGBoost, 1,496 trees | 0.8427 (0.8393 to 0.8464) | 0.134 / 0.215 ms |
+| Challenger, FT-Transformer, epoch 9 of 11 | 0.8012 (0.7978 to 0.8050) | 0.215 / 0.366 ms |
 | Challenger minus champion, paired | -0.0415 (-0.0437 to -0.0392) | |
 
 The challenger loses here as it does on the real track, by an interval that
@@ -148,7 +148,7 @@ both orders, the same two models are:
 | Uncapped, 1,496 trees | 0.127 / 0.129 ms | 0.218 / 0.197 ms |
 
 Twice the trees costs twice the time, which is what a boosted ensemble should
-do, and the uncapped model has about fifteen times the headroom it needs. The
+do, and the uncapped model has about fourteen times the headroom it needs. The
 cap was reverted and `MAX_ROUNDS` is 2,000 again. The same fit took 223.7 s
 under load and 98.3 s idle, which is the cheap tell that the machine, not the
 model, had changed; so is the real track's champion, whose 374 trees score in

@@ -567,14 +567,14 @@ running jobs too, so nothing timing-sensitive was measured):
   generator, champion 0.8427 (0.8393 to 0.8464) against a base rate of
   0.030, challenger 0.8012 (0.7978 to 0.8050), the paired difference
   -0.0415 (-0.0437 to -0.0392), so the gate refuses the challenger on this
-  track as on the real one. Hops p99 0.20 ms and 0.36 ms. Both ship in
-  `verdict/models/artifacts/` (`champion-e5a47977542c`,
+  track as on the real one. Hops p99 0.22 ms and 0.37 ms. Both ship in
+  `verdict/models/artifacts/` (`champion-8d960d985749`,
   `challenger-136b21035bfe`), so the dry run exercises the pair the live
   stack will carry.
 - **A latency number taken on a busy machine cost most of an evening.** The
   synthetic champion measured 3.047 ms p99 while project 12 held the CPU at
   72 percent, which is over budget, so it was capped at 700 trees for
-  -0.007 PR-AUC. Idle, the same model is 0.20 ms. The cap was reverted;
+  -0.007 PR-AUC. Idle, the same model is 0.22 ms. The cap was reverted;
   `MAX_ROUNDS` is 2,000. Check total CPU before and after every timing, and
   sanity-check against a known figure: the real track's 374 trees at
   0.101 ms made 3 ms for 1,496 trees impossible on its face. Written up in

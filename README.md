@@ -84,8 +84,8 @@ the image.
 | Model | Test PR-AUC (95% CI) | Scoring one transaction, p99 |
 |---|---|---|
 | Base rate, for scale | 0.030 | |
-| Champion: gradient-boosted trees | 0.8427 (0.8393 to 0.8464) | 0.20 ms |
-| Challenger: FT-Transformer | 0.8012 (0.7978 to 0.8050) | 0.36 ms |
+| Champion: gradient-boosted trees | 0.8427 (0.8393 to 0.8464) | 0.22 ms |
+| Challenger: FT-Transformer | 0.8012 (0.7978 to 0.8050) | 0.37 ms |
 | Challenger minus champion, paired | -0.0415 (-0.0437 to -0.0392) | |
 
 The challenger loses on both tracks by an interval that excludes zero, so the promotion gate
@@ -155,7 +155,7 @@ at 5.50 ms. That is the argument for scoring from a stream, measured
 champion first timed at 3.05 ms per transaction, over the 3 ms it is budgeted, so it was
 capped at half the trees at a cost of 0.007 PR-AUC. The measurement had been taken while
 another project held the machine at 72 percent. Re-timed idle, in both orders, the uncapped
-model is 0.20 ms, fifteen times inside the budget, and the cap was reverted. Two checks
+model is 0.22 ms, fourteen times inside the budget, and the cap was reverted. Two checks
 would have caught it for free: the identical fit took 223.7 s under load and 98.3 s idle,
 and the other track's champion scores 374 trees in 0.10 ms, which makes 3 ms for four times
 the trees impossible on its face
