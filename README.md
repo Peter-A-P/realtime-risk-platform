@@ -128,6 +128,29 @@ Two numbers gave it away: the queue came out 65.7 percent fraud instead of 40.8,
 as many transactions reached it. Scores on data a model was fitted to are sharper than it
 can really manage.
 
+**What has been measured: drift, and how long it takes to notice**
+
+The drift monitors ([ADR 12](docs/adr/0012-drift-thresholds-and-approval.md)) run over fifty
+days of generated stream, 86 million transactions, judged against a reference fixed to the
+champion's training window. The generator's regime schedule changes the stream on days the
+monitors are never told about
+([ADR 23](docs/adr/0023-the-drift-monitors-run-against-the-schedules-own-regimes.md)).
+
+| Regime, and what it moves | Starts | First day flagged |
+|---|---|---|
+| baseline | day 0 | never flagged, 7 clean days |
+| card-testing-wave, fraud 2.1x, online share +0.05 | day 14 | same day |
+| amount-drift-no-fraud-change, log-amount +0.3 | day 30 | same day |
+| takeover-season, fraud 1.4x, online share +0.15 | day 45 | same day |
+
+The first retraining request opens one day after the first change, which is the floor the
+rule sets: two consecutive days of the same quantity drifting. The quiet stretch flagging
+nothing is what gives the firings meaning, and the middle regime is the one that matters
+most, because it shifts what the model is shown without changing how much fraud there is,
+so a fraud-rate alarm would see nothing. The thresholds are credit-scoring conventions
+fixed before any drift was seen here and were not revisited after these results. Nothing
+promotes itself: the request carries its evidence to a human.
+
 **What has been measured: latency, and where the time goes**
 
 Not the latency figure, which is the live stack's and comes later. The first local runs

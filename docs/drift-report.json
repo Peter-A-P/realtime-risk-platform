@@ -1,0 +1,920 @@
+{
+  "track": "synthetic, offline replay",
+  "model": "champion-8d960d985749",
+  "cutoff": "2027-01-08T00:00:00+00:00",
+  "sample_rate": 0.03,
+  "reference": {
+    "quantities": [
+      "card_amount_max_24h",
+      "card_amount_mean_24h",
+      "card_amount_sum_1h",
+      "card_distinct_merchants_24h",
+      "card_seconds_since_last",
+      "card_txn_count_1h",
+      "card_txn_count_24h",
+      "device_amount_mean_1h",
+      "device_distinct_cards_1h",
+      "device_distinct_cards_24h",
+      "device_txn_count_1h",
+      "merchant_amount_mean_1h",
+      "merchant_distinct_cards_1h",
+      "merchant_txn_count_1h",
+      "score",
+      "session_amount_sum",
+      "session_txn_count"
+    ],
+    "values": 375281
+  },
+  "days_judged": 43,
+  "regime_days": [
+    {
+      "name": "baseline",
+      "starts_on": "2027-01-01"
+    },
+    {
+      "name": "card-testing-wave",
+      "starts_on": "2027-01-15"
+    },
+    {
+      "name": "amount-drift-no-fraud-change",
+      "starts_on": "2027-01-31"
+    },
+    {
+      "name": "takeover-season",
+      "starts_on": "2027-02-15"
+    }
+  ],
+  "days": [
+    {
+      "day": "2027-01-08",
+      "drifted": [],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53383
+    },
+    {
+      "day": "2027-01-09",
+      "drifted": [],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53380
+    },
+    {
+      "day": "2027-01-10",
+      "drifted": [],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53447
+    },
+    {
+      "day": "2027-01-11",
+      "drifted": [],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53423
+    },
+    {
+      "day": "2027-01-12",
+      "drifted": [],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53257
+    },
+    {
+      "day": "2027-01-13",
+      "drifted": [],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53371
+    },
+    {
+      "day": "2027-01-14",
+      "drifted": [],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53488
+    },
+    {
+      "day": "2027-01-15",
+      "drifted": [
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55395
+    },
+    {
+      "day": "2027-01-16",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55598
+    },
+    {
+      "day": "2027-01-17",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55120
+    },
+    {
+      "day": "2027-01-18",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55659
+    },
+    {
+      "day": "2027-01-19",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55621
+    },
+    {
+      "day": "2027-01-20",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 54953
+    },
+    {
+      "day": "2027-01-21",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55944
+    },
+    {
+      "day": "2027-01-22",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55236
+    },
+    {
+      "day": "2027-01-23",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55554
+    },
+    {
+      "day": "2027-01-24",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55549
+    },
+    {
+      "day": "2027-01-25",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55472
+    },
+    {
+      "day": "2027-01-26",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55671
+    },
+    {
+      "day": "2027-01-27",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55328
+    },
+    {
+      "day": "2027-01-28",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55575
+    },
+    {
+      "day": "2027-01-29",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55421
+    },
+    {
+      "day": "2027-01-30",
+      "drifted": [
+        "card_distinct_merchants_24h",
+        "device_distinct_cards_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 55171
+    },
+    {
+      "day": "2027-01-31",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "card_distinct_merchants_24h",
+        "device_amount_mean_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53713
+    },
+    {
+      "day": "2027-02-01",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53602
+    },
+    {
+      "day": "2027-02-02",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53509
+    },
+    {
+      "day": "2027-02-03",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53520
+    },
+    {
+      "day": "2027-02-04",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53284
+    },
+    {
+      "day": "2027-02-05",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53198
+    },
+    {
+      "day": "2027-02-06",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53528
+    },
+    {
+      "day": "2027-02-07",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53717
+    },
+    {
+      "day": "2027-02-08",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53503
+    },
+    {
+      "day": "2027-02-09",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53154
+    },
+    {
+      "day": "2027-02-10",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53110
+    },
+    {
+      "day": "2027-02-11",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53443
+    },
+    {
+      "day": "2027-02-12",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53416
+    },
+    {
+      "day": "2027-02-13",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53477
+    },
+    {
+      "day": "2027-02-14",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_amount_sum_1h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53781
+    },
+    {
+      "day": "2027-02-15",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_distinct_merchants_24h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 54149
+    },
+    {
+      "day": "2027-02-16",
+      "drifted": [
+        "card_amount_mean_24h",
+        "card_distinct_merchants_24h",
+        "device_amount_mean_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 54299
+    },
+    {
+      "day": "2027-02-17",
+      "drifted": [
+        "card_amount_mean_24h",
+        "card_distinct_merchants_24h",
+        "device_amount_mean_1h",
+        "device_distinct_cards_24h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 54138
+    },
+    {
+      "day": "2027-02-18",
+      "drifted": [
+        "card_amount_max_24h",
+        "card_amount_mean_24h",
+        "card_distinct_merchants_24h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53983
+    },
+    {
+      "day": "2027-02-19",
+      "drifted": [
+        "card_amount_mean_24h",
+        "card_distinct_merchants_24h",
+        "device_amount_mean_1h",
+        "merchant_amount_mean_1h",
+        "merchant_distinct_cards_1h",
+        "merchant_txn_count_1h",
+        "score"
+      ],
+      "moderate": [],
+      "insufficient": [],
+      "values": 53978
+    }
+  ],
+  "first_request": {
+    "opened_on": "2027-01-16",
+    "after_days_judged": 9,
+    "quantities": [
+      "device_distinct_cards_1h",
+      "device_distinct_cards_24h",
+      "merchant_amount_mean_1h",
+      "merchant_distinct_cards_1h",
+      "merchant_txn_count_1h"
+    ],
+    "markdown": "### Drift on 2 consecutive days, to 2027-01-16\n\nA retrained candidate is requested. It runs in shadow and is promoted only through the promotion gate and a merged pull request.\n\n| Quantity | Day | Values | PSI | KS statistic | KS p-value | Status |\n|---|---|---:|---:|---:|---:|---|\n| device_distinct_cards_1h | 2027-01-15 | 55,395 | 0.080 | 0.113 | 0 | drifted |\n| device_distinct_cards_1h | 2027-01-16 | 55,598 | 0.115 | 0.139 | 0 | drifted |\n| device_distinct_cards_24h | 2027-01-15 | 55,395 | 0.425 | 0.268 | 0 | drifted |\n| device_distinct_cards_24h | 2027-01-16 | 55,598 | 1.495 | 0.520 | 0 | drifted |\n| merchant_amount_mean_1h | 2027-01-15 | 55,395 | 0.133 | 0.106 | 0 | drifted |\n| merchant_amount_mean_1h | 2027-01-16 | 55,598 | 0.171 | 0.123 | 0 | drifted |\n| merchant_distinct_cards_1h | 2027-01-15 | 55,395 | 0.168 | 0.145 | 0 | drifted |\n| merchant_distinct_cards_1h | 2027-01-16 | 55,598 | 0.172 | 0.154 | 0 | drifted |\n| merchant_txn_count_1h | 2027-01-15 | 55,395 | 0.173 | 0.147 | 0 | drifted |\n| merchant_txn_count_1h | 2027-01-16 | 55,598 | 0.184 | 0.153 | 0 | drifted |\n",
+    "evidence": [
+      {
+        "day": "2027-01-15",
+        "results": [
+          {
+            "name": "card_amount_max_24h",
+            "values": 55395,
+            "psi": 0.0111,
+            "ks_statistic": 0.0347,
+            "ks_p_value": 5.682623479130225e-51,
+            "status": "stable"
+          },
+          {
+            "name": "card_amount_mean_24h",
+            "values": 55395,
+            "psi": 0.0024,
+            "ks_statistic": 0.017,
+            "ks_p_value": 1.7404663568166731e-12,
+            "status": "stable"
+          },
+          {
+            "name": "card_amount_sum_1h",
+            "values": 55395,
+            "psi": 0.0009,
+            "ks_statistic": 0.0034,
+            "ks_p_value": 0.6355509121743844,
+            "status": "stable"
+          },
+          {
+            "name": "card_distinct_merchants_24h",
+            "values": 55395,
+            "psi": 0.0645,
+            "ks_statistic": 0.0962,
+            "ks_p_value": 0.0,
+            "status": "stable"
+          },
+          {
+            "name": "card_seconds_since_last",
+            "values": 55395,
+            "psi": 0.0005,
+            "ks_statistic": 0.0031,
+            "ks_p_value": 0.7297532425749689,
+            "status": "stable"
+          },
+          {
+            "name": "card_txn_count_1h",
+            "values": 55395,
+            "psi": 0.0018,
+            "ks_statistic": 0.0103,
+            "ks_p_value": 7.432047548079176e-05,
+            "status": "stable"
+          },
+          {
+            "name": "card_txn_count_24h",
+            "values": 55395,
+            "psi": 0.0347,
+            "ks_statistic": 0.0506,
+            "ks_p_value": 4.531475367527701e-108,
+            "status": "stable"
+          },
+          {
+            "name": "device_amount_mean_1h",
+            "values": 55395,
+            "psi": 0.0046,
+            "ks_statistic": 0.0254,
+            "ks_p_value": 1.3223099478563986e-27,
+            "status": "stable"
+          },
+          {
+            "name": "device_distinct_cards_1h",
+            "values": 55395,
+            "psi": 0.0801,
+            "ks_statistic": 0.1134,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "device_distinct_cards_24h",
+            "values": 55395,
+            "psi": 0.425,
+            "ks_statistic": 0.2677,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "device_txn_count_1h",
+            "values": 55395,
+            "psi": 0.0006,
+            "ks_statistic": 0.0075,
+            "ks_p_value": 0.008543267641066353,
+            "status": "stable"
+          },
+          {
+            "name": "merchant_amount_mean_1h",
+            "values": 55395,
+            "psi": 0.1335,
+            "ks_statistic": 0.1058,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "merchant_distinct_cards_1h",
+            "values": 55395,
+            "psi": 0.1681,
+            "ks_statistic": 0.1452,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "merchant_txn_count_1h",
+            "values": 55395,
+            "psi": 0.173,
+            "ks_statistic": 0.1468,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "score",
+            "values": 55395,
+            "psi": 0.0597,
+            "ks_statistic": 0.0829,
+            "ks_p_value": 1.4511886999536705e-288,
+            "status": "stable"
+          },
+          {
+            "name": "session_amount_sum",
+            "values": 55395,
+            "psi": 0.019,
+            "ks_statistic": 0.0428,
+            "ks_p_value": 2.6775264079139457e-77,
+            "status": "stable"
+          },
+          {
+            "name": "session_txn_count",
+            "values": 55395,
+            "psi": 0.0163,
+            "ks_statistic": 0.0428,
+            "ks_p_value": 2.7371991132820352e-77,
+            "status": "stable"
+          }
+        ]
+      },
+      {
+        "day": "2027-01-16",
+        "results": [
+          {
+            "name": "card_amount_max_24h",
+            "values": 55598,
+            "psi": 0.0129,
+            "ks_statistic": 0.0298,
+            "ks_p_value": 7.899245950866942e-38,
+            "status": "stable"
+          },
+          {
+            "name": "card_amount_mean_24h",
+            "values": 55598,
+            "psi": 0.008,
+            "ks_statistic": 0.0336,
+            "ks_p_value": 5.255269563188915e-48,
+            "status": "stable"
+          },
+          {
+            "name": "card_amount_sum_1h",
+            "values": 55598,
+            "psi": 0.001,
+            "ks_statistic": 0.0037,
+            "ks_p_value": 0.5195419329734643,
+            "status": "stable"
+          },
+          {
+            "name": "card_distinct_merchants_24h",
+            "values": 55598,
+            "psi": 0.1199,
+            "ks_statistic": 0.1371,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "card_seconds_since_last",
+            "values": 55598,
+            "psi": 0.0006,
+            "ks_statistic": 0.0053,
+            "ks_p_value": 0.13201439622915345,
+            "status": "stable"
+          },
+          {
+            "name": "card_txn_count_1h",
+            "values": 55598,
+            "psi": 0.0021,
+            "ks_statistic": 0.0118,
+            "ks_p_value": 3.0047780314089048e-06,
+            "status": "stable"
+          },
+          {
+            "name": "card_txn_count_24h",
+            "values": 55598,
+            "psi": 0.049,
+            "ks_statistic": 0.0631,
+            "ks_p_value": 7.099210977217131e-168,
+            "status": "stable"
+          },
+          {
+            "name": "device_amount_mean_1h",
+            "values": 55598,
+            "psi": 0.0071,
+            "ks_statistic": 0.0345,
+            "ks_p_value": 1.189788086262267e-50,
+            "status": "stable"
+          },
+          {
+            "name": "device_distinct_cards_1h",
+            "values": 55598,
+            "psi": 0.1152,
+            "ks_statistic": 0.139,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "device_distinct_cards_24h",
+            "values": 55598,
+            "psi": 1.4946,
+            "ks_statistic": 0.5203,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "device_txn_count_1h",
+            "values": 55598,
+            "psi": 0.0007,
+            "ks_statistic": 0.0074,
+            "ks_p_value": 0.01037454980459742,
+            "status": "stable"
+          },
+          {
+            "name": "merchant_amount_mean_1h",
+            "values": 55598,
+            "psi": 0.1714,
+            "ks_statistic": 0.1235,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "merchant_distinct_cards_1h",
+            "values": 55598,
+            "psi": 0.1716,
+            "ks_statistic": 0.1543,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "merchant_txn_count_1h",
+            "values": 55598,
+            "psi": 0.1843,
+            "ks_statistic": 0.153,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "score",
+            "values": 55598,
+            "psi": 0.087,
+            "ks_statistic": 0.1035,
+            "ks_p_value": 0.0,
+            "status": "drifted"
+          },
+          {
+            "name": "session_amount_sum",
+            "values": 55598,
+            "psi": 0.0196,
+            "ks_statistic": 0.0436,
+            "ks_p_value": 1.6646429818302993e-80,
+            "status": "stable"
+          },
+          {
+            "name": "session_txn_count",
+            "values": 55598,
+            "psi": 0.0163,
+            "ks_statistic": 0.0436,
+            "ks_p_value": 1.7025775712984943e-80,
+            "status": "stable"
+          }
+        ]
+      }
+    ]
+  }
+}
