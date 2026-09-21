@@ -12,6 +12,7 @@ each test creates its own topics and deletes them afterwards.
 
 from __future__ import annotations
 
+import time
 import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -132,6 +133,25 @@ def test_a_handle_does_not_return_the_same_record_twice(backend: Backend) -> Non
     again = stream.consume(backend.topic, group, timeout_seconds=1.0)
     assert len(first) == 2
     assert again == []
+
+
+def test_records_already_readable_come_back_without_waiting_out_the_timeout(
+    backend: Backend,
+) -> None:
+    """The timeout is how long to wait for anything, not for a full batch.
+
+    Redpanda's client waits for the whole batch or the whole timeout, and at
+    a live rate below the batch size that is the timeout every time: in the
+    first dry run, 2026-09-21, no decision took under 50 ms.
+    """
+    stream = backend.handle()
+    produce_all(stream, backend.topic, [("k", b"one"), ("k", b"two"), ("k", b"three")])
+    group = fresh_group()
+    assert len(stream.consume(backend.topic, group, max_records=1, timeout_seconds=10.0)) == 1
+    started = time.monotonic()
+    rest = stream.consume(backend.topic, group, max_records=500, timeout_seconds=5.0)
+    assert [r.value for r in rest] == [b"two", b"three"]
+    assert time.monotonic() - started < 1.0
 
 
 def test_without_a_checkpoint_a_restarted_consumer_sees_everything_again(

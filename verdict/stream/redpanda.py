@@ -327,7 +327,17 @@ class RedpandaStream:
             StreamError: If the broker reports an error on a message.
         """
         consumer = self._consumer(topic, group)
-        messages = consumer.consume(num_messages=max_records, timeout=timeout_seconds)
+        # librdkafka's consume waits for all `max_records` or the whole timeout,
+        # whichever comes first. Below the batch size that is always the
+        # timeout: the live stack's first dry run, at 1,000 a second against
+        # batches of 500 and a 0.1 s wait, decided nothing in under 50 ms.
+        # The contract is to wait for anything at all, so take what has
+        # already been fetched, and wait only when there is nothing.
+        messages = consumer.consume(num_messages=max_records, timeout=0)
+        if not messages:
+            messages = consumer.consume(num_messages=1, timeout=timeout_seconds)
+            if messages and max_records > 1:
+                messages += consumer.consume(num_messages=max_records - 1, timeout=0)
         out: list[Record] = []
         for message in messages:
             error = message.error()
