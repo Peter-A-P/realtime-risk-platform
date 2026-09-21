@@ -8,7 +8,11 @@ service that runs for months must not keep every timing it ever took.
 from __future__ import annotations
 
 import datetime as dt
+import gc
 import threading
+from collections.abc import Iterator
+
+import pytest
 
 from verdict.events.schema import EntryMode, MerchantCategory, TransactionEvent
 from verdict.features.engine import FeatureEngine
@@ -20,6 +24,13 @@ from verdict.scoring.model import FixedModel, StandInModel
 from verdict.stream.memory import MemoryBroker, MemoryStream
 
 START = dt.datetime(2027, 4, 5, 12, 0, tzinfo=dt.UTC)
+
+
+@pytest.fixture(autouse=True)
+def _thaw() -> Iterator[None]:
+    """The service freezes what survives a batch; the rest of the suite should not inherit it."""
+    yield
+    gc.unfreeze()
 
 
 def an_event(index: int) -> TransactionEvent:
@@ -154,3 +165,18 @@ def test_two_scorers_do_not_share_counts() -> None:
     service.run(scorer, stop=StopAfter(2), metrics=first, timeout_seconds=0.01)
     assert second.registry.get_sample_value("verdict_duplicates_total") == 0
     assert first.registry is not second.registry
+
+
+def test_what_survives_a_batch_is_kept_out_of_the_collectors_walk() -> None:
+    """A full collection over the engine's state is a pause of seconds.
+
+    After a batch, what is still alive is frozen, so the collector's walk
+    covers only what is newer than the last batch.
+    """
+    gc.unfreeze()
+    try:
+        broker = a_broker(20)
+        service.run(a_scorer(broker.open()), stop=StopAfter(3))
+        assert gc.get_freeze_count() > 0
+    finally:
+        gc.unfreeze()

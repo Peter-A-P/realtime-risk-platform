@@ -12,6 +12,14 @@ around them, and the three things a loop adds.
 - **Metrics are drained as it goes.** See `observe/metrics.py`: the scorer's
   per-batch timing lists are for the load test, and would grow without bound
   in a service.
+- **The collector never walks the feature state.** The engine holds tens of
+  millions of small objects with no reference cycles among them, and
+  Python's full collection walks them all: measured on the engine alone, a
+  2 s pause at half a million entities and 8.7 s at two million, which on
+  the live stack is every decision behind it. So what has survived a batch
+  is frozen (`gc.freeze`): reference counting still frees it, and the
+  collector looks only at what is newer. Cyclic garbage that is frozen
+  before it is collected is kept, which is why the dry run watches memory.
 - **What it does not do yet, stated rather than discovered.** A scorer that
   starts cold serves every card "no history" until its windows refill, which
   for the longest window is a day. ADR 8 records that; rebuilding the windows
@@ -20,6 +28,7 @@ around them, and the three things a loop adds.
 
 from __future__ import annotations
 
+import gc
 import threading
 from dataclasses import dataclass
 
@@ -71,6 +80,8 @@ def run(
         got = scorer.poll(max_records=max_records, timeout_seconds=timeout_seconds)
         polls += 1
         records += got
+        if got:
+            gc.freeze()
         if metrics is not None:
             metrics.after_poll(scorer, got)
     return RunSummary(
