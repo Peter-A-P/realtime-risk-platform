@@ -31,6 +31,7 @@ sealed schedule is graded on the stream as generated.
 from __future__ import annotations
 
 import datetime as dt
+import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -63,6 +64,10 @@ MAX_BATCH: Final = 5_000
 
 MAX_IDLE_SLEEP: Final = 0.05
 """The longest a feed sleeps before looking at the clock again, in seconds."""
+
+_FORK: Final[Callable[[], int] | None] = getattr(os, "fork", None)
+_WNOHANG: Final[int] = getattr(os, "WNOHANG", 1)
+"""What background saves need, which Windows lacks; there a feed saves in the foreground."""
 
 FRESH_START_TOLERANCE: Final = dt.timedelta(hours=1)
 """How far into a window a feed may start with no snapshot.
@@ -186,6 +191,12 @@ class FeedMetrics:
             ("feed",),
             registry=self.registry,
         ).labels(feed.value)
+        self.snapshot_failures = Counter(
+            "verdict_feed_snapshot_failures",
+            "Background saves that did not finish; the previous place stands.",
+            ("feed",),
+            registry=self.registry,
+        ).labels(feed.value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,6 +225,7 @@ class LiveFeed:
         clock: Clock | None = None,
         metrics: FeedMetrics | None = None,
         snapshot_every: dt.timedelta = SNAPSHOT_EVERY,
+        save_in_background: bool = False,
     ) -> None:
         """Assemble the feed.
 
@@ -225,6 +237,12 @@ class LiveFeed:
             clock: The time source.
             metrics: Where counts go.
             snapshot_every: How often to save the place.
+            save_in_background: Write each periodic save from a forked
+                child, so sending never waits for it. Pickling the live
+                run takes seconds (its planned attacks run to hundreds of
+                thousands), and in the first dry run each save held the
+                stream up by about 3.3 s, twice a minute. Linux only; the
+                save when the feed stops is always made in the foreground.
         """
         self.run = run
         self.stream = stream
@@ -234,6 +252,8 @@ class LiveFeed:
         self.metrics = metrics or FeedMetrics(feed)
         self.snapshot_every = snapshot_every
         self._last_snapshot: dt.datetime | None = None
+        self.save_in_background = save_in_background and _FORK is not None
+        self._saving: int | None = None
 
     def due(self, record: GeneratedRecord) -> dt.datetime:
         """When a record is to be sent.
@@ -280,14 +300,62 @@ class LiveFeed:
             if last_due is not None:
                 self.metrics.lag.set(max(0.0, (now - last_due).total_seconds()))
         if self._last_snapshot is None or now - self._last_snapshot >= self.snapshot_every:
-            self.save()
+            if self.save_in_background:
+                self._save_in_background()
+            else:
+                self.save()
         return sent
 
     def save(self) -> None:
         """Save the place: everything before the next record has been flushed."""
+        self._wait_for_background_save(block=True)
         self.store.save(self.run.snapshot())
         self._last_snapshot = self.clock.now()
         self.metrics.snapshots.inc()
+
+    def _save_in_background(self) -> None:
+        """Save the place from a copy of this process, and carry on sending.
+
+        The child sees the run exactly as it stands after the flush in
+        `step`, so what it writes has the same meaning as a foreground save.
+        If it has not finished by the next save, that save is skipped rather
+        than stacked; if it fails, the previous place stands and the feed
+        resends a little more after a restart, which the scorer's
+        idempotency already covers.
+        """
+        if _FORK is None or not self._wait_for_background_save(block=False):
+            return
+        pid = _FORK()
+        if pid == 0:  # pragma: no cover - the child's work is checked by its file
+            code = 1
+            try:
+                self.store.save(self.run.snapshot())
+                code = 0
+            finally:
+                os._exit(code)
+        self._saving = pid
+        self._last_snapshot = self.clock.now()
+
+    def _wait_for_background_save(self, *, block: bool) -> bool:
+        """Collect a finished background save.
+
+        Args:
+            block: Wait for one still running.
+
+        Returns:
+            Whether no background save is running now.
+        """
+        if self._saving is None:
+            return True
+        pid, status = os.waitpid(self._saving, 0 if block else _WNOHANG)
+        if pid == 0:
+            return False
+        self._saving = None
+        if os.waitstatus_to_exitcode(status) == 0:
+            self.metrics.snapshots.inc()
+        else:
+            self.metrics.snapshot_failures.inc()
+        return True
 
     def run_until(self, stop: Callable[[], bool]) -> None:
         """Send in real time until asked to stop, then save the place.

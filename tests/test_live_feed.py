@@ -19,6 +19,8 @@ from __future__ import annotations
 import datetime as dt
 import itertools
 import json
+import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -244,3 +246,58 @@ def test_a_saved_place_is_replaced_whole(graph: EntityGraph, tmp_path: Path) -> 
     assert not store.path.with_suffix(".tmp").exists()
     assert Generator(CONFIG, graph=graph).resume(store.load() or b"").emitted == 5
     assert json.dumps(sorted(p.name for p in tmp_path.iterdir())) == '["labels.snapshot"]'
+
+
+class SlowStore(SnapshotStore):
+    """A store whose writes take as long as pickling the live run does."""
+
+    def save(self, snapshot: bytes) -> None:
+        """Write, slowly.
+
+        Args:
+            snapshot: The snapshot.
+        """
+        time.sleep(1.5)
+        super().save(snapshot)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="background saves fork; Linux only")
+def test_a_background_save_does_not_hold_the_stream_and_saves_the_same_place(
+    graph: EntityGraph, tmp_path: Path
+) -> None:
+    """In the first dry run each save held the stream up by about 3.3 s, twice a minute."""
+    broker = _broker()
+    clock = FakeClock(START + dt.timedelta(seconds=10))
+    run = GeneratorRun(Generator(CONFIG, graph=graph))
+    store = SlowStore(tmp_path, Feed.TRANSACTIONS)
+    feed = LiveFeed(
+        run,
+        broker.open(),
+        Feed.TRANSACTIONS,
+        store,
+        clock=Clock(now=clock.now, sleep=clock.sleep),
+        save_in_background=True,
+    )
+    started = time.monotonic()
+    feed.step()
+    assert time.monotonic() - started < 1.0
+    at_the_save = run.emitted
+    clock.at += dt.timedelta(seconds=5)
+    feed.step()
+    assert run.emitted > at_the_save
+
+    feed._wait_for_background_save(block=True)
+    saved = store.load()
+    assert saved is not None
+    resumed = Generator(CONFIG, graph=graph).resume(saved)
+    assert resumed.emitted == at_the_save
+    assert feed.metrics.snapshots._value.get() == 1
+
+
+def test_without_fork_a_feed_saves_in_the_foreground(graph: EntityGraph, tmp_path: Path) -> None:
+    broker = _broker()
+    clock = FakeClock(START + dt.timedelta(seconds=10))
+    feed = _feed(broker, graph, Feed.TRANSACTIONS, tmp_path, clock)
+    assert not feed.save_in_background
+    feed.step()
+    assert SnapshotStore(tmp_path, Feed.TRANSACTIONS).load() is not None

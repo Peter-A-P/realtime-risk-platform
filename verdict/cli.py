@@ -943,7 +943,9 @@ def _run_feed(
         f"{schedule} schedule, {run.emitted:,} records already sent"
     )
     try:
-        LiveFeed(run, stream, feed, store, metrics=metrics).run_until(stop.is_set)
+        LiveFeed(run, stream, feed, store, metrics=metrics, save_in_background=True).run_until(
+            stop.is_set
+        )
     finally:
         stream.close()
     typer.echo(f"stopped at {run.emitted:,} records; place saved in {store.path}")
