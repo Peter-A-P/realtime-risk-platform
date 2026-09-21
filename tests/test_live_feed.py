@@ -301,3 +301,20 @@ def test_without_fork_a_feed_saves_in_the_foreground(graph: EntityGraph, tmp_pat
     assert not feed.save_in_background
     feed.step()
     assert SnapshotStore(tmp_path, Feed.TRANSACTIONS).load() is not None
+
+
+def test_a_feed_with_nothing_sent_since_its_last_save_does_not_save_again(
+    graph: EntityGraph, tmp_path: Path
+) -> None:
+    """The labels feed sends nothing for a week; each save costs seconds of CPU."""
+    broker = _broker()
+    clock = FakeClock(START + dt.timedelta(days=1))
+    feed = _feed(broker, graph, Feed.LABELS, tmp_path, clock)
+    assert feed.step() == 0
+    for _ in range(5):
+        clock.at += dt.timedelta(minutes=1)
+        assert feed.step() == 0
+    assert feed.metrics.snapshots._value.get() == 1
+    clock.at = START + dt.timedelta(days=7, seconds=10)
+    assert feed.step() > 0
+    assert feed.metrics.snapshots._value.get() == 2

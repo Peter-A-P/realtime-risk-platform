@@ -255,6 +255,7 @@ class LiveFeed:
         self._last_snapshot: dt.datetime | None = None
         self.save_in_background = save_in_background and _FORK is not None
         self._saving: int | None = None
+        self._unsaved = 0
 
     def due(self, record: GeneratedRecord) -> dt.datetime:
         """When a record is to be sent.
@@ -300,7 +301,14 @@ class LiveFeed:
             self.metrics.sent.inc(sent)
             if last_due is not None:
                 self.metrics.lag.set(max(0.0, (now - last_due).total_seconds()))
-        if self._last_snapshot is None or now - self._last_snapshot >= self.snapshot_every:
+        self._unsaved += sent
+        # A feed that has sent nothing since its last save is where that save
+        # left it, and each save costs seconds of CPU: the labels feed sends
+        # nothing for the window's first week.
+        if self._last_snapshot is None or (
+            self._unsaved and now - self._last_snapshot >= self.snapshot_every
+        ):
+            self._unsaved = 0
             if self.save_in_background:
                 self._save_in_background()
             else:
