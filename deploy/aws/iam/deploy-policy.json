@@ -39,6 +39,21 @@
       }
     },
     {
+      "Sid": "CreateInsideOwnVpc",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateRouteTable",
+        "ec2:CreateSecurityGroup",
+        "ec2:CreateSubnet"
+      ],
+      "Resource": "arn:aws:ec2:ca-central-1:*:vpc/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/project": "verdict"
+        }
+      }
+    },
+    {
       "Sid": "TagOnCreate",
       "Effect": "Allow",
       "Action": [

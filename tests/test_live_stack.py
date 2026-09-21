@@ -125,7 +125,13 @@ def test_no_policy_grants_a_whole_service(path: Path) -> None:
 
 
 def test_the_deploy_identity_creates_only_tagged_resources() -> None:
-    """Every EC2 or group create is conditioned on the project tag."""
+    """Every EC2 or group create is conditioned on the project tag.
+
+    A create inside a VPC is authorised twice, once on the new resource and
+    once on the VPC it goes into. The VPC already exists, so the request's
+    tags say nothing about it; that half may instead be allowed on a VPC that
+    carries the tag, and on nothing but a VPC.
+    """
     for statement in _statements(DEPLOY_POLICY):
         creates = [
             a
@@ -137,7 +143,24 @@ def test_the_deploy_identity_creates_only_tagged_resources() -> None:
         if not creates:
             continue
         condition = statement.get("Condition", {}).get("StringEquals", {})
-        assert condition.get("aws:RequestTag/project") == "verdict", statement["Sid"]
+        if statement["Resource"] == "arn:aws:ec2:ca-central-1:*:vpc/*":
+            assert condition.get("aws:ResourceTag/project") == "verdict", statement["Sid"]
+        else:
+            assert condition.get("aws:RequestTag/project") == "verdict", statement["Sid"]
+
+
+def test_what_goes_inside_the_vpc_may_be_created_in_it() -> None:
+    """The first apply, 2026-09-21, made the VPC and was refused its subnet.
+
+    Refused on the VPC, not the subnet: `aws:RequestTag` is not a key the VPC
+    half of `CreateSubnet` is judged on. Route table and security group the
+    same.
+    """
+    inside = {"ec2:CreateSubnet", "ec2:CreateRouteTable", "ec2:CreateSecurityGroup"}
+    on_vpc = [
+        s for s in _statements(DEPLOY_POLICY) if s["Resource"] == "arn:aws:ec2:ca-central-1:*:vpc/*"
+    ]
+    assert inside <= {a for s in on_vpc for a in s["Action"]}
 
 
 def test_the_deploy_identity_passes_only_its_own_role() -> None:
