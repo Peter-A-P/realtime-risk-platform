@@ -363,6 +363,20 @@ section 6 amendment carries the new figure. **Decided the same day: sixty days o
 Nothing else is blocked. Weeks 4, 5 and 6, including the broker-backed latency
 measurement, can be built on this machine.
 
+**The dry run, 2026-09-21.** Peter gave the go, and approved the budget as it
+stands: US$60 a month against about US$45 on r7i.large, about US$61 if spot
+falls back to r6i.large, where the alert firing is the point. The first
+`terraform apply` (instance off) created the ECR repository, the instance
+role and profile, the VPC, the internet gateway and the 150 GB volume, then
+was refused the subnet, route table and security group: EC2 judges those
+creates on the VPC as well, and the VPC half never sees `aws:RequestTag`.
+Fixed in `deploy-policy.json` (statement `CreateInsideOwnVpc`, commit
+4c528d8), which **Peter re-applies in the IAM console** with the bootstrap
+policy's schedule-secret deny (c9217fb). Image `4c528d8d7444` is in ECR.
+The half-built stack is left up meanwhile: only the volume bills, about
+US$0.40 a day. Next: apply again, plan first, then `up.sh --image
+4c528d8d7444 --start ...` on the development schedule for 72 hours.
+
 ---
 
 ## 7. The real-data track, as measured
