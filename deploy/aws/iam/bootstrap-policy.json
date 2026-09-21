@@ -65,6 +65,19 @@
         "ssm:GetParameters"
       ],
       "Resource": "arn:aws:ssm:ca-central-1::parameter/aws/service/*"
+    },
+    {
+      "Sid": "NeverTheScheduleSecret",
+      "Effect": "Deny",
+      "Action": [
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParameterHistory",
+        "ssm:PutParameter",
+        "ssm:DeleteParameter",
+        "ssm:LabelParameterVersion"
+      ],
+      "Resource": "arn:aws:ssm:ca-central-1:*:parameter/verdict/schedule-secret"
     }
   ]
 }

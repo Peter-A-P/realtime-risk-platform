@@ -228,3 +228,25 @@ def test_the_user_data_fits_the_sixteen_kilobyte_limit() -> None:
     boot = (TERRAFORM / "boot.sh.tftpl").read_bytes()
     compose = base64.b64encode(gzip.compress(LIVE_COMPOSE.read_bytes()))
     assert len(boot) + len(compose) + 2_048 < 16_384
+
+
+def test_the_build_identity_can_never_read_or_replace_the_schedule_secret() -> None:
+    """The sealed schedule is only worth something if the builder cannot learn it.
+
+    The commitment proves the schedule was not changed after sealing. It
+    does not stop someone who can read the secret from knowing the regime
+    days in advance, and the identity the build runs as may otherwise read
+    and write every parameter under /verdict/. An explicit deny wins over
+    that allow, so only the instance's own role reads the secret, and only
+    Peter, from outside this project's identities, writes it.
+    """
+    denied = [
+        statement
+        for statement in _statements(BOOTSTRAP_POLICY)
+        if statement["Effect"] == "Deny"
+        and statement["Resource"].endswith(":parameter/verdict/schedule-secret")
+    ]
+    assert len(denied) == 1
+    actions = set(denied[0]["Action"])
+    assert {"ssm:GetParameter", "ssm:GetParameters", "ssm:PutParameter"} <= actions
+    assert "ssm:GetParameterHistory" in actions
