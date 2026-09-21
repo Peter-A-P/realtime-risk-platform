@@ -222,11 +222,11 @@ Twenty-three ADRs, in `docs/adr/`: 1 to 15 and 17 to 24. Read them before reopen
 | 11 | Shadow on the champion's own features, timed apart, unable to break scoring; promotion only if the interval bound clears the margin, on labels that had arrived, with at least 50 frauds; rollback by a pointer read per event | Margins and prices are placeholders until the champion's variability is measured |
 | 12 | Drift: PSI and KS against a fixed reference; PSI 0.25, KS statistic 0.10 with p below 0.01, 500 values minimum; same quantity two consecutive days | **Amends PLAN.md 2.6**: no Evidently. **The thresholds must not be tuned against the development schedule**, or the sealed schedule grades nothing |
 | 13 | The queue ranks by expected loss; simulated a day at a time in hourly steps with expiry; paired by day | At fixed capacity the prices cannot reorder the queue, and a test says so. Scores must be calibrated before a result is published |
-| 14 | The live stack: its own VPC in `ca-central-1d`, no ingress rule, one spot instance (r7i.large, r6i.large or r5.large, 16 GB, since ADR 20) in a group of one, a data volume that outlives it, ECR for the image, SSM Session Manager for a person, a Cloudflare Tunnel for the dashboard; the budget and the tunnel token outside Terraform | Its storage question (history does not fit on a disk at 1,000 events a second) was **closed by ADR 18** on 2026-09-19; the data volume is 150 GB |
+| 14 | The live stack: its own VPC in `ca-central-1d`, no ingress rule, one spot instance (m7i.xlarge, m6i.xlarge or m5.xlarge, 4 vCPU and 16 GB, since ADR 20's amendment of 2026-09-21) in a group of one, a data volume that outlives it, ECR for the image, SSM Session Manager for a person, a Cloudflare Tunnel for the dashboard; the budget and the tunnel token outside Terraform | Its storage question (history does not fit on a disk at 1,000 events a second) was **closed by ADR 18** on 2026-09-19; the data volume is 150 GB |
 | 18 | History is a labelled, weighted sample: topics keep a day; every decision staged with its features before the checkpoint; days finalised seven days and six hours after they end; every reviewed or declined row kept, approved frauds at 0.10, approved legitimate at 0.01, each with weight 1 / rate; the promotion gate reads the weight | Rates are fixed before go-live and change only at a day boundary. The scorer's added cost on the hot path is **unmeasured** until the load test runs with and without a spool |
 | 15 | Spot recovery. The feeds resume exactly: `GeneratorRun` snapshots on the data volume every 30 s, restores byte for byte, sends at least once and never skips; a fresh start deep in a window is refused; `sealed` checks the secret against the commitment before running | **Open:** the scorer's rebuild after a replacement, and the engine's memory at the live rate (about 4.7 kB per entity and 900 B per held event, measured; 24 hours at 1,000 a second is about 33 GB against 4 GB) |
 | 19 | Champion and challenger: tracks replayed through the scorer's own engine path; split in time at 70 percent; XGBoost with fixed parameters and early stopping; an FT-Transformer challenger; ONNX export refused unless it scores as the fitted model does; PR-AUC with stratified bootstrap intervals; only synthetic-trained models ship | Superseded on the synthetic track by ADR 21: after the generator was made harder the champion scores 0.8427 (0.8393 to 0.8464) and the challenger loses by -0.0415 (-0.0437 to -0.0392), so the gate refuses it on both tracks. The record also carries the model hop that was measured on a busy machine and the cap it nearly bought |
-| 20 | The six day-long features at hourly resolution: window `[floor_hour(t - 24h), t)`, a definition the reference and leakage test share; bucketed aggregators in arrays, distinct by latest bucket; instance r7i.large (16 GB) | Engine about 6 GB at the live rate, measured at scale (`docs/engine-footprint-steady.json`); the whole instance is measured in the dry run |
+| 20 | The six day-long features at hourly resolution: window `[floor_hour(t - 24h), t)`, a definition the reference and leakage test share; bucketed aggregators in arrays, distinct by latest bucket; instance r7i.large (16 GB), amended 2026-09-21 to a 4 vCPU m-family xlarge | Engine about 6 GB at the live rate, measured at scale (`docs/engine-footprint-steady.json`); the whole instance is measured in the dry run |
 | 21 | The synthetic fraud is much harder: attacks take their cards' own sessions, card testing is slow and spread, takeovers spend like the owner and often from a known device, collusion is gentle and uses front merchants; legitimate traffic gains big tickets, new devices, shared terminals and busy merchants | Champion on the synthetic track falls from 0.9996 to 0.8427 (0.8393 to 0.8464), no single feature above 0.05. Done before sealing, as it had to be |
 | 22 | The review queue is measured on the queue the platform would hold: the stream through the scorer's own engine, the shipped champion and rules, arrivals unsampled, and nothing counted from the champion's training window | Expected loss beats score ranking by $97.46 an hour (48.03 to 150.44) over thirteen unseen days. The first run, inside the training window, said 221.69: more than double |
 | 23 | The drift monitors are run over a replayed stream against the schedule's own regime days, which they are never told: reference fixed to the champion's training window, each day judged on a hash-drawn 3 percent, the trigger asked once a day | Seven baseline days flagged nothing; all three regime changes caught on their first full day; the first retraining request opens one day after the first change, the floor the rule sets |
@@ -378,18 +378,16 @@ live stack"): the consumer waited out its 0.1 s timeout on every batch
 collection walked the feature state (38e948b); the feed stopped the stream
 for 3.3 s to save its place (4bef6b1, 40a1dce, 3c0ced1).
 
-**What is left is the instance, and it is Peter's call on cost.** Two vCPUs
-are one physical core; scorer, broker and feed overload it (load average near
-3) and on an r5.large 13 percent of decisions still took over a second. The
-same image on an **m6i.xlarge** (4 vCPU, 16 GB) decided 99.95 percent of
-617,040 inside 50 ms and none over 250 ms, and drained a 130,000 backlog in
-two minutes. **The stack is running on it now as a trial**, through a
-command-line `instance_types` override that is not committed; the repository
-still says r7i.large, r6i.large, r5.large. Spot in ca-central-1d that day:
-m5.xlarge US$0.063, m7i.xlarge 0.087, m6i.xlarge 0.089 an hour, so about
-US$59 to 78 a month with the volume, against a US$60 budget. If approved:
-amend ADR 20, set `instance_types` to the m-family xlarge list, raise
-`verdict-monthly` (Peter, console), and restart the 72-hour clock on it.
+**The instance is now 4 vCPU (Peter, 2026-09-21; ADR 20's amendment).** Two
+vCPUs are one physical core, and scorer, broker and feed overloaded it (load
+average near 3; on an r5.large 13 percent of decisions still over a second).
+The same image on an m6i.xlarge decided 99.95 percent of 617,040 inside 50 ms
+and none over 250 ms, and drained a 130,000 backlog in two minutes.
+`instance_types` is m7i.xlarge, m6i.xlarge, m5.xlarge; Peter set
+`verdict-monthly` to 130 a month (AWS holds it as **US$130**, tag filter
+intact), and the window stays sixty days rather than the 45 the PLAN's
+fallback named. **The 72-hour clock runs from 2026-09-21T22:22Z** (the
+m6i.xlarge's boot, image `3c0ced19c956`) **to 2026-09-24T22:22Z.**
 
 Operating notes: roll a new image without replacing the instance by editing
 `VERDICT_IMAGE` in `/etc/verdict/stack.env` over SSM and running `docker

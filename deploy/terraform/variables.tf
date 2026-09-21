@@ -17,9 +17,9 @@ variable "availability_zone" {
 }
 
 variable "instance_types" {
-  description = "Spot candidates, all x86 with 2 vCPU and 16 GB (ADR 20: the engine holds about 6 GB at the live rate), in order of preference. More than one so a shortage of one type is not an outage."
+  description = "Spot candidates, all x86 with 4 vCPU and 16 GB (ADR 20: the engine holds about 6 GB at the live rate; its 2026-09-21 amendment: two vCPUs are one core, too few for scorer, broker and feed), in order of preference. More than one so a shortage of one type is not an outage."
   type        = list(string)
-  default     = ["r7i.large", "r6i.large", "r5.large"]
+  default     = ["m7i.xlarge", "m6i.xlarge", "m5.xlarge"]
 }
 
 variable "data_volume_gb" {

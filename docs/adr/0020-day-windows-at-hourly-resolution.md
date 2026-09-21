@@ -48,6 +48,23 @@ what its events would (`verdict/features/aggregators.py`, `Bucketed*`):
 against US$0.037 to 0.040 for the c6a.large. The group may fall back to an
 r6i.large or r5.large, both 2 vCPU and 16 GB on x86.
 
+**Amended 2026-09-21, after the first hours of the dry run: the instance is
+an m7i.xlarge, m6i.xlarge or m5.xlarge**, 4 vCPU and 16 GB on x86 (Peter).
+Two vCPUs are one physical core. With the four latency faults the dry run
+found fixed, the scorer (about 0.85 of a vCPU at the live rate), the broker
+(0.35), the feed (0.2) and the feed's saves still overloaded it: load average
+near 3, and on an r5.large 13 percent of 309,249 decisions over a second.
+The same image on an m6i.xlarge decided 99.95 percent of 617,040 inside
+50 ms and none over 250 ms, and drained a 130,000-transaction backlog after
+a replacement in about two minutes (`docs/latency-budget.md`, "The first
+hours on the live stack"). Memory is unchanged, so the m family, not r.
+Spot in `ca-central-1d` that day: m5.xlarge US$0.063, m7i.xlarge 0.087,
+m6i.xlarge 0.089 an hour, about US$59 to 78 a month with the volume.
+`PLAN.md` section 6 carries the cost. `PLAN.md` fixed a fallback for this
+case in advance, 4 vCPU and a 45-day window; Peter raised the budget
+instead (`verdict-monthly` to 130 a month, which AWS holds as US$130),
+so the window stays sixty days.
+
 ## Evidence
 
 - `tests/test_aggregators.py`: every bucketed aggregation against the
