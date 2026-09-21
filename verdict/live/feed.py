@@ -67,6 +67,7 @@ MAX_IDLE_SLEEP: Final = 0.05
 
 _FORK: Final[Callable[[], int] | None] = getattr(os, "fork", None)
 _WNOHANG: Final[int] = getattr(os, "WNOHANG", 1)
+_NICE: Final[Callable[[int], int]] = getattr(os, "nice", lambda increment: increment)
 """What background saves need, which Windows lacks; there a feed saves in the foreground."""
 
 FRESH_START_TOLERANCE: Final = dt.timedelta(hours=1)
@@ -329,6 +330,10 @@ class LiveFeed:
         if pid == 0:  # pragma: no cover - the child's work is checked by its file
             code = 1
             try:
+                # Last in line for the CPU. On the dry run's two cores an
+                # unniced child took its seconds of pickling from the scorer
+                # and the broker, and the scorer fell 3,000 behind each time.
+                _NICE(19)
                 self.store.save(self.run.snapshot())
                 code = 0
             finally:
