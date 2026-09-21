@@ -364,18 +364,37 @@ Nothing else is blocked. Weeks 4, 5 and 6, including the broker-backed latency
 measurement, can be built on this machine.
 
 **The dry run, 2026-09-21.** Peter gave the go, and approved the budget as it
-stands: US$60 a month against about US$45 on r7i.large, about US$61 if spot
-falls back to r6i.large, where the alert firing is the point. The first
-`terraform apply` (instance off) created the ECR repository, the instance
-role and profile, the VPC, the internet gateway and the 150 GB volume, then
-was refused the subnet, route table and security group: EC2 judges those
-creates on the VPC as well, and the VPC half never sees `aws:RequestTag`.
-Fixed in `deploy-policy.json` (statement `CreateInsideOwnVpc`, commit
-4c528d8), which **Peter re-applies in the IAM console** with the bootstrap
-policy's schedule-secret deny (c9217fb). Image `4c528d8d7444` is in ECR.
-The half-built stack is left up meanwhile: only the volume bills, about
-US$0.40 a day. Next: apply again, plan first, then `up.sh --image
-4c528d8d7444 --start ...` on the development schedule for 72 hours.
+stood (US$60 a month on the r7i.large estimate). After a policy fix Peter
+re-applied (`CreateInsideOwnVpc`, 4c528d8, with the schedule-secret deny of
+c9217fb, which is confirmed working: the build identity is refused the
+parameter with an explicit deny), the whole stack came up and has streamed
+the development schedule at 1,000 a second since **2026-09-21T18:57:00Z**, the
+window start every redeploy keeps (`C:/Dev/POCs Dev/09-realtime-risk-platform/dry-run-start.txt`).
+
+It decided nothing inside 50 ms at first. Four causes found and fixed the same
+evening, each with tests (`docs/latency-budget.md`, "The first hours on the
+live stack"): the consumer waited out its 0.1 s timeout on every batch
+(6c5e696); the engine's sweep walked every entity (fbcf5ca); Python's full
+collection walked the feature state (38e948b); the feed stopped the stream
+for 3.3 s to save its place (4bef6b1, 40a1dce, 3c0ced1).
+
+**What is left is the instance, and it is Peter's call on cost.** Two vCPUs
+are one physical core; scorer, broker and feed overload it (load average near
+3) and on an r5.large 13 percent of decisions still took over a second. The
+same image on an **m6i.xlarge** (4 vCPU, 16 GB) decided 99.95 percent of
+617,040 inside 50 ms and none over 250 ms, and drained a 130,000 backlog in
+two minutes. **The stack is running on it now as a trial**, through a
+command-line `instance_types` override that is not committed; the repository
+still says r7i.large, r6i.large, r5.large. Spot in ca-central-1d that day:
+m5.xlarge US$0.063, m7i.xlarge 0.087, m6i.xlarge 0.089 an hour, so about
+US$59 to 78 a month with the volume, against a US$60 budget. If approved:
+amend ADR 20, set `instance_types` to the m-family xlarge list, raise
+`verdict-monthly` (Peter, console), and restart the 72-hour clock on it.
+
+Operating notes: roll a new image without replacing the instance by editing
+`VERDICT_IMAGE` in `/etc/verdict/stack.env` over SSM and running `docker
+compose ... up -d` (the scorer restarts cold, ADR 8). `py-spy` is installed
+on the current instance for profiling.
 
 ---
 

@@ -235,6 +235,61 @@ drift over the half hour could not pass for an effect:
 Stalling runs appear with it on and with it off, in about equal number. The
 broker is back on the compose file's own health check.
 
+## The first hours on the live stack, 2026-09-21
+
+**Track: synthetic live, AWS, development schedule, dry run.** 1,000
+transactions a second from the live feed, the shipped synthetic champion, the
+whole stack of `deploy/live/compose.yml` on one instance. Each figure is the
+event-to-decision histogram's counts between two scrapes of the scorer, taken
+after it had caught up. These are single windows, counted and not sampled,
+and they are not the published figure: that comes from the 72-hour run and
+then the live window, with its interval.
+
+| Image and instance | Window | Decisions | Under 50 ms | Over 1 s |
+|---|---|---|---|---|
+| As built, r7i.large (2 vCPU) | first 6 min | 303,751 | 0 | 22 % |
+| Consumer and sweep fixes, r5.large (2 vCPU) | 60 s | 61,955 | 63 % | 27 % |
+| + collector fix, r5.large | 5 min | 309,958 | 69 % | 22 % |
+| + feed saves in a child, r5.large | 5 min | 309,219 | 60 % | 22 % |
+| + child niced, labels feed quiet, r5.large | 5 min | 309,249 | 63 % | 13 % |
+| The same image, m6i.xlarge (4 vCPU) | 10 min | 617,040 | **99.95 %** | **0** |
+
+On the 4 vCPU instance 97.9 percent were decided inside 10 ms and every one
+inside 250 ms.
+
+What each step found, in order, all in the commits that fixed them:
+
+1. **The consumer waited out its timeout on every batch.** librdkafka's
+   consume waits for the whole batch or the whole timeout; the service asked
+   for 500 with 0.1 s, and 500 never arrive in 0.1 s at this rate. Nothing
+   was decided under 50 ms. The load test polled with 0.01 s, which is why
+   the local Redpanda figures above never showed it: most of their 12 ms
+   median was the same wait, ten times shorter.
+2. **The engine's sweep for empty state walked every entity** every fifty
+   thousand events: 24.5 percent of the scorer's CPU (py-spy, 30 s), and a
+   pause for everything queued behind it. It now walks from the least
+   recently seen and stops at the first live one. `floor_to`, uncached, was
+   another 10.4 percent.
+3. **Python's full collection walked the feature state.** Measured on the
+   engine alone: 2.0 s pauses at half a million entities, 8.7 s at two
+   million. The service freezes what survives each batch.
+4. **The feed stopped the stream to save its place**, about 3.3 s every
+   30 s, while pickling 24 MB of planned attacks. It saves from a forked
+   child now, so the feed is on time (none of 60,000 records late by more
+   than 37 ms); but on two vCPUs the child's seconds came out of the
+   scorer's share, niced or not, and the scorer's lag rose to between 1,500
+   and 3,700 and back every 30 s.
+
+**The instance is the remaining cause.** An r7i.large or r5.large has two
+vCPUs, which are one physical core. Scorer (about 0.85 of a vCPU at this
+rate), broker (0.35), feed (0.2) and the feed's saves share it, and the load
+average sat near 3. On an m6i.xlarge the load average is near 1.2, and after
+a replacement the scorer drained a 130,000-transaction backlog in about two
+minutes; the r5.large, before the fixes, had not drained a smaller one
+half an hour later. ADR 20 chose the
+r7i.large for its 16 GB; the m-family xlarge has the same memory and twice
+the cores.
+
 ## The cost of staging history, 2026-09-19 (ADR 18)
 
 `docs/latency-history-cost.json`. The scorer with and without its history
