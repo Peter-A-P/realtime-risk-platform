@@ -1,6 +1,6 @@
-## Retraining candidate challenger-efd837c03dbf
+## Retraining candidate challenger-153f20cbcb0b
 
-Incumbent champion: `champion-8d960d985749`. Candidate: `challenger-efd837c03dbf`.
+Incumbent champion: `champion-8d960d985749`. Candidate: `challenger-153f20cbcb0b`.
 
 **This pull request does not promote anything.** Merging it accepts the candidate as the challenger to run in shadow. The champion pointer moves only on a second pull request carrying the promotion gate's verdict on a labelled shadow window (ADR 11), which does not exist yet and cannot until the candidate has scored live traffic beside the champion.
 
@@ -31,7 +31,7 @@ Fitted as of 2027-01-21T23:59:59.029905+00:00 on 1,959,184 rows (748,078 frauds;
 |---|---:|---:|---|
 | Test PR-AUC | 0.2654 | 0.2630 | -0.0024 (-0.0031 to -0.0015) |
 
-Candidate model hop, single row: 0.148 ms at p50, 0.224 ms at p99.
+Candidate model hop, single row: 0.164 ms at p50, 0.386 ms at p99.
 
 ### What is missing
 
@@ -40,3 +40,5 @@ Candidate model hop, single row: 0.148 ms at p50, 0.224 ms at p99.
 - A person who has read both.
 
 **The candidate has not seen the drift.** The latest transaction it was fitted on is from 2027-01-14, and the first drifted day is 2027-01-15, 1 days later. Drift is reported a day after it starts and a label takes a week to arrive, so the first candidate a request can produce is fitted entirely on the old regime. It is a rebuild, not an answer. The promotion gate makes that safe, since a candidate that has not seen the shift will not beat the incumbent; it is said here so a losing result is not a puzzle, and so the request fires again once the shifted days' labels arrive.
+
+The drift request stays **open**: this candidate does not beat the incumbent, so the shift it was opened for has not been answered. It is asked again when more labelled history has arrived, and closes only when a candidate wins or the drift has stopped for two consecutive days.

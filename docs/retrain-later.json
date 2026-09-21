@@ -32,12 +32,12 @@
       "seed": 20270405
     },
     "trees": 1444,
-    "seconds": 286.0
+    "seconds": 318.2
   },
   "comparison": {
     "track": "synthetic, offline replay",
     "champion": "champion-8d960d985749",
-    "challenger": "challenger-a8257eebd1cf",
+    "challenger": "challenger-6b09560385ee",
     "cutoff": "2027-01-24T23:59:58.994223+00:00",
     "test": {
       "rows": 605751,
@@ -68,8 +68,8 @@
       "resamples": 1000
     },
     "model_hop_ms": {
-      "p50": 0.123,
-      "p99": 0.20060700000000015,
+      "p50": 0.1346,
+      "p99": 0.2292060000000001,
       "calls": 5000.0
     }
   },
@@ -80,5 +80,7 @@
     "covers_the_drift": true,
     "days_short": 0
   },
+  "beats_incumbent": true,
+  "request": "answered",
   "promoted": false
 }

@@ -84,10 +84,15 @@ the label delay.
   doing their job in exactly that window, and it is worth watching on the live
   dashboard as its own panel rather than inferring.
 - **The request must be asked again.** A request whose first candidate lost
-  has not been answered. The trigger's rule that an open request suppresses
-  the next has to close a request only when a candidate beats the incumbent,
-  or when the drift has stopped; closing it on a losing candidate would leave
-  the stream drifted and the platform silent. Not yet built.
+  has not been answered, and the trigger's rule that an open request
+  suppresses the next would then keep the platform silent about a stream that
+  is still drifted. So a request closes only when it has been answered
+  (`drift/trigger.resolve`, added the same day): **answered** when a candidate
+  beats the incumbent by an interval that excludes zero, **drift ended** after
+  two consecutive calendar days on which every quantity it named was judged
+  and none drifted, the same bar it took to open, and **still open**
+  otherwise. The two reports above record it: the first candidate leaves the
+  request `still-open`, the later one `answered`.
 - The job never runs the promotion gate. The second pull request, with the
   gate's verdict on a labelled shadow window, is produced by the live stack,
   which is where a shadow window exists.

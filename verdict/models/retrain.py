@@ -35,7 +35,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
-from verdict.drift.trigger import RetrainRequest
+from verdict.drift.trigger import Resolution, RetrainRequest, resolve
 from verdict.models.champion import compare_models
 from verdict.models.train import export_onnx, fit_champion, split_by_time
 
@@ -73,6 +73,7 @@ def retrain(
     comparison = compare_models(
         track, table_path, champion_path, candidate_path, train_share=train_share
     )
+    beats = comparison["challenger_minus_champion"]["low"] > 0.0
     return {
         "opened_by": {
             "drift_on": request.opened_on.isoformat(),
@@ -93,6 +94,8 @@ def retrain(
         },
         "comparison": comparison,
         "drifted_days_in_training": _drift_coverage(request, split.cutoff, last_trained_on),
+        "beats_incumbent": beats,
+        "request": str(resolve(request, candidate_beat_incumbent=beats)),
         "promoted": False,
     }
 
@@ -221,6 +224,8 @@ def pull_request_body(report: dict[str, Any], request: RetrainRequest) -> str:
         "",
         _coverage_note(report["drifted_days_in_training"]),
         "",
+        _request_note(report["request"]),
+        "",
     ]
     return "\n".join(lines)
 
@@ -250,6 +255,29 @@ def _coverage_note(coverage: dict[str, Any]) -> str:
         f"that has not seen the shift will not beat the incumbent; it is said here so a "
         f"losing result is not a puzzle, and so the request fires again once the shifted "
         f"days' labels arrive."
+    )
+
+
+def _request_note(resolution: str) -> str:
+    """One line on whether the drift request this answers may close.
+
+    Args:
+        resolution: The request's resolution, as `retrain` recorded it.
+
+    Returns:
+        Markdown, plain punctuation.
+    """
+    if resolution == Resolution.ANSWERED:
+        return (
+            "The drift request is **answered**: this candidate beats the incumbent by an "
+            "interval that excludes zero. It still reaches the pointer only through shadow "
+            "and the gate."
+        )
+    return (
+        "The drift request stays **open**: this candidate does not beat the incumbent, so "
+        "the shift it was opened for has not been answered. It is asked again when more "
+        "labelled history has arrived, and closes only when a candidate wins or the drift "
+        "has stopped for two consecutive days."
     )
 
 

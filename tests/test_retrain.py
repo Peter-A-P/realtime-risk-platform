@@ -179,6 +179,9 @@ def test_the_pull_request_says_what_is_missing_and_does_not_ask_for_promotion(
     assert "merchant_txn_count_1h" in body
     assert "A labelled shadow window" in body
     assert "Test PR-AUC" in body
+    assert report["request"] in {"answered", "still-open"}
+    assert report["beats_incumbent"] is (report["request"] == "answered")
+    assert ("stays **open**" in body) is (report["request"] == "still-open")
     written = write_pull_request(body, tmp_path / "pr.md")
     assert written.read_text(encoding="utf-8") == body
 

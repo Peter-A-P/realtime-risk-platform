@@ -20,6 +20,14 @@ Three rules, each stated because the obvious alternative is wrong:
   count as recovery either.
 - **No new request while one is open.** A shift that persists for a week is
   one request, not five; the open request's candidate is already answering it.
+- **A request closes only when it has been answered.** That is, when a
+  candidate beats the incumbent, or when the drift has stopped for as long as
+  it took to start: two consecutive calendar days on which every quantity it
+  named was judged and none drifted. A candidate that lost does not close it.
+  The first candidate a request can build is fitted before the shifted days'
+  labels arrive (ADR 24), so it usually loses; closing the request on that
+  would leave the stream drifted and the previous rule would then keep the
+  platform silent about it for good.
 """
 
 from __future__ import annotations
@@ -27,10 +35,11 @@ from __future__ import annotations
 import datetime as dt
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from itertools import pairwise
 from typing import Final
 
-from verdict.drift.monitors import DailyReport, reports_in_order
+from verdict.drift.monitors import DailyReport, Status, reports_in_order
 
 CONSECUTIVE_DAYS: Final = 2
 
@@ -103,3 +112,50 @@ def evaluate_trigger(
         quantities=tuple(sorted(persistent)),
         evidence=tuple(run),
     )
+
+
+class Resolution(StrEnum):
+    """What became of a request."""
+
+    ANSWERED = "answered"
+    """A candidate beat the incumbent."""
+
+    DRIFT_ENDED = "drift-ended"
+    """Two consecutive days on which every quantity it named was judged stable."""
+
+    STILL_OPEN = "still-open"
+    """Neither. It is asked again when more labelled history has arrived."""
+
+
+def resolve(
+    request: RetrainRequest,
+    *,
+    candidate_beat_incumbent: bool,
+    since: Sequence[DailyReport] = (),
+) -> Resolution:
+    """Decide whether a request may close.
+
+    Args:
+        request: The open request.
+        candidate_beat_incumbent: Whether its latest candidate beat the
+            incumbent, by an interval that excludes zero.
+        since: Daily reports after the request opened.
+
+    Returns:
+        The resolution.
+    """
+    if candidate_beat_incumbent:
+        return Resolution.ANSWERED
+    later = [report for report in since if report.day > request.opened_on]
+    if len(later) < CONSECUTIVE_DAYS:
+        return Resolution.STILL_OPEN
+    run = reports_in_order(later)[-CONSECUTIVE_DAYS:]
+    for earlier, next_day in pairwise(run):
+        if next_day.day - earlier.day != dt.timedelta(days=1):
+            return Resolution.STILL_OPEN
+    for report in run:
+        for name in request.quantities:
+            # Too small to judge is not a clean day (the second rule above).
+            if report.result(name).status in (Status.DRIFTED, Status.INSUFFICIENT):
+                return Resolution.STILL_OPEN
+    return Resolution.DRIFT_ENDED

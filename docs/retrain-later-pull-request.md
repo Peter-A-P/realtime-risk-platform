@@ -1,6 +1,6 @@
-## Retraining candidate challenger-a8257eebd1cf
+## Retraining candidate challenger-6b09560385ee
 
-Incumbent champion: `champion-8d960d985749`. Candidate: `challenger-a8257eebd1cf`.
+Incumbent champion: `champion-8d960d985749`. Candidate: `challenger-6b09560385ee`.
 
 **This pull request does not promote anything.** Merging it accepts the candidate as the challenger to run in shadow. The champion pointer moves only on a second pull request carrying the promotion gate's verdict on a labelled shadow window (ADR 11), which does not exist yet and cannot until the candidate has scored live traffic beside the champion.
 
@@ -31,7 +31,7 @@ Fitted as of 2027-01-24T23:59:58.994223+00:00 on 2,563,087 rows (1,092,170 fraud
 |---|---:|---:|---|
 | Test PR-AUC | 0.2613 | 0.8238 | +0.5626 (+0.5584 to +0.5662) |
 
-Candidate model hop, single row: 0.123 ms at p50, 0.201 ms at p99.
+Candidate model hop, single row: 0.135 ms at p50, 0.229 ms at p99.
 
 ### What is missing
 
@@ -40,3 +40,5 @@ Candidate model hop, single row: 0.123 ms at p50, 0.201 ms at p99.
 - A person who has read both.
 
 The candidate was fitted on transactions up to 2027-01-17, which reaches the first drifted day (2027-01-15), so it has seen the shifted stream.
+
+The drift request is **answered**: this candidate beats the incumbent by an interval that excludes zero. It still reaches the pointer only through shadow and the gate.
