@@ -46,6 +46,7 @@ that it runs for months rather than for a test.
 from __future__ import annotations
 
 import datetime as dt
+from collections import OrderedDict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Final
@@ -60,12 +61,14 @@ from verdict.store.features import (
     validate_feature_set,
 )
 
-PRUNE_EVERY: Final = 50_000
+PRUNE_EVERY: Final = 1_000
 """How many events between sweeps for empty state.
 
-A sweep walks every live entity, so it cannot run per event. Fifty thousand
-is about a minute at the live rate, which keeps the memory sawtooth small
-without putting a walk of the whole state space anywhere near the hot path.
+A sweep looks only at the entities least recently seen, and stops at the
+first that still holds something, so it costs what it drops and little
+more. It used to walk every live entity every fifty thousand events: on the
+live stack's first dry run that walk was a quarter of the scorer's CPU, and
+each one held every decision behind it for seconds.
 """
 
 
@@ -146,6 +149,13 @@ class FeatureEngine:
             self._by_entity[spec.entity] += (spec,)
         # (entity kind, entity id) -> feature name -> aggregator
         self._state: dict[tuple[EntityKind, str], dict[str, Aggregator]] = {}
+        # Per kind, the entity ids in the order they were last observed,
+        # oldest first. Every observation pushes all of a kind's features at
+        # once, so within a kind the entities whose windows have all emptied
+        # are the oldest ones, and a sweep can stop at the first that has not.
+        self._recency: dict[EntityKind, OrderedDict[str, None]] = {
+            kind: OrderedDict() for kind in self._by_entity
+        }
         self._since_prune = 0
         self._observed_through: dt.datetime | None = None
         # Events at the newest timestamp, held back until time moves on. See
@@ -206,6 +216,11 @@ class FeatureEngine:
             if entity_id is None:
                 continue
             state = self._state.setdefault((kind, entity_id), {})
+            recency = self._recency[kind]
+            if entity_id in recency:
+                recency.move_to_end(entity_id)
+            else:
+                recency[entity_id] = None
             for spec in specs:
                 aggregator = state.get(spec.name)
                 if aggregator is None:
@@ -285,6 +300,12 @@ class FeatureEngine:
     def prune(self, as_of: dt.datetime) -> int:
         """Drop state for entities whose windows have all emptied.
 
+        Walks each kind's entities from the least recently observed and stops
+        at the first that still holds something. What it leaves behind that
+        is also empty is dropped by a later sweep, and meanwhile serves the
+        same `NO_EVENTS` an unknown entity does, so when state is dropped
+        never changes a feature.
+
         Args:
             as_of: The moment to evaluate emptiness at.
 
@@ -292,15 +313,19 @@ class FeatureEngine:
             How many entities were dropped.
         """
         self._since_prune = 0
-        dropped: list[tuple[EntityKind, str]] = []
-        for key, state in self._state.items():
-            for aggregator in state.values():
-                aggregator.value(as_of)
-            if all(aggregator.is_empty() for aggregator in state.values()):
-                dropped.append(key)
-        for key in dropped:
-            del self._state[key]
-        return len(dropped)
+        dropped = 0
+        for kind, recency in self._recency.items():
+            while recency:
+                entity_id = next(iter(recency))
+                state = self._state[(kind, entity_id)]
+                for aggregator in state.values():
+                    aggregator.value(as_of)
+                if not all(aggregator.is_empty() for aggregator in state.values()):
+                    break
+                del recency[entity_id]
+                del self._state[(kind, entity_id)]
+                dropped += 1
+        return dropped
 
     def lookup(self, spec: FeatureSpec, entity_id: str, as_of: dt.datetime) -> float:
         """Report one feature for one entity, as of now.

@@ -52,6 +52,7 @@ would need tens of gigabytes (ADR 15).
 from __future__ import annotations
 
 import datetime as dt
+import functools
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -211,8 +212,14 @@ class FeatureSpec:
 EPOCH: Final = dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
 
 
+@functools.lru_cache(maxsize=1024)
 def floor_to(moment: dt.datetime, resolution: dt.timedelta) -> dt.datetime:
     """Round a moment down to a multiple of a resolution since the Unix epoch.
+
+    Cached: the engine asks for the same few moments many times per event,
+    once per bucketed feature, and uncached this was a tenth of the scorer's
+    CPU on the live stack. The function is pure, so the cache cannot change
+    an answer.
 
     Args:
         moment: A timezone-aware time.

@@ -279,6 +279,52 @@ def test_pruning_does_not_drop_state_that_is_still_in_window() -> None:
     assert engine.tracked_entities > 0
 
 
+def test_a_sweep_keeps_an_entity_seen_again_and_drops_the_one_that_was_not() -> None:
+    """The sweep goes by when an entity was last seen, not when it was first."""
+    engine = FeatureEngine(FEATURE_SET)
+    engine.process(an_event("a", START, card="card-1", device="dev-1", merchant="mer-1"))
+    engine.process(
+        an_event(
+            "b", START + dt.timedelta(minutes=1), card="card-2", device="dev-2", merchant="mer-2"
+        )
+    )
+    later = START + dt.timedelta(days=2)
+    engine.process(an_event("c", later, card="card-1", device="dev-1", merchant="mer-1"))
+    engine.flush()
+    assert engine.prune(later + dt.timedelta(minutes=1)) == 3
+    rows = engine.serve(an_event("d", later + dt.timedelta(minutes=2), card="card-1"))
+    card = next(row for row in rows if row.kind.value == "card")
+    assert any(value != NO_EVENTS for value in card.values.values())
+
+
+def test_when_state_is_dropped_never_changes_a_feature(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Sweeping after every event and never sweeping serve the same values.
+
+    An emptied entity serves `NO_EVENTS` whether its state is held or gone,
+    which is what lets the sweep be incremental and run whenever it likes.
+    """
+    events = [
+        an_event(
+            f"e{i}",
+            START + dt.timedelta(hours=7 * i),
+            card=f"card-{i % 3}",
+            device=f"dev-{i % 5}",
+            merchant=f"mer-{i % 2}",
+            amount=100 * (i + 1),
+        )
+        for i in range(40)
+    ]
+    import verdict.features.engine as engine_module
+
+    monkeypatch.setattr(engine_module, "PRUNE_EVERY", 10**9)
+    kept = FeatureEngine(FEATURE_SET).run(events)
+    monkeypatch.setattr(engine_module, "PRUNE_EVERY", 1)
+    swept_engine = FeatureEngine(FEATURE_SET)
+    swept = swept_engine.run(events)
+    assert swept == kept
+    assert swept_engine.tracked_entities < 3 + 5 + 2
+
+
 def test_a_card_present_event_produces_no_session_row() -> None:
     """A card-present event produces no session row.
 
