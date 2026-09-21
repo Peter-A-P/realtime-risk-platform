@@ -1259,6 +1259,67 @@ def train_leak(
     )
 
 
+@app.command(name="retrain")
+def retrain_command(
+    track: _TRACK,
+    work: _WORK,
+    drift: Annotated[Path, typer.Option(help="The drift report whose request asks for this.")],
+    report: Annotated[Path, typer.Option(help="Where the JSON report goes.")] = Path(
+        "docs/retrain.json"
+    ),
+    pull_request: Annotated[Path, typer.Option(help="Where the pull request body goes.")] = Path(
+        "docs/retrain-pull-request.md"
+    ),
+    train_share: Annotated[
+        float, typer.Option(help="Where in the history the split falls; later is a later retrain.")
+    ] = 0.7,
+) -> None:
+    """Fit the candidate a drift request asks for, and write its pull request.
+
+    This is the end of the automated path. It does not move the champion
+    pointer and does not promote anything: the pull request it writes is for
+    a person to read, and a second one carrying the promotion gate's verdict
+    on a labelled shadow window is what moves the pointer (ADR 11).
+
+    Args:
+        track: real or synthetic.
+        work: The working directory holding the table and the champion.
+        drift: The drift report whose first request asks for the retrain.
+        report: Where the JSON report goes.
+        pull_request: Where the pull request body goes.
+        train_share: Where in the history the split falls.
+    """
+    from verdict.models.retrain import (
+        pull_request_body,
+        request_from_report,
+        retrain,
+        write_pull_request,
+    )
+    from verdict.review_queue.evaluate import write_report
+
+    folder = _work(work, track)
+    request = request_from_report(json.loads(drift.read_text(encoding="utf-8")))
+    result = retrain(
+        request,
+        track=track,
+        table_path=folder / "fixed.parquet",
+        champion_path=folder / "champion.onnx",
+        candidate_path=folder / "candidate.onnx",
+        train_share=train_share,
+    )
+    write_report(result, report)
+    write_pull_request(pull_request_body(result, request), pull_request)
+    difference = result["comparison"]["challenger_minus_champion"]
+    coverage = result["drifted_days_in_training"]
+    typer.echo(
+        f"candidate {result['comparison']['challenger']}: "
+        f"{difference['value']:+.4f} ({difference['low']:+.4f} to {difference['high']:+.4f}) "
+        f"against the champion; "
+        + ("trained past the drift" if coverage["covers_the_drift"] else "has not seen the drift")
+        + f"; pull request written to {pull_request}, nothing promoted"
+    )
+
+
 @app.command(name="drift-report")
 def drift_report(
     days: Annotated[float, typer.Option(help="Days of synthetic stream to replay.")] = 50.0,

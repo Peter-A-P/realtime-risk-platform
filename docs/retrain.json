@@ -1,0 +1,83 @@
+{
+  "opened_by": {
+    "drift_on": "2027-01-16",
+    "quantities": [
+      "device_distinct_cards_1h",
+      "device_distinct_cards_24h",
+      "merchant_amount_mean_1h",
+      "merchant_distinct_cards_1h",
+      "merchant_txn_count_1h"
+    ],
+    "days_of_evidence": 2
+  },
+  "cutoff": "2027-01-21T23:59:59.029905+00:00",
+  "train": {
+    "rows": 1959184,
+    "frauds": 748078,
+    "excluded_unarrived_labels": 0
+  },
+  "fit": {
+    "params": {
+      "objective": "binary:logistic",
+      "eval_metric": "aucpr",
+      "tree_method": "hist",
+      "max_depth": 6,
+      "eta": 0.05,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "min_child_weight": 1.0,
+      "lambda": 1.0,
+      "nthread": 6,
+      "seed": 20270405
+    },
+    "trees": 1810,
+    "seconds": 259.4
+  },
+  "comparison": {
+    "track": "synthetic, offline replay",
+    "champion": "champion-8d960d985749",
+    "challenger": "challenger-efd837c03dbf",
+    "cutoff": "2027-01-21T23:59:59.029905+00:00",
+    "test": {
+      "rows": 1209654,
+      "frauds": 690710
+    },
+    "champion_pr_auc": {
+      "value": 0.2653876945893232,
+      "low": 0.263268951381662,
+      "high": 0.2675012248311901,
+      "rows": 1209654,
+      "frauds": 690710,
+      "resamples": 1000
+    },
+    "challenger_pr_auc": {
+      "value": 0.26301636540484136,
+      "low": 0.26092573711812556,
+      "high": 0.26505429447286577,
+      "rows": 1209654,
+      "frauds": 690710,
+      "resamples": 1000
+    },
+    "challenger_minus_champion": {
+      "value": -0.002371329184481852,
+      "low": -0.0031240886231563,
+      "high": -0.0015483158036452157,
+      "rows": 1209654,
+      "frauds": 690710,
+      "resamples": 1000
+    },
+    "model_hop_ms": {
+      "p50": 0.148,
+      "p99": 0.22360100000000002,
+      "calls": 5000.0
+    }
+  },
+  "drifted_days_in_training": {
+    "first_drifted_day": "2027-01-15",
+    "training_cutoff": "2027-01-21T23:59:59.029905+00:00",
+    "last_day_trained_on": "2027-01-14",
+    "covers_the_drift": false,
+    "days_short": 1
+  },
+  "promoted": false
+}

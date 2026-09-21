@@ -151,6 +151,24 @@ so a fraud-rate alarm would see nothing. The thresholds are credit-scoring conve
 fixed before any drift was seen here and were not revisited after these results. Nothing
 promotes itself: the request carries its evidence to a human.
 
+**And what retraining does about it.** The request starts a retraining job that fits a
+candidate, compares it to the champion on rows neither saw, writes a pull request, and
+stops without moving anything
+([ADR 24](docs/adr/0024-the-retraining-job-stops-at-a-pull-request.md)). Run on the first
+regime change, test PR-AUC with 95% intervals:
+
+| | Champion | Candidate | Candidate minus champion |
+|---|---|---|---|
+| Candidate built when the alarm fired, trained up to the day before the drift | 0.2654 | 0.2630 | -0.0024 (-0.0031 to -0.0015) |
+| Candidate built once three drifted days' labels had arrived | 0.2613 | 0.8238 | +0.5626 (+0.5584 to +0.5662) |
+
+The drift did real damage: the champion scores 0.84 on the stream it was trained for and
+0.27 once the card-testing wave arrives. A candidate built when the alarm fires cannot help,
+because a label takes a week to arrive and nothing it could train on has seen the change,
+and the promotion gate refuses it. Once the shifted days' labels are in, retraining
+recovers to 0.82, about nine days after the drift began. That week in between is carried by
+the rules and the review queue, not the model.
+
 **What has been measured: latency, and where the time goes**
 
 Not the latency figure, which is the live stack's and comes later. The first local runs

@@ -193,7 +193,12 @@ def train_track(track: str, table_path: Path, model_path: Path) -> dict[str, Any
 
 
 def compare_models(
-    track: str, table_path: Path, champion_path: Path, challenger_path: Path
+    track: str,
+    table_path: Path,
+    champion_path: Path,
+    challenger_path: Path,
+    *,
+    train_share: float = 0.7,
 ) -> dict[str, Any]:
     """Score two exported models on the same test rows and compare them, paired.
 
@@ -205,13 +210,20 @@ def compare_models(
         table_path: The replayed table both were trained on.
         champion_path: The champion's ONNX file.
         challenger_path: The challenger's ONNX file.
+        train_share: Where the split falls. It must be the share the newer of
+            the two was fitted with, or the test rows would include rows it
+            was trained on.
 
     Returns:
         Both PR-AUCs with intervals, and the paired difference.
     """
     from verdict.scoring.onnx_model import OnnxModel, model_version
 
-    split = split_by_time(pq.read_table(table_path), wait_for_labels=track == "synthetic")
+    split = split_by_time(
+        pq.read_table(table_path),
+        train_share=train_share,
+        wait_for_labels=track == "synthetic",
+    )
     labels, weights = split.test.labels, split.test.weights
     champion = OnnxModel(champion_path).score_matrix(split.test.inputs)
     challenger = OnnxModel(challenger_path, prefix="challenger").score_matrix(split.test.inputs)

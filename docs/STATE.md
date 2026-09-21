@@ -205,7 +205,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Twenty-two ADRs, in `docs/adr/`: 1 to 15 and 17 to 23. Read them before reopening anything they cover.
+Twenty-three ADRs, in `docs/adr/`: 1 to 15 and 17 to 24. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -230,6 +230,7 @@ Twenty-two ADRs, in `docs/adr/`: 1 to 15 and 17 to 23. Read them before reopenin
 | 21 | The synthetic fraud is much harder: attacks take their cards' own sessions, card testing is slow and spread, takeovers spend like the owner and often from a known device, collusion is gentle and uses front merchants; legitimate traffic gains big tickets, new devices, shared terminals and busy merchants | Champion on the synthetic track falls from 0.9996 to 0.8427 (0.8393 to 0.8464), no single feature above 0.05. Done before sealing, as it had to be |
 | 22 | The review queue is measured on the queue the platform would hold: the stream through the scorer's own engine, the shipped champion and rules, arrivals unsampled, and nothing counted from the champion's training window | Expected loss beats score ranking by $97.46 an hour (48.03 to 150.44) over thirteen unseen days. The first run, inside the training window, said 221.69: more than double |
 | 23 | The drift monitors are run over a replayed stream against the schedule's own regime days, which they are never told: reference fixed to the champion's training window, each day judged on a hash-drawn 3 percent, the trigger asked once a day | Seven baseline days flagged nothing; all three regime changes caught on their first full day; the first retraining request opens one day after the first change, the floor the rule sets |
+| 24 | The retraining job fits a candidate, compares it to the incumbent on rows neither saw, writes a pull request, and stops: it never moves the pointer or runs the gate. It reports whether the candidate has seen the drift, judged by the transactions and not the cutoff | Under the card-testing wave the champion falls from 0.84 to 0.27. The candidate built when the alarm fires loses (-0.0024); one built once three drifted days' labels arrive recovers to 0.82 (+0.5626), about nine days after the drift. **Open:** a request must stay open until a candidate wins, or the stream is left drifted and silent |
 | 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Accepted by Peter on 2026-09-19**, all three choices as written: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code
