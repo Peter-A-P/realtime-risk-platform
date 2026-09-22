@@ -413,24 +413,50 @@ data volume, which survives the instance. Each crash regrew the backlog, so
 each attempt needed more memory than the one before: instances survived
 5h09m, then 3h01m, then 52 minutes, before the fourth was killed mid-backlog.
 
-Fixed the same morning (`644df95f`): `seal_closed` takes a limit (`history
-compact --seal-limit`, default 4), and the compactor now runs every five
-minutes instead of every hour, so a real backlog clears over several short
-runs, each exiting and giving its memory back before the next, rather than
+**First fix, `644df95f`:** `seal_closed` takes a limit (`history compact
+--seal-limit`, default 4), and the compactor now runs every five minutes
+instead of every hour, so a real backlog clears over several short runs,
+each exiting and giving its memory back before the next, rather than
 sitting in one unbounded call. Tested (`tests/test_history.py`): a limit
 caps one call, and repeated calls converge on clearing a backlog exactly
 once each. Hotfixed onto the running instance directly (new image, and
 `/opt/verdict/compose.yml` overwritten with the fixed file, since the
 compose file is baked into the boot script and a running instance does not
-re-read it) so the fix did not wait for another replacement; also applied
-to the launch template via `terraform apply`, so a future replacement
-boots with it already in place. Watched clearing the backlog left from the
-crashes: peak system memory came within about 260 MB of the 15.7 GB limit
-while sealing the last backlogged hour, against a near-empty scorer (just
-restarted); worth another look once the scorer is back near its own steady
-state, since the two costs add. **The 72-hour dry-run clock is reset**: it
-now runs from this fix, 2026-09-22T08:46Z to 2026-09-25T08:46Z, since a
-clock that included the crash loop would not be a clean measurement.
+re-read it), and applied to the launch template via `terraform apply`.
+
+**It was not enough.** Watching the backlog clear, peak system memory came
+within about 260 MB of the 15.7 GB limit while sealing the last backlogged
+hour, against a near-empty scorer (just restarted). The instance was then
+replaced a fourth time, an EC2 health check failure at 09:11, minutes after
+the next hour became sealable, with **no backlog at all**: one ordinary
+hour's sealing, alone, nearly filled the instance and then crossed it.
+
+**Root cause and second fix, `c93c8b5c`:** `seal` read a whole hour into
+one Arrow table (`read_hours`) before writing it back out to Parquet. An
+hour is about 3.6 million rows at the live rate; holding that, on top of
+whatever the scorer and everything else already held, was the real cost,
+and the limit only ever bounded how many hours, never the size of one.
+`spool.seal` now streams: `_iter_hour` yields the hour's rows a batch at a
+time, and `seal` buffers `SEAL_CHUNK_ROWS` (100,000) before writing one
+Parquet row group and moving on, so no more of the hour is ever held at
+once than one chunk. Tested: a shrunk chunk size against a hand-built hour
+crossing many chunk boundaries carries every row, none lost or doubled.
+Hotfixed onto the running instance the same way, and applied to the
+launch template. Watched for the next two hourly boundaries afterward with
+no crash and memory tracking the scorer's own climb rather than spiking
+(section 11 has readings once they are in). **The 72-hour dry-run clock is
+reset again**: it now runs from this second fix, 2026-09-22T09:39Z to
+2026-09-25T09:39Z, since a clock that included either crash loop would not
+be a clean measurement.
+
+**Before the schedule is sealed:** `_finalise_hour` and `_labels_for`
+(`verdict/history/compact.py`) still read a whole hour with `read_hours`,
+the same shape of cost this fix removed from `seal`. They are not reached
+yet on any track (day finalising needs labels up to seven days old, plus
+grace), so they did not cause tonight's crashes, but the sixtieth day of
+the live window will reach them, and that must not be the first time they
+are tested at scale. Needs the same streaming treatment, or a measurement
+that shows it is not needed, before go-live.
 
 ---
 
