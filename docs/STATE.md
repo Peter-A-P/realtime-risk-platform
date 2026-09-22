@@ -442,10 +442,15 @@ Parquet row group and moving on, so no more of the hour is ever held at
 once than one chunk. Tested: a shrunk chunk size against a hand-built hour
 crossing many chunk boundaries carries every row, none lost or doubled.
 Hotfixed onto the running instance the same way, and applied to the
-launch template. Watched for the next two hourly boundaries afterward with
-no crash and memory tracking the scorer's own climb rather than spiking
-(section 11 has readings once they are in). **The 72-hour dry-run clock is
-reset again**: it now runs from this second fix, 2026-09-22T09:39Z to
+launch template. **Watched an hour seal cleanly afterward**: at 10:15:10
+UTC the compactor's own memory rose to 433 MB sealing the closed hour,
+then fell back under 3 MB a moment later once "sealed staged/2026-09-22T09"
+was logged, system memory never dropping below about 4.8 GB free
+throughout, while the scorer climbed its own ordinary curve (3.2 to 3.4 GB
+across the same window) undisturbed. Against the 9.3 GB that killed the
+process before, and the single hour that nearly filled the instance right
+after the first fix, this is the fix holding under real load, not just
+under a synthetic test. **The 72-hour dry-run clock is reset again**: it now runs from this second fix, 2026-09-22T09:39Z to
 2026-09-25T09:39Z, since a clock that included either crash loop would not
 be a clean measurement.
 
