@@ -401,6 +401,37 @@ Operating notes: roll a new image without replacing the instance by editing
 compose ... up -d` (the scorer restarts cold, ADR 8). `py-spy` is installed
 on the current instance for profiling.
 
+**The stack went down three times overnight, 2026-09-21 into 09-22, each
+time replaced by the auto-scaling group.** Found from `dmesg` on the fourth
+instance: `oom-kill`, killing a `verdict history compact` process at 9.3 GB
+anon-rss, having sealed twelve hours in that one run. `seal_closed`
+(`verdict/history/compact.py`) reads and rewrites every unsealed hour in one
+process, whole in memory, with no bound on how many. A live writer stages
+about 3.6 million decisions an hour; a crash leaves the next attempt with the
+last one's backlog on top of its own, since the staged decisions live on the
+data volume, which survives the instance. Each crash regrew the backlog, so
+each attempt needed more memory than the one before: instances survived
+5h09m, then 3h01m, then 52 minutes, before the fourth was killed mid-backlog.
+
+Fixed the same morning (`644df95f`): `seal_closed` takes a limit (`history
+compact --seal-limit`, default 4), and the compactor now runs every five
+minutes instead of every hour, so a real backlog clears over several short
+runs, each exiting and giving its memory back before the next, rather than
+sitting in one unbounded call. Tested (`tests/test_history.py`): a limit
+caps one call, and repeated calls converge on clearing a backlog exactly
+once each. Hotfixed onto the running instance directly (new image, and
+`/opt/verdict/compose.yml` overwritten with the fixed file, since the
+compose file is baked into the boot script and a running instance does not
+re-read it) so the fix did not wait for another replacement; also applied
+to the launch template via `terraform apply`, so a future replacement
+boots with it already in place. Watched clearing the backlog left from the
+crashes: peak system memory came within about 260 MB of the 15.7 GB limit
+while sealing the last backlogged hour, against a near-empty scorer (just
+restarted); worth another look once the scorer is back near its own steady
+state, since the two costs add. **The 72-hour dry-run clock is reset**: it
+now runs from this fix, 2026-09-22T08:46Z to 2026-09-25T08:46Z, since a
+clock that included the crash loop would not be a clean measurement.
+
 ---
 
 ## 7. The real-data track, as measured
