@@ -347,6 +347,38 @@ def test_sealing_leaves_the_last_hour_alone_until_it_has_settled(tmp_path: Path)
     assert "staged/2027-04-05T02" not in sealed
 
 
+def test_a_limit_works_a_backlog_off_a_few_hours_at_a_time(tmp_path: Path) -> None:
+    """A crashed compactor leaves a backlog; the next run must not hold it all at once.
+
+    On the dry run's first night a run with no limit read and rewrote every
+    unsealed hour in one process, and a run twelve hours into a backlog was
+    killed by the kernel at 9.3 GB. A limit bounds one run to a few hours
+    whatever the backlog, worked off over several calls instead.
+    """
+    paths = HistoryPaths(tmp_path)
+    _a_day(paths, 240)
+    well_settled = DAY_START + dt.timedelta(days=9)
+    everything = seal_closed(paths, well_settled)
+    assert len(everything) > 10  # both staged (day 0) and labels (day 7) hours
+    _a_day(paths, 240, seed=11)  # a fresh, unsealed backlog to work off with a limit
+
+    first = seal_closed(paths, well_settled, limit=5)
+    assert len(first) == 5
+
+    rest: list[str] = []
+    while batch := seal_closed(paths, well_settled, limit=5):
+        assert len(batch) <= 5
+        rest.extend(batch)
+    assert len(first) + len(rest) == len(everything)
+    assert seal_closed(paths, well_settled, limit=5) == []  # nothing left to work off
+
+
+def test_a_limit_of_zero_seals_nothing(tmp_path: Path) -> None:
+    paths = HistoryPaths(tmp_path)
+    _a_day(paths, 100)
+    assert seal_closed(paths, DAY_START + dt.timedelta(days=1), limit=0) == []
+
+
 # --- the scorer and the collector -----------------------------------------
 
 

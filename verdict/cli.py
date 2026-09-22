@@ -842,13 +842,23 @@ def history_labels(
 @history_app.command("compact")
 def history_compact(
     root: Annotated[Path, typer.Option(help="The history root.")],
+    seal_limit: Annotated[
+        int,
+        typer.Option(
+            help="Seal at most this many hours per run, so a backlog is worked off a "
+            "few hours at a time rather than in one process (docs/STATE.md, the "
+            "dry run's first night)."
+        ),
+    ] = 4,
 ) -> None:
     """Seal finished hours and finalise every day whose labels are all in.
 
-    Run hourly. Prints each day's manifest as it is finalised.
+    Run often; sealing is cheap once there is no backlog. Prints each day's
+    manifest as it is finalised.
 
     Args:
         root: The history root.
+        seal_limit: The most hours to seal in this run.
     """
     from dataclasses import asdict
 
@@ -856,7 +866,7 @@ def history_compact(
 
     paths = HistoryPaths(root)
     now = dt.datetime.now(dt.UTC)
-    for name in seal_closed(paths, now):
+    for name in seal_closed(paths, now, limit=seal_limit):
         typer.echo(f"sealed {name}")
     for day in finalisable(paths, now):
         manifest = finalise_day(paths, day, as_of=now)

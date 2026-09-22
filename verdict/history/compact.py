@@ -179,12 +179,26 @@ def final_after(
     return end + delay + grace
 
 
-def seal_closed(paths: HistoryPaths, now: dt.datetime) -> list[str]:
-    """Seal every hour, staged or labels, that ended long enough ago.
+def seal_closed(paths: HistoryPaths, now: dt.datetime, *, limit: int | None = None) -> list[str]:
+    """Seal hours, staged or labels, that ended long enough ago.
 
     Args:
         paths: The history directories.
         now: The current time.
+        limit: Seal at most this many hours (staged hours before labels
+            hours, oldest first within each) and stop. One
+            process reading and re-writing an hour holds it whole in memory
+            (`spool.seal`), and a backlog is every hour a crashed run left
+            unsealed. Without a limit, one call works the whole backlog: on
+            the dry run's first night an instance replaced three times in
+            under twelve hours, each crash regrowing the backlog its
+            successor then had to clear in one process, and the fourth
+            attempt was killed by the kernel's out-of-memory handler at
+            9.3 GB, having sealed twelve hours already (`docs/STATE.md`).
+            A limit bounds one process to a few hours whatever the backlog,
+            and the loop that calls this again shortly clears the rest a
+            few hours at a time, each in a process that exits and gives its
+            memory back before the next.
 
     Returns:
         The hours sealed, prefixed with their spool's name.
@@ -195,6 +209,8 @@ def seal_closed(paths: HistoryPaths, now: dt.datetime) -> list[str]:
         ("labels", paths.labels, LABEL_SCHEMA),
     ):
         for key in spool.hours(directory):
+            if limit is not None and len(sealed) >= limit:
+                return sealed
             if spool.hour_start(key) + dt.timedelta(hours=1) + SETTLE > now:
                 continue
             if spool.seal(directory, key, schema):

@@ -178,14 +178,20 @@ services:
       - /etc/verdict/schedule:/run/schedule:ro
     restart: unless-stopped
 
-  # Seal finished hours and finalise days whose labels are in, hourly. A
-  # compaction that fails is retried an hour later; its manifest says what
-  # each finished day held.
+  # Seal finished hours and finalise days whose labels are in, every five
+  # minutes. Each run seals at most a few hours (--seal-limit, default 4):
+  # one process holds a sealed hour whole in memory, so an unbounded run
+  # working off a backlog holds them all at once. On the dry run's first
+  # night, a crashed compactor kept leaving its backlog for the next
+  # instance, which needed more memory to clear it than the one before,
+  # until one run was killed by the kernel at 9.3 GB having sealed twelve
+  # hours already (docs/STATE.md). Five minutes, not an hour, so a real
+  # backlog clears in a few short runs rather than sitting for hours.
   compactor:
     image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
     container_name: verdict-compactor
     entrypoint: [/bin/sh, -c]
-    command: ["while true; do verdict history compact --root=/data/history; sleep 3600; done"]
+    command: ["while true; do verdict history compact --root=/data/history; sleep 300; done"]
     volumes:
       - /data/history:/data/history
     restart: unless-stopped
