@@ -389,6 +389,13 @@ intact), and the window stays sixty days rather than the 45 the PLAN's
 fallback named. **The 72-hour clock runs from 2026-09-21T22:22Z** (the
 m6i.xlarge's boot, image `3c0ced19c956`) **to 2026-09-24T22:22Z.**
 
+**Both of Peter's go-live steps are done and checked (2026-09-22).** The
+tunnel's public hostname serves the dashboard at https://risk.peterparker.ca:
+anonymous, login form disabled, admin API refused (403). The `project` cost
+allocation tag is **Active** (`ce list-cost-allocation-tags`, activated
+2026-09-22T00:03Z), so `verdict-monthly` now counts the stack's spend. Peter
+confirmed the budget as set.
+
 Operating notes: roll a new image without replacing the instance by editing
 `VERDICT_IMAGE` in `/etc/verdict/stack.env` over SSM and running `docker
 compose ... up -d` (the scorer restarts cold, ADR 8). `py-spy` is installed
