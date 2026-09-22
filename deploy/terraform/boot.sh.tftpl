@@ -69,6 +69,36 @@ chown 101:101 /data/redpanda
 chown 10001:10001 /data/history /data/feeds /data/flags /data/grafana
 chown 65534:65534 /data/prometheus
 
+# Spot notices, kept on the data volume so they outlive the instance they
+# name. The live report leaves a reclaim's recovery out of the latency
+# figure only with AWS's own notice as the evidence (ADR 25), so every boot
+# is recorded, and a watcher waits for the notice and writes it down.
+mkdir -p /data/interruptions
+INSTANCE_TYPE=$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" \
+  http://169.254.169.254/latest/meta-data/instance-type)
+printf '{"instance_id":"%s","instance_type":"%s","booted_at":"%s"}\n' \
+  "$INSTANCE_ID" "$INSTANCE_TYPE" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> /data/interruptions/boots.jsonl
+cat > /usr/local/bin/verdict-spot-watch <<'WATCH'
+#!/bin/bash
+# Waits for this instance's spot interruption notice and records it.
+id=$1
+while true; do
+  token=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token \
+    -H "X-aws-ec2-metadata-token-ttl-seconds: 60") || { sleep 5; continue; }
+  if notice=$(curl -fsS -H "X-aws-ec2-metadata-token: $token" \
+      http://169.254.169.254/latest/meta-data/spot/instance-action); then
+    printf '{"instance_id":"%s","noticed_at":"%s","notice":%s}\n' \
+      "$id" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$notice" > "/data/interruptions/$id.json.tmp"
+    mv "/data/interruptions/$id.json.tmp" "/data/interruptions/$id.json"
+    sync
+    exit 0
+  fi
+  sleep 5
+done
+WATCH
+chmod 755 /usr/local/bin/verdict-spot-watch
+systemd-run --unit=verdict-spot-watch /usr/local/bin/verdict-spot-watch "$INSTANCE_ID"
+
 # The tunnel token, from SSM, into a root-only file on the disposable root
 # volume. It is never written to the data volume, the log, or the repository.
 mkdir -p /etc/verdict

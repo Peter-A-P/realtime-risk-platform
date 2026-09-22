@@ -179,14 +179,10 @@ services:
     restart: unless-stopped
 
   # Seal finished hours and finalise days whose labels are in, every five
-  # minutes. Each run seals at most a few hours (--seal-limit, default 4):
-  # one process holds a sealed hour whole in memory, so an unbounded run
-  # working off a backlog holds them all at once. On the dry run's first
-  # night, a crashed compactor kept leaving its backlog for the next
-  # instance, which needed more memory to clear it than the one before,
-  # until one run was killed by the kernel at 9.3 GB having sealed twelve
-  # hours already (docs/STATE.md). Five minutes, not an hour, so a real
-  # backlog clears in a few short runs rather than sitting for hours.
+  # minutes, at most a few hours a run (--seal-limit, default 4), each hour
+  # streamed a chunk at a time. On 2026-09-22 a run working off the backlog
+  # that spot reclaims had left sealed twelve hours in one process, holding
+  # each whole, and was killed by the kernel at 9.3 GB (docs/STATE.md).
   compactor:
     image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
     container_name: verdict-compactor
@@ -197,14 +193,15 @@ services:
     restart: unless-stopped
 
   # Scrapes the scorer. Its data is on the volume so a replacement keeps the
-  # window's history of latency; fifteen days is what the dashboard shows.
+  # window's history of latency. Kept 75 days: the live report (ADR 25) is
+  # computed from it after the sixty-day window ends.
   prometheus:
     image: prom/prometheus:v3.14.0
     container_name: verdict-prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.time=75d
       # The dashboard is public, and a viewer's panel is a query. Bounded, so
       # nobody can make this instance spend its CPU on someone else's query.
       - --query.timeout=10s

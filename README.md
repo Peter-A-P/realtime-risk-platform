@@ -242,9 +242,13 @@ comparison against the same client inside the broker's network did in one run.
 
 **Live window**
 
-| Sustained events/s | Uptime % | Interruptions recovered | Drift triggers / retrains approved | Champion vs challenger PR-AUC (95% CI) | Cost per million events |
-|---|---|---|---|---|---|
-| _not yet_ | | | | | |
+| Decision latency while serving p50 / p95 / p99 ms (95% CI) | Same, every minute | Sustained events/s | Uptime % | Spot reclaims (median recovery) / other stops | Drift triggers / retrains approved | Champion vs challenger PR-AUC (95% CI) | Cost per million events |
+|---|---|---|---|---|---|---|---|
+| _not yet_ | | | | | | | |
+
+Latency while serving leaves out only the recovery after a spot reclaim AWS announced,
+on AWS's own notice as the evidence; every other minute counts, and every minute counts
+in uptime ([ADR 25](docs/adr/0025-latency-while-serving-and-availability-are-two-numbers.md)).
 
 ## What this does not do
 

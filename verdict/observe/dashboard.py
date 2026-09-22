@@ -73,6 +73,14 @@ def _panel(
     }
 
 
+CAUGHT_UP = (
+    '(max(max_over_time(verdict_feed_lag_seconds{feed="transactions"}[5m])) < 1) '
+    "and on() (sum(rate(verdict_decisions_total[5m])) <= 1.1 * "
+    'sum(rate(verdict_feed_records_total{feed="transactions"}[5m])))'
+)
+"""The platform is current: the rule ADR 25's report ends a recovery on."""
+
+
 def _quantile(q: float, metric: str, by: str = "") -> str:
     group = f"le, {by}" if by else "le"
     return f"histogram_quantile({q}, sum by ({group}) (rate({metric}_bucket[5m])))"
@@ -135,7 +143,22 @@ def dashboard() -> dict[str, Any]:
             unit="s",
             description=(
                 "From a transaction's event time, when the feed sends it, to its "
-                "decision. Five-minute windows."
+                "decision. Five-minute windows. Every minute, including a spot "
+                "replacement's catch-up."
+            ),
+        ),
+        _panel(
+            "Event to decision while caught up, 99th percentile",
+            "timeseries",
+            [(f"{_quantile(0.99, age)} and on() {CAUGHT_UP}", "p99")],
+            (0, 39, 24, 6),
+            unit="s",
+            description=(
+                "Only the five-minute windows in which the platform was current: the "
+                "feed on time and the scorer deciding no more than 1.1 times what the "
+                "feed sends, so not working off a backlog (ADR 25). Gaps are catch-ups. "
+                "The live report leaves out only catch-ups after a spot reclaim AWS "
+                "announced; this panel leaves out every catch-up, and says so."
             ),
         ),
         _panel(

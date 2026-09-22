@@ -1537,6 +1537,53 @@ def observe_grafana(
         typer.echo(f"wrote {path}")
 
 
+@observe_app.command("report")
+def observe_report(
+    start: Annotated[str, typer.Option(help="First minute, ISO 8601 with a zone.")],
+    end: Annotated[str, typer.Option(help="The minute after the last, ISO 8601 with a zone.")],
+    prometheus: Annotated[str, typer.Option(help="Prometheus base URL.")] = (
+        "http://prometheus:9090"
+    ),
+    interruptions: Annotated[
+        Path, typer.Option(help="The spot notices the instances recorded.")
+    ] = Path("/data/interruptions"),
+    out: Annotated[Path | None, typer.Option(help="Write the report here as JSON.")] = None,
+) -> None:
+    """Latency while serving, and availability, over a stretch of the live stack.
+
+    The two numbers of ADR 25: decision latency with each spot reclaim's
+    recovery left out, on AWS's own notice as the evidence, and availability
+    with every minute counted and each reclaim and each other stop listed.
+
+    Args:
+        start: The first minute.
+        end: The minute after the last.
+        prometheus: Where the live stack's metrics are.
+        interruptions: The notices directory on the data volume.
+        out: Where to write the full report.
+    """
+    from verdict.observe.availability import fetch_minutes, read_notices, report
+
+    first = dt.datetime.fromisoformat(start).astimezone(dt.UTC)
+    last = dt.datetime.fromisoformat(end).astimezone(dt.UTC)
+    result = report(fetch_minutes(prometheus, first, last), read_notices(interruptions))
+    if out is not None:
+        out.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    serving = result["latency_while_serving"]
+    every = result["latency_every_minute"]
+    availability = result["availability"]
+    typer.echo(
+        f"while serving, {serving['minutes']:,} minutes: p50 {serving['p50_ms']:.1f} ms, "
+        f"p95 {serving['p95_ms']:.1f} ms, p99 {serving['p99_ms']:.1f} ms"
+    )
+    typer.echo(
+        f"every minute: p99 {every['p99_ms']:.1f} ms; uptime "
+        f"{availability['uptime_percent']:.3f} percent; "
+        f"{len(availability['spot_reclaims'])} spot reclaims, "
+        f"{len(availability['other_stops'])} other stops"
+    )
+
+
 flag_app = typer.Typer(
     name="flag", help="The champion pointer the scorer reads per event.", no_args_is_help=True
 )

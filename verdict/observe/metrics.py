@@ -72,12 +72,15 @@ AGE_BUCKETS: Final[tuple[float, ...]] = (
     1.0,
     5.0,
     30.0,
+    60.0,
+    120.0,
     300.0,
     3600.0,
 )
 """Seconds from event time to decision: the budget's 50 ms in the middle, and
 room above for a feed catching up after an interruption, which is reported,
-not dropped."""
+not dropped. 60 and 120 s since 2026-09-22: without them a catch-up of a
+few minutes read as five on the dashboard."""
 
 BATCH_BUCKETS: Final[tuple[float, ...]] = (1, 2, 5, 10, 20, 50, 100, 200, 500)
 """Records per batch, up to the scorer's own maximum of 500."""
