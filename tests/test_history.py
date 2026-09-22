@@ -20,6 +20,7 @@ import datetime as dt
 import json
 from collections.abc import Iterable
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pyarrow as pa
@@ -377,6 +378,35 @@ def test_a_limit_of_zero_seals_nothing(tmp_path: Path) -> None:
     paths = HistoryPaths(tmp_path)
     _a_day(paths, 100)
     assert seal_closed(paths, DAY_START + dt.timedelta(days=1), limit=0) == []
+
+
+def test_sealing_streams_a_chunk_at_a_time_and_still_carries_every_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`seal` used to read a whole hour into one table before writing it back out.
+
+    On the dry run's first clean hour after the backlog that crashed three
+    instances, that alone came within about 260 MB of the instance's memory
+    (docs/STATE.md). Sealing now streams a chunk at a time
+    (`spool.SEAL_CHUNK_ROWS`); shrunk here so a small hour still crosses
+    several chunk boundaries, which is where a row could be lost or
+    doubled.
+    """
+    monkeypatch.setattr(spool, "SEAL_CHUNK_ROWS", 37)
+    writer = spool.SpoolWriter(tmp_path, staged_schema())
+    events = [an_event(i, card=f"card-{i % 11}") for i in range(953)]  # not a multiple of 37
+    for event in events:
+        row = staged_row(event, FEATURES, _decision(event, Action.APPROVE, 0.1), None)
+        writer.append(event.event_time, row)
+        if event.event_id.endswith(("3", "7")):  # many small, uneven batches, like the scorer's
+            writer.flush()
+    writer.close()
+
+    assert spool.seal(tmp_path, spool.hour_key(events[0].event_time), staged_schema())
+
+    read_back = spool.read_hours(tmp_path, [spool.hour_key(events[0].event_time)], staged_schema())
+    ids = cast("list[str]", read_back["event_id"].to_pylist())
+    assert sorted(ids) == sorted(e.event_id for e in events)
 
 
 # --- the scorer and the collector -----------------------------------------

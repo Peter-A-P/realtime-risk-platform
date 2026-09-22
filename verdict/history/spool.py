@@ -31,9 +31,9 @@ from __future__ import annotations
 import datetime as dt
 import shutil
 import uuid
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import pyarrow as pa
 import pyarrow.ipc as ipc
@@ -171,15 +171,49 @@ def recover(directory: Path) -> list[Path]:
 
 def _read_stream(path: Path, schema: pa.Schema) -> list[pa.RecordBatch]:
     """Every whole batch in an IPC stream, stopping at a cut-short tail."""
-    batches: list[pa.RecordBatch] = []
+    return list(_stream_batches(path, schema))
+
+
+def _stream_batches(path: Path, schema: pa.Schema) -> Iterator[pa.RecordBatch]:
+    """Every whole batch in an IPC stream, in order, stopping at a cut-short tail.
+
+    Unlike `_read_stream`, no more than one batch is ever alive at once. What
+    `seal` needs: an hour holds about 3.6 million rows at the live rate, and
+    holding one whole hour to reseal it, on top of what else the instance
+    was carrying, is most of what put the dry run's fourth instance over
+    its memory on the first clean hour after the backlog that crashed the
+    three before it (`docs/STATE.md`).
+    """
     try:
         with pa.OSFile(str(path), "rb") as source:
             reader = ipc.open_stream(source)
             for batch in reader:
-                batches.append(batch)
+                yield batch.cast(schema) if batch.schema != schema else batch
     except (pa.ArrowInvalid, OSError):
         pass  # a truncated last batch, from a writer that died mid-write
-    return [batch.cast(schema) if batch.schema != schema else batch for batch in batches]
+
+
+def _iter_hour(directory: Path, key: str, schema: pa.Schema) -> Iterator[pa.RecordBatch]:
+    """Every row of one hour, sealed and unsealed, a batch at a time.
+
+    In the order `read_hours` would concatenate them, without ever holding
+    more of the hour than one batch.
+
+    Args:
+        directory: The spool's directory.
+        key: The hour.
+        schema: The rows' columns.
+
+    Yields:
+        Record batches.
+    """
+    sealed = directory / f"{key}.parquet"
+    if sealed.exists():
+        yield from pq.ParquetFile(sealed).iter_batches()
+    folder = directory / key
+    if folder.is_dir():
+        for path in sorted([*folder.glob("*.arrow"), *folder.glob("*.part")]):
+            yield from _stream_batches(path, schema)
 
 
 def hours(directory: Path) -> list[str]:
@@ -226,11 +260,23 @@ def read_hours(directory: Path, keys: Iterable[str], schema: pa.Schema) -> pa.Ta
     return pa.concat_tables(tables) if tables else schema.empty_table()
 
 
+SEAL_CHUNK_ROWS: Final = 100_000
+"""Rows buffered before one Parquet row group is written while sealing.
+
+An hour is about 3.6 million rows at the live rate; sealing writes it in
+chunks this size rather than holding the whole hour, so a chunk's tables
+are the only rows alive at once, plus whatever the writer itself buffers.
+Large enough that a sealed file's row groups stay a sane size to read back.
+"""
+
+
 def seal(directory: Path, key: str, schema: pa.Schema) -> bool:
     """Turn a closed hour into one zstd Parquet file.
 
     Refuses an hour a writer still holds open. Safe to repeat: an hour that
     is already sealed and has new closed files is sealed again with them.
+    Streams a chunk at a time (`SEAL_CHUNK_ROWS`), so sealing never holds
+    the whole hour in memory at once.
 
     Args:
         directory: The spool's directory.
@@ -244,10 +290,28 @@ def seal(directory: Path, key: str, schema: pa.Schema) -> bool:
     folder = directory / key
     if not folder.is_dir() or any(folder.glob("*.part")):
         return False
-    table = read_hours(directory, [key], schema)
     target = directory / f"{key}.parquet"
     temporary = directory / f"{key}.parquet.tmp"
-    pq.write_table(table, temporary, compression="zstd")
+    wrote_anything = False
+    with pq.ParquetWriter(temporary, schema, compression="zstd") as writer:
+        chunk: list[pa.RecordBatch] = []
+        rows = 0
+        for batch in _iter_hour(directory, key, schema):
+            chunk.append(batch)
+            rows += batch.num_rows
+            if rows >= SEAL_CHUNK_ROWS:
+                writer.write_table(pa.Table.from_batches(chunk, schema=schema).combine_chunks())
+                wrote_anything = True
+                chunk = []
+                rows = 0
+        if chunk:
+            writer.write_table(pa.Table.from_batches(chunk, schema=schema).combine_chunks())
+            wrote_anything = True
+        elif not wrote_anything:
+            # An empty hour (every row this seal would carry has already been
+            # sealed, and nothing new arrived): write the schema and nothing
+            # else, so the file still exists and reads back as empty.
+            writer.write_table(schema.empty_table())
     temporary.replace(target)
     shutil.rmtree(folder)
     return True
