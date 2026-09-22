@@ -401,58 +401,51 @@ Operating notes: roll a new image without replacing the instance by editing
 compose ... up -d` (the scorer restarts cold, ADR 8). `py-spy` is installed
 on the current instance for profiling.
 
-**The stack went down three times overnight, 2026-09-21 into 09-22, each
-time replaced by the auto-scaling group.** Found from `dmesg` on the fourth
-instance: `oom-kill`, killing a `verdict history compact` process at 9.3 GB
-anon-rss, having sealed twelve hours in that one run. `seal_closed`
-(`verdict/history/compact.py`) reads and rewrites every unsealed hour in one
-process, whole in memory, with no bound on how many. A live writer stages
-about 3.6 million decisions an hour; a crash leaves the next attempt with the
-last one's backlog on top of its own, since the staged decisions live on the
-data volume, which survives the instance. Each crash regrew the backlog, so
-each attempt needed more memory than the one before: instances survived
-5h09m, then 3h01m, then 52 minutes, before the fourth was killed mid-backlog.
+**The instance was replaced six times between 03:29 and 14:20 UTC on
+2026-09-22, and five of them were spot reclaims, not faults.** The group's
+cause for 06:30, 07:22, 09:11, 12:07 and 14:20 is "an EC2 health check
+indicating it has been terminated or stopped": only AWS terminates these
+instances, and Prometheus (whose data is on the volume) shows the scorer at
+its full 1,030 decisions a second until about 90 s before each replacement
+and then stopping dead, with no slowdown first. That is a spot interruption
+(two minutes' notice, then termination), not a machine running out of
+memory, which slows down before it stops. Only the first, at 03:29, was an
+"instance status checks failure", a hung instance. All six were m6i.xlarge
+in ca-central-1d: price-capacity-optimized chose that pool every time, and
+it was reclaimed five times in eleven hours. This corrects what this section
+said earlier the same day, which put every replacement down to memory.
 
-**First fix, `644df95f`:** `seal_closed` takes a limit (`history compact
---seal-limit`, default 4), and the compactor now runs every five minutes
-instead of every hour, so a real backlog clears over several short runs,
-each exiting and giving its memory back before the next, rather than
-sitting in one unbounded call. Tested (`tests/test_history.py`): a limit
-caps one call, and repeated calls converge on clearing a backlog exactly
-once each. Hotfixed onto the running instance directly (new image, and
-`/opt/verdict/compose.yml` overwritten with the fixed file, since the
-compose file is baked into the boot script and a running instance does not
-re-read it), and applied to the launch template via `terraform apply`.
+Each reclaim costs about four minutes with no decisions (notice, launch,
+boot) and then a catch-up at about 2,200 a second, during which decisions
+are minutes old. That is every 5-minute spike on the dashboard's latency
+panel; the panel draws anything over 30 s near 5 minutes, because the
+histogram has no bucket between 30 and 300 s.
 
-**It was not enough.** Watching the backlog clear, peak system memory came
-within about 260 MB of the 15.7 GB limit while sealing the last backlogged
-hour, against a near-empty scorer (just restarted). The instance was then
-replaced a fourth time, an EC2 health check failure at 09:11, minutes after
-the next hour became sealable, with **no backlog at all**: one ordinary
-hour's sealing, alone, nearly filled the instance and then crossed it.
+**What memory really did.** The compactor was killed by the kernel once, at
+08:27, at 9.3 GB (dmesg `oom-kill`), sealing a twelve-hour backlog in one
+process; its shell loop survived, so the instance did not. The backlog came
+from the replacements. Two fixes, both kept because both are right on
+their own terms:
 
-**Root cause and second fix, `c93c8b5c`:** `seal` read a whole hour into
-one Arrow table (`read_hours`) before writing it back out to Parquet. An
-hour is about 3.6 million rows at the live rate; holding that, on top of
-whatever the scorer and everything else already held, was the real cost,
-and the limit only ever bounded how many hours, never the size of one.
-`spool.seal` now streams: `_iter_hour` yields the hour's rows a batch at a
-time, and `seal` buffers `SEAL_CHUNK_ROWS` (100,000) before writing one
-Parquet row group and moving on, so no more of the hour is ever held at
-once than one chunk. Tested: a shrunk chunk size against a hand-built hour
-crossing many chunk boundaries carries every row, none lost or doubled.
-Hotfixed onto the running instance the same way, and applied to the
-launch template. **Watched an hour seal cleanly afterward**: at 10:15:10
-UTC the compactor's own memory rose to 433 MB sealing the closed hour,
-then fell back under 3 MB a moment later once "sealed staged/2026-09-22T09"
-was logged, system memory never dropping below about 4.8 GB free
-throughout, while the scorer climbed its own ordinary curve (3.2 to 3.4 GB
-across the same window) undisturbed. Against the 9.3 GB that killed the
-process before, and the single hour that nearly filled the instance right
-after the first fix, this is the fix holding under real load, not just
-under a synthetic test. **The 72-hour dry-run clock is reset again**: it now runs from this second fix, 2026-09-22T09:39Z to
-2026-09-25T09:39Z, since a clock that included either crash loop would not
-be a clean measurement.
+- `644df95f`: `seal_closed` takes a limit (`history compact --seal-limit`,
+  default 4), and the compactor runs every five minutes, so a backlog
+  clears a few hours per process.
+- `c93c8b5c`: `spool.seal` streams an hour a chunk of `SEAL_CHUNK_ROWS`
+  (100,000) at a time instead of reading it whole. Watched live at 10:15
+  UTC: the compactor peaked at 433 MB sealing a full hour, against 9.3 GB.
+
+Both are tested (`tests/test_history.py`), hotfixed onto the running
+instance (the compose file is baked into the boot script, so it was
+overwritten in place), and in the launch template.
+
+**The instance list is widened** (ADR 20's second amendment): eight 4 vCPU,
+16 GB x86 types, so the group can move to another pool rather than wait on
+the one that keeps being reclaimed. Applied 2026-09-22T16:13Z; it takes
+effect at the next launch, since the running instance is not replaced for
+it. **The 72-hour clock restarts at 2026-09-22T16:13Z and runs to
+2026-09-25T16:13Z.** A spot reclaim inside it is not a reason to restart it
+again: the live window will have them too, and the dry run is where their
+cost gets counted.
 
 **Before the schedule is sealed:** `_finalise_hour` and `_labels_for`
 (`verdict/history/compact.py`) still read a whole hour with `read_hours`,

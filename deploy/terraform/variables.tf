@@ -19,7 +19,14 @@ variable "availability_zone" {
 variable "instance_types" {
   description = "Spot candidates, all x86 with 4 vCPU and 16 GB (ADR 20: the engine holds about 6 GB at the live rate; its 2026-09-21 amendment: two vCPUs are one core, too few for scorer, broker and feed), in order of preference. More than one so a shortage of one type is not an outage."
   type        = list(string)
-  default     = ["m7i.xlarge", "m6i.xlarge", "m5.xlarge"]
+  # Eight pools, not three (ADR 20, second amendment): on 2026-09-22 the
+  # group chose m6i.xlarge in ca-central-1d every time and it was reclaimed
+  # five times in eleven hours. More pools give price-capacity-optimized
+  # somewhere else to go. All x86; the d variants' local disks are unused.
+  default = [
+    "m7i.xlarge", "m6i.xlarge", "m5.xlarge", "m6a.xlarge",
+    "m5a.xlarge", "m6in.xlarge", "m6id.xlarge", "m5d.xlarge",
+  ]
 }
 
 variable "data_volume_gb" {

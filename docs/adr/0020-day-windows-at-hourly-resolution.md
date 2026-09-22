@@ -65,6 +65,21 @@ case in advance, 4 vCPU and a 45-day window; Peter raised the budget
 instead (`verdict-monthly` to 130 a month, which AWS holds as US$130),
 so the window stays sixty days.
 
+**Amended again 2026-09-22: eight instance types, not three.** The group
+chose m6i.xlarge in `ca-central-1d` every time, and that pool was reclaimed
+five times in eleven hours (06:30, 07:22, 09:11, 12:07, 14:20 UTC; the
+scorer at its full rate until about 90 s before each, then stopping, which
+is a spot interruption and not a fault; `docs/STATE.md`). Each reclaim is
+about four minutes without decisions and then a catch-up during which
+decisions are minutes old, so a pool that is reclaimed often costs the
+latency budget directly. AWS's guidance for spot is to be flexible across
+many pools; the list is now m7i.xlarge, m6i.xlarge, m5.xlarge, m6a.xlarge,
+m5a.xlarge, m6in.xlarge, m6id.xlarge and m5d.xlarge, every one 4 vCPU and
+16 GB on x86. Spot in `ca-central-1d` that day ran US$0.063 to 0.098 an
+hour across them, so the worst case is about US$85 a month with the volume,
+inside the US$130 budget. The single availability zone stays: the data
+volume lives in one (ADR 14).
+
 ## Evidence
 
 - `tests/test_aggregators.py`: every bucketed aggregation against the
