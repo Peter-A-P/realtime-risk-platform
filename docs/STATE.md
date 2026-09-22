@@ -443,8 +443,14 @@ overwritten in place), and in the launch template.
 16 GB x86 types, so the group can move to another pool rather than wait on
 the one that keeps being reclaimed. Applied 2026-09-22T16:13Z; it takes
 effect at the next launch, since the running instance is not replaced for
-it. **The 72-hour clock restarts at 2026-09-22T16:13Z and runs to
-2026-09-25T16:13Z.** A spot reclaim inside it is not a reason to restart it
+it. **The 72-hour clock restarts at 2026-09-22T16:53Z and runs to
+2026-09-25T16:53Z**, after ADR 25's deploy (the spot-notice watcher, 60 s
+and 120 s latency buckets, 75-day Prometheus retention, the caught-up
+panel), which restarted the scorer. The watcher was started by hand on the
+instance running then (`i-0d3a7630a740d8afc`), which booted before it
+existed; every later boot starts it itself. At the end of the clock, run
+`verdict observe report` over it (ADR 25 has the command) as the dry run's
+record. A spot reclaim inside it is not a reason to restart it
 again: the live window will have them too, and the dry run is where their
 cost gets counted.
 
