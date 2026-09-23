@@ -211,6 +211,34 @@ def dashboard() -> dict[str, Any]:
             unit="reqps",
             description="Which model version made the decisions. A rollback shows here.",
         ),
+        _panel(
+            "Label collector behind the labels feed",
+            "timeseries",
+            [
+                (
+                    'max(verdict_feed_latest_due_timestamp_seconds{feed="labels"}) '
+                    "- max(verdict_labels_latest_label_timestamp_seconds)",
+                    "behind",
+                )
+            ],
+            (0, 45, 12, 6),
+            unit="s",
+            description=(
+                "How far the labels written to history trail the labels sent. The "
+                "labels topic keeps a day; an alert fires at two hours (ADR 26)."
+            ),
+        ),
+        _panel(
+            "Oldest unsealed hour of history",
+            "timeseries",
+            [("verdict_history_unsealed_age_seconds", "{{spool}}")],
+            (12, 45, 12, 6),
+            unit="s",
+            description=(
+                "Time since the oldest hour not yet sealed ended. Minutes when the "
+                "compactor keeps up; an alert fires at three hours (ADR 26)."
+            ),
+        ),
     ]
     return {
         "uid": DASHBOARD_UID,

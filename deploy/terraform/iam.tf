@@ -1,7 +1,7 @@
 # The instance's own identity. It can read its parameters, attach its one data
-# volume, pull its one image, and be reached through Session Manager. Nothing
-# else: it cannot create resources, read other parameters, or touch project
-# 04's.
+# volume, pull its one image, publish to its alerts topic, and be reached
+# through Session Manager. Nothing else: it cannot create resources, read
+# other parameters, or touch project 04's.
 
 data "aws_iam_policy_document" "assume_ec2" {
   statement {
@@ -53,6 +53,12 @@ data "aws_iam_policy_document" "instance" {
     sid       = "SeeVolumeState"
     actions   = ["ec2:DescribeVolumes"]
     resources = ["*"]
+  }
+
+  statement {
+    sid       = "PublishAlerts"
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.alerts.arn]
   }
 
   statement {

@@ -798,19 +798,29 @@ app.add_typer(history_app)
 def history_labels(
     root: Annotated[Path, typer.Option(help="The history root.")],
     bootstrap: Annotated[str | None, typer.Option(help="Broker address.")] = None,
+    metrics_port: Annotated[
+        int, typer.Option(help="Serve Prometheus metrics on this port; 0 for none.")
+    ] = 0,
+    metrics_host: Annotated[str, typer.Option(help="Interface the metrics listen on.")] = (
+        "127.0.0.1"
+    ),
 ) -> None:
     """Collect labels into the label spool until interrupted.
 
     Args:
         root: The history root.
         bootstrap: Broker address. Defaults to the compose stack's.
+        metrics_port: Where to serve metrics, or 0 for nowhere.
+        metrics_host: The interface metrics listen on.
     """
     import signal
     import threading
 
+    from prometheus_client import start_http_server
+
     from verdict.history import spool
     from verdict.history.compact import HistoryPaths
-    from verdict.history.labels import LabelCollector
+    from verdict.history.labels import CollectorMetrics, LabelCollector
     from verdict.history.records import LABEL_SCHEMA
     from verdict.stream.redpanda import DEFAULT_BOOTSTRAP, RedpandaStream
 
@@ -818,7 +828,10 @@ def history_labels(
     spool.recover(paths.labels)
     writer = spool.SpoolWriter(paths.labels, LABEL_SCHEMA)
     stream = RedpandaStream(bootstrap or DEFAULT_BOOTSTRAP)
-    collector = LabelCollector(stream, writer)
+    metrics = CollectorMetrics()
+    collector = LabelCollector(stream, writer, metrics=metrics)
+    if metrics_port:
+        start_http_server(metrics_port, addr=metrics_host, registry=metrics.registry)
     stop = threading.Event()
 
     def ask_to_stop(signum: int, frame: object) -> None:
@@ -871,6 +884,56 @@ def history_compact(
     for day in finalisable(paths, now):
         manifest = finalise_day(paths, day, as_of=now)
         typer.echo(json.dumps(asdict(manifest), sort_keys=True))
+
+
+@history_app.command("compactor")
+def history_compactor(
+    root: Annotated[Path, typer.Option(help="The history root.")],
+    every: Annotated[
+        float, typer.Option(help="Seconds between the end of one run and the next.")
+    ] = 300.0,
+    seal_limit: Annotated[int, typer.Option(help="The most hours one run seals.")] = 4,
+    metrics_port: Annotated[
+        int, typer.Option(help="Serve Prometheus metrics on this port; 0 for none.")
+    ] = 0,
+    metrics_host: Annotated[str, typer.Option(help="Interface the metrics listen on.")] = (
+        "127.0.0.1"
+    ),
+) -> None:
+    """Run `history compact` every few minutes, each in its own process, and report.
+
+    A run that exits gives its memory back before the next; this parent
+    outlives the runs, counts how each ended, and reports how old the oldest
+    unsealed hour is and how many days wait to be finalised
+    (`verdict/history/compactor.py`).
+
+    Args:
+        root: The history root.
+        every: The wait between runs.
+        seal_limit: The most hours one run seals.
+        metrics_port: Where to serve metrics, or 0 for nowhere.
+        metrics_host: The interface metrics listen on.
+    """
+    import signal
+    import threading
+
+    from prometheus_client import start_http_server
+
+    from verdict.history.compact import HistoryPaths
+    from verdict.history.compactor import CompactorMetrics, compact_command, run_forever
+
+    metrics = CompactorMetrics(HistoryPaths(root))
+    if metrics_port:
+        start_http_server(metrics_port, addr=metrics_host, registry=metrics.registry)
+    stop = threading.Event()
+
+    def ask_to_stop(signum: int, frame: object) -> None:
+        del signum, frame
+        stop.set()
+
+    signal.signal(signal.SIGINT, ask_to_stop)
+    signal.signal(signal.SIGTERM, ask_to_stop)
+    run_forever(compact_command(root, seal_limit), metrics, every_seconds=every, stop=stop)
 
 
 @history_app.command("footprint")
@@ -1567,6 +1630,44 @@ def observe_grafana(
 
     for path in write_files(out, mounted_at=mounted_at):
         typer.echo(f"wrote {path}")
+
+
+@observe_app.command("alerts")
+def observe_alerts(
+    outbox: Annotated[Path, typer.Option(help="Where messages go for the host to send.")] = Path(
+        "/data/alerts/outbox"
+    ),
+    state: Annotated[Path, typer.Option(help="What has been told, across restarts.")] = Path(
+        "/data/alerts/told.json"
+    ),
+    prometheus: Annotated[str, typer.Option(help="Prometheus base URL.")] = (
+        "http://prometheus:9090"
+    ),
+    every: Annotated[float, typer.Option(help="Seconds between polls.")] = 60.0,
+) -> None:
+    """Relay Prometheus's firing alerts into the outbox, until interrupted (ADR 26).
+
+    Args:
+        outbox: Where messages are written.
+        state: What has been told.
+        prometheus: Prometheus's base URL.
+        every: The wait between polls.
+    """
+    import signal
+    import threading
+
+    from verdict.observe.alerts import Relay, prometheus_reader, run_forever
+
+    relay = Relay(outbox, state, read=prometheus_reader(prometheus))
+    stop = threading.Event()
+
+    def ask_to_stop(signum: int, frame: object) -> None:
+        del signum, frame
+        stop.set()
+
+    signal.signal(signal.SIGINT, ask_to_stop)
+    signal.signal(signal.SIGTERM, ask_to_stop)
+    run_forever(relay, every_seconds=every, stop=stop)
 
 
 @observe_app.command("report")

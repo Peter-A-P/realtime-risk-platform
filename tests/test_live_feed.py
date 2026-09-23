@@ -198,6 +198,9 @@ def test_a_label_is_sent_a_week_after_its_transaction(graph: EntityGraph, tmp_pa
     assert labels
     assert all(label.label_time <= clock.at for label in labels)
     assert min(label.label_time for label in labels) >= START + dt.timedelta(days=7)
+    # What the label collector's lag is measured against (docs/failure-modes.md).
+    latest = max(label.label_time for label in labels)
+    assert feed.metrics.latest_due._value.get() == latest.timestamp()
 
 
 def test_after_an_interruption_nothing_is_skipped(graph: EntityGraph, tmp_path: Path) -> None:

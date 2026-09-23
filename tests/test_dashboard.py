@@ -2,7 +2,7 @@
 
 A panel whose metric was renamed shows "No data" to anyone who opens
 risk.peterparker.ca, and nothing else would notice. So every query's metric
-names are checked against what the scorer and the feeds actually register.
+names are checked against what the platform's services actually register.
 """
 
 from __future__ import annotations
@@ -13,6 +13,9 @@ from pathlib import Path
 
 import yaml
 
+from verdict.history.compact import HistoryPaths
+from verdict.history.compactor import CompactorMetrics
+from verdict.history.labels import CollectorMetrics
 from verdict.live.feed import Feed, FeedMetrics
 from verdict.observe.dashboard import DATASOURCE_UID, dashboard, datasource, write_files
 from verdict.observe.metrics import ScorerMetrics
@@ -22,7 +25,12 @@ _SUFFIXES = {"counter": ("_total",), "histogram": ("_bucket", "_sum", "_count"),
 
 def exported() -> set[str]:
     names: set[str] = set()
-    for registry in (ScorerMetrics().registry, FeedMetrics(Feed.TRANSACTIONS).registry):
+    for registry in (
+        ScorerMetrics().registry,
+        FeedMetrics(Feed.TRANSACTIONS).registry,
+        CollectorMetrics().registry,
+        CompactorMetrics(HistoryPaths(Path("history"))).registry,
+    ):
         for family in registry.collect():
             names |= {family.name + suffix for suffix in _SUFFIXES.get(family.type, ("",))}
     return names

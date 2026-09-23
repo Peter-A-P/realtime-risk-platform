@@ -12,3 +12,8 @@ output "image_repository" {
   description = "Where the platform's image is pushed."
   value       = aws_ecr_repository.verdict.repository_url
 }
+
+output "alerts_topic" {
+  description = "Where alerts are published (ADR 26)."
+  value       = aws_sns_topic.alerts.arn
+}

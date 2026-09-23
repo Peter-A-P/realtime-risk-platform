@@ -64,9 +64,9 @@ mountpoint -q /data
 # runs as: Redpanda 101, the platform's image 10001 (deploy/image), and
 # Prometheus 65534. The feeds' saved places are what let a replacement
 # carry on the stream where it stopped (ADR 15).
-mkdir -p /data/redpanda /data/history /data/feeds /data/flags /data/grafana /data/prometheus
+mkdir -p /data/redpanda /data/history /data/feeds /data/flags /data/grafana /data/prometheus /data/alerts/outbox
 chown 101:101 /data/redpanda
-chown 10001:10001 /data/history /data/feeds /data/flags /data/grafana
+chown 10001:10001 /data/history /data/feeds /data/flags /data/grafana /data/alerts /data/alerts/outbox
 chown 65534:65534 /data/prometheus
 
 # Spot notices, kept on the data volume so they outlive the instance they
@@ -98,6 +98,22 @@ done
 WATCH
 chmod 755 /usr/local/bin/verdict-spot-watch
 systemd-run --unit=verdict-spot-watch /usr/local/bin/verdict-spot-watch "$INSTANCE_ID"
+
+# Alerts (ADR 26): the alerts container writes messages to an outbox, and
+# this sends each as the instance's role, which no container can reach.
+cat > /usr/local/bin/verdict-alert-send <<'SEND'
+#!/bin/bash
+cd /data/alerts/outbox || exit 1
+while true; do
+  for f in *.json; do
+    [ -e "$f" ] || break
+    aws sns publish --region "$1" --topic-arn "$2" --cli-input-json "file://$f" >/dev/null && rm -f "$f"
+  done
+  sleep 15
+done
+SEND
+chmod 755 /usr/local/bin/verdict-alert-send
+systemd-run --unit=verdict-alert-send -p Restart=always /usr/local/bin/verdict-alert-send "$REGION" "${alert_topic_arn}"
 
 # The tunnel token, from SSM, into a root-only file on the disposable root
 # volume. It is never written to the data volume, the log, or the repository.

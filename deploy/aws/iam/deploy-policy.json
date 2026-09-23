@@ -243,6 +243,39 @@
       }
     },
     {
+      "Sid": "AlertsTopicCreateOnlyTagged",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:TagResource"
+      ],
+      "Resource": "arn:aws:sns:ca-central-1:*:verdict-alerts",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/project": "verdict"
+        }
+      }
+    },
+    {
+      "Sid": "AlertsTopic",
+      "Effect": "Allow",
+      "Action": [
+        "sns:DeleteTopic",
+        "sns:GetSubscriptionAttributes",
+        "sns:GetTopicAttributes",
+        "sns:ListSubscriptionsByTopic",
+        "sns:ListTagsForResource",
+        "sns:SetTopicAttributes",
+        "sns:Subscribe",
+        "sns:Unsubscribe",
+        "sns:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:sns:ca-central-1:*:verdict-alerts",
+        "arn:aws:sns:ca-central-1:*:verdict-alerts:*"
+      ]
+    },
+    {
       "Sid": "EcrLogin",
       "Effect": "Allow",
       "Action": [

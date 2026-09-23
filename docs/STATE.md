@@ -304,6 +304,7 @@ unreachable.
 | 7 | ~~The storage question in ADR 14~~ **Decided 2026-09-19** (ADR 18): a day on each topic, and a weighted sample for the record. The original item: **The storage question in ADR 14.** Keep a sample of legitimate traffic, with weights, instead of every row; or pay for disk; or lower the rate | Peter | Before go-live, and before week 6's queue evaluation reads the live history |
 | 5 | ~~Review ADR 17~~ **Done 2026-09-19**: Peter accepted all three choices (the card key, no device, the 2017-12-01 reference date) as written. Week 5 can train on the real data | | |
 | 6 | ~~Kinesis and the 50 ms budget~~ **Decided 2026-09-18: Redpanda on the instance** (ADR 3). The original item: **Kinesis cannot meet the 50 ms budget as PLAN.md 2.4 measures it.** AWS documents about 200 ms average propagation for a polling consumer and about 70 ms with enhanced fan-out, before the scorer starts. Three options in ADR 3's open question: start the clock at the scorer, run Redpanda on the live instance instead, or keep Kinesis and publish what it measures. The first changes the one-liner's wording, the second the AWS story, the third the headline number | Peter | Before week 7's Kinesis client is written; nothing earlier depends on it |
+| 8 | **Alerts (ADR 26), built 2026-09-22, not applied.** (1) Attach the updated `deploy/aws/iam/deploy-policy.json` to the deploy identity: it adds SNS on `verdict-alerts` only. (2) `export TF_VAR_alert_email=...` (never committed), then apply. (3) Confirm the subscription from the email AWS sends. (4) Roll the image (the compose file changes the labels, compactor and Prometheus services and adds `alerts`; the scorer is untouched). The running instance booted before the host's sender existed: start it once by hand over SSM, as with the spot watcher, or let the next replacement start it | Peter | Before go-live; the sooner, the sooner the dry run is watched |
 
 **Before sealing:** the docstrings in `regimes.py` say "Jul 1 2027". That
 file is hashed, so changing the text is a deliberate edit with
@@ -453,6 +454,20 @@ existed; every later boot starts it itself. At the end of the clock, run
 record. A spot reclaim inside it is not a reason to restart it
 again: the live window will have them too, and the dry run is where their
 cost gets counted.
+
+**Alerts by email (2026-09-22, ADR 26), built and not applied.**
+Prometheus evaluates six rules: the label collector over two hours behind
+the labels feed, an hour of history unsealed for three hours, a day ready
+to finalise for an hour, compaction runs failing, the scorer deciding
+nothing for fifteen minutes, a scraped service gone for ten. A relay
+container writes each start, reminder and end to an outbox on the volume,
+and a loop on the host publishes them to the `verdict-alerts` SNS topic with
+the instance's role, so no container is given a credential. The compactor
+is now `verdict history compactor`, a parent that still runs each
+compaction in its own process and reports on the runs and the spools.
+`docs/failure-modes.md` has a section per alert. Item 8 in section 6 is
+what applying it takes. The user data is now about 430 bytes under its
+limit (with the test's 2 KB margin); ADR 26 says what to do next time.
 
 **Finalising a day streams too (2026-09-22, ADR 18's addendum).** It
 read each staged and label hour whole and held a set of every event id in

@@ -122,7 +122,13 @@ services:
   labels:
     image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
     container_name: verdict-labels
-    command: [history, labels, --root=/data/history, --bootstrap=redpanda:9092]
+    command:
+      - history
+      - labels
+      - --root=/data/history
+      - --bootstrap=redpanda:9092
+      - --metrics-host=0.0.0.0
+      - --metrics-port=9111
     depends_on:
       redpanda:
         condition: service_healthy
@@ -183,13 +189,31 @@ services:
   # streamed a chunk at a time. On 2026-09-22 a run working off the backlog
   # that spot reclaims had left sealed twelve hours in one process, holding
   # each whole, and was killed by the kernel at 9.3 GB (docs/STATE.md).
+  # Each run is still its own process; the parent outlives them and reports
+  # how they ended and how far behind the spools are (ADR 26).
   compactor:
     image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
     container_name: verdict-compactor
-    entrypoint: [/bin/sh, -c]
-    command: ["while true; do verdict history compact --root=/data/history; sleep 300; done"]
+    command:
+      - history
+      - compactor
+      - --root=/data/history
+      - --every=300
+      - --metrics-host=0.0.0.0
+      - --metrics-port=9112
     volumes:
       - /data/history:/data/history
+    restart: unless-stopped
+
+  # Firing alerts into an outbox on the volume; the host sends them (ADR 26).
+  alerts:
+    image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
+    container_name: verdict-alerts
+    command: [observe, alerts]
+    depends_on:
+      - prometheus
+    volumes:
+      - /data/alerts:/data/alerts
     restart: unless-stopped
 
   # Scrapes the scorer. Its data is on the volume so a replacement keeps the
@@ -210,6 +234,8 @@ services:
     configs:
       - source: prometheus
         target: /etc/prometheus/prometheus.yml
+      - source: alert-rules
+        target: /etc/prometheus/rules.yml
     volumes:
       - /data/prometheus:/prometheus
     restart: unless-stopped
@@ -276,6 +302,8 @@ configs:
     content: |
       global:
         scrape_interval: 15s
+        evaluation_interval: 30s
+      rule_files: [/etc/prometheus/rules.yml]
       scrape_configs:
         - job_name: scorer
           static_configs:
@@ -283,3 +311,55 @@ configs:
         - job_name: feeds
           static_configs:
             - targets: ["feed-transactions:9109", "feed-labels:9110"]
+        - job_name: labels
+          static_configs:
+            - targets: ["labels:9111"]
+        - job_name: compactor
+          static_configs:
+            - targets: ["compactor:9112"]
+  # What reaches Peter by email (ADR 26): Prometheus evaluates these, and the
+  # relay on the host (deploy/live/alert-relay.sh) sends each one that fires,
+  # and its end, to the verdict-alerts topic. docs/failure-modes.md has what
+  # each means and what to do.
+  alert-rules:
+    content: |
+      groups:
+        - name: verdict
+          rules:
+            # The labels topic keeps a day; a collector further behind than
+            # that has lost labels for good. Two hours leaves most of the day.
+            - alert: LabelCollectorBehind
+              expr: >-
+                max(verdict_feed_latest_due_timestamp_seconds{feed="labels"})
+                - max(verdict_labels_latest_label_timestamp_seconds) > 7200
+              for: 15m
+              annotations:
+                summary: The label collector is over two hours behind the labels feed.
+            # An hour is sealed about ten minutes after it ends (labels: after
+            # the next hour's labels have come too), so three hours is runs
+            # failing or not happening.
+            - alert: HistoryUnsealed
+              expr: max(verdict_history_unsealed_age_seconds) > 10800
+              for: 15m
+              annotations:
+                summary: An hour of history ended over three hours ago and is still unsealed.
+            - alert: DayNotFinalised
+              expr: max(verdict_history_finalisable_days) > 0
+              for: 1h
+              annotations:
+                summary: A day has had all its labels for over an hour and is not final.
+            - alert: CompactionFailing
+              expr: increase(verdict_history_compact_runs_total{outcome="failed"}[30m]) >= 3
+              annotations:
+                summary: Three or more compaction runs failed in half an hour.
+            - alert: ScorerStopped
+              expr: time() - verdict_last_decision_timestamp_seconds > 900
+              for: 5m
+              annotations:
+                summary: The scorer has decided nothing for over fifteen minutes.
+            # A spot replacement takes about four minutes, so ten is not one.
+            - alert: TargetDown
+              expr: up == 0
+              for: 10m
+              annotations:
+                summary: A service Prometheus scrapes has been unreachable for ten minutes.

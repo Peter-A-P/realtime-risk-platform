@@ -52,12 +52,13 @@ resource "aws_launch_template" "instance" {
     compose_version = local.compose_version
     compose_sha256  = local.compose_sha256
     # Gzipped: user data is limited to 16 KB, and a test keeps it inside.
-    compose_b64gz  = base64gzip(file("${path.module}/../live/compose.yml"))
-    window_start   = var.window_start
-    schedule       = var.schedule
-    commitment_b64 = var.schedule == "sealed" ? filebase64(local.commitment) : ""
-    image          = "${aws_ecr_repository.verdict.repository_url}:${var.image_tag}"
-    registry       = split("/", aws_ecr_repository.verdict.repository_url)[0]
+    compose_b64gz   = base64gzip(file("${path.module}/../live/compose.yml"))
+    window_start    = var.window_start
+    schedule        = var.schedule
+    commitment_b64  = var.schedule == "sealed" ? filebase64(local.commitment) : ""
+    image           = "${aws_ecr_repository.verdict.repository_url}:${var.image_tag}"
+    registry        = split("/", aws_ecr_repository.verdict.repository_url)[0]
+    alert_topic_arn = aws_sns_topic.alerts.arn
   }))
 
   lifecycle {

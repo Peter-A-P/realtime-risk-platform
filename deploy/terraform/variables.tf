@@ -73,3 +73,10 @@ variable "schedule" {
     error_message = "schedule is dev or sealed."
   }
 }
+
+variable "alert_email" {
+  description = "Where alerts are emailed (ADR 26). Never committed: set TF_VAR_alert_email. Empty publishes alerts to nobody."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

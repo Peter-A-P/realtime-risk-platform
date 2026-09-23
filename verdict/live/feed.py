@@ -186,6 +186,13 @@ class FeedMetrics:
             ("feed",),
             registry=self.registry,
         ).labels(feed.value)
+        self.latest_due = Gauge(
+            "verdict_feed_latest_due_timestamp_seconds",
+            "Due time of the latest record a live feed has sent: for labels, the "
+            "label time the label collector should have reached (docs/failure-modes.md).",
+            ("feed",),
+            registry=self.registry,
+        ).labels(feed.value)
         self.snapshots = Counter(
             "verdict_feed_snapshots",
             "Places a live feed has saved.",
@@ -301,6 +308,7 @@ class LiveFeed:
             self.metrics.sent.inc(sent)
             if last_due is not None:
                 self.metrics.lag.set(max(0.0, (now - last_due).total_seconds()))
+                self.metrics.latest_due.set(last_due.timestamp())
         self._unsaved += sent
         # A feed that has sent nothing since its last save is where that save
         # left it, and each save costs seconds of CPU: the labels feed sends

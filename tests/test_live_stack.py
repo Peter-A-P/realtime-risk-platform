@@ -125,7 +125,7 @@ def test_no_policy_grants_a_whole_service(path: Path) -> None:
 
 
 def test_the_deploy_identity_creates_only_tagged_resources() -> None:
-    """Every EC2 or group create is conditioned on the project tag.
+    """Every EC2, group or topic create is conditioned on the project tag.
 
     A create inside a VPC is authorised twice, once on the new resource and
     once on the VPC it goes into. The VPC already exists, so the request's
@@ -136,7 +136,7 @@ def test_the_deploy_identity_creates_only_tagged_resources() -> None:
         creates = [
             a
             for a in statement["Action"]
-            if a.startswith(("ec2:Create", "autoscaling:Create"))
+            if a.startswith(("ec2:Create", "autoscaling:Create", "sns:Create"))
             and a not in {"ec2:CreateTags", "autoscaling:CreateOrUpdateTags", "ec2:CreateRoute"}
             and a != "ec2:CreateLaunchTemplateVersion"
         ]
@@ -194,6 +194,7 @@ def test_every_platform_service_runs_the_one_pushed_image() -> None:
         "feed-transactions",
         "feed-labels",
         "grafana-files",
+        "alerts",
     }
     assert len({s["image"] for s in ours.values()}) == 1
 

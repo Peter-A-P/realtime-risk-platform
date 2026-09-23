@@ -572,6 +572,10 @@ def test_the_collector_spools_labels_by_their_own_time_and_skips_garbage(
     writer.close()
     assert collector.stats.written == 4
     assert collector.stats.unreadable == 1
+    # What the collector-behind alert reads (ADR 26).
+    assert collector.metrics.written._value.get() == 4
+    assert collector.metrics.unreadable._value.get() == 1
+    assert collector.metrics.latest._value.get() == good[-1].label_time.timestamp()
     table = spool.read_hours(tmp_path, spool.hours(tmp_path), LABEL_SCHEMA)
     assert table["event_id"].to_pylist() == [f"evt-{i}" for i in range(4)]
     assert spool.hours(tmp_path) == ["2027-04-12T00", "2027-04-12T01", "2027-04-12T02"]

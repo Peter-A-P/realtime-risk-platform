@@ -9,6 +9,11 @@ A label this build cannot read is counted and skipped rather than stopping
 the collector. A lost label is visible later, in the day's manifest, as a
 candidate with no label; a stopped collector loses every label after it once
 the topic's day has passed.
+
+So the collector reports the label time it has reached, and the labels feed
+reports the label time it has sent up to: the difference is how far behind
+the collector is, and an alert fires long before it nears the topic's day
+(`deploy/live/compose.yml`, the alert rules; ADR 26).
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ import datetime as dt
 from dataclasses import dataclass
 from typing import Final
 
+from prometheus_client import CollectorRegistry, Counter, Gauge
 from pydantic import ValidationError
 
 from verdict.events.schema import LabelEvent
@@ -43,6 +49,33 @@ class CollectorStats:
     latest: dt.datetime | None = None
 
 
+class CollectorMetrics:
+    """What the collector reports, on a registry of its own."""
+
+    def __init__(self, registry: CollectorRegistry | None = None) -> None:
+        """Create the metrics.
+
+        Args:
+            registry: Where to register them. A new one if None.
+        """
+        self.registry = registry or CollectorRegistry(auto_describe=True)
+        self.written = Counter(
+            "verdict_labels_written",
+            "Labels the collector has written to the label spool.",
+            registry=self.registry,
+        )
+        self.unreadable = Counter(
+            "verdict_labels_unreadable",
+            "Records on the label topic this build could not read, skipped.",
+            registry=self.registry,
+        )
+        self.latest = Gauge(
+            "verdict_labels_latest_label_timestamp_seconds",
+            "The latest label time the collector has written; 0 until its first label.",
+            registry=self.registry,
+        )
+
+
 class LabelCollector:
     """Consumes labels and spools them."""
 
@@ -53,6 +86,7 @@ class LabelCollector:
         *,
         topic: str = LABELS_TOPIC,
         group: str = COLLECTOR_GROUP,
+        metrics: CollectorMetrics | None = None,
     ) -> None:
         """Assemble the collector.
 
@@ -61,12 +95,14 @@ class LabelCollector:
             spool: Where they are written.
             topic: The label topic.
             group: The consumer group.
+            metrics: Where counts go.
         """
         self.stream = stream
         self.spool = spool
         self.topic = topic
         self.group = group
         self.stats = CollectorStats()
+        self.metrics = metrics or CollectorMetrics()
 
     def poll(self, max_records: int = 5_000, timeout_seconds: float = 0.5) -> int:
         """Consume one batch, spool it, checkpoint it.
@@ -83,20 +119,29 @@ class LabelCollector:
         )
         if not records:
             return 0
+        written = unreadable = 0
         for record in records:
             try:
                 label = LabelEvent.model_validate_json(record.value)
             except ValidationError:
-                self.stats.unreadable += 1
+                unreadable += 1
                 continue
             self.spool.append(label.label_time, label_row(label))
-            self.stats.written += 1
+            written += 1
             if self.stats.latest is None or label.label_time > self.stats.latest:
                 self.stats.latest = label.label_time
         self.spool.flush()
+        self.stats.written += written
+        self.stats.unreadable += unreadable
         if self.stats.latest is not None:
             # An hour older than the one before the latest is done: labels come
             # nearly in order, and one that does not opens a new file.
             self.spool.close_before(self.stats.latest - dt.timedelta(hours=1))
         self.stream.checkpoint(self.topic, self.group, [record.position for record in records])
+        # Counted once the batch is durable and checkpointed, so the metric
+        # never claims a label a crash could still lose.
+        self.metrics.written.inc(written)
+        self.metrics.unreadable.inc(unreadable)
+        if self.stats.latest is not None:
+            self.metrics.latest.set(self.stats.latest.timestamp())
         return len(records)

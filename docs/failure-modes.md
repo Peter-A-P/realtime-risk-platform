@@ -55,15 +55,17 @@ design chose to accept them, and each needs a chaos run before go-live.
 - **The label collector falls more than a day behind.** The labels topic
   keeps a day, so labels older than that are gone. They show up a week later
   as candidates with no label in that day's manifest, and those rows are not
-  kept. What is needed: the collector's lag as a metric, and an alert well
-  inside the day.
+  kept. Since 2026-09-22 the collector's lag is a metric and an alert at two
+  hours (`LabelCollectorBehind`, below).
 - **A kernel crash, not a spot interruption.** The scorer stages rows without
   an fsync, so a kernel crash can lose the last batches of rows whose
   transactions were checkpointed. A spot interruption is a clean shutdown
   and flushes them. Visible as fewer staged rows than decisions for the hour.
 - **The compactor does not run.** Staged hours pile up unsealed at about 284
-  bytes a row instead of 30, about a gigabyte an hour. What is needed: the
-  age of the oldest unsealed hour as a metric.
+  bytes a row instead of 30, about a gigabyte an hour. Since 2026-09-22 the
+  age of the oldest unsealed hour is a metric and an alert at three hours
+  (`HistoryUnsealed`), and failing runs and a day not finalised are alerts of
+  their own (below).
 
 ## Known before it happens: a spot replacement (ADR 15)
 
@@ -79,3 +81,79 @@ a timed interruption drill before go-live:
   until they refill. Its rebuild by replay is not built, and the engine's
   memory at the live rate is the first thing to measure (ADR 15).
 
+## Alerts, and what to do about each (ADR 26)
+
+Prometheus on the instance evaluates the rules in `deploy/live/compose.yml`;
+each one that fires is emailed once, again every six hours while it keeps
+firing, and once when it stops. The email names its section here. Every
+command below runs on the instance, reached with `aws ssm start-session
+--profile verdict --region ca-central-1 --target <instance id>`, and the
+compose command is the boot script's: `docker compose -f
+/opt/verdict/compose.yml --env-file /etc/verdict/stack.env --env-file
+/etc/verdict/tunnel.env`.
+
+None of these has fired on the live stack yet. When one does, what it
+showed and what was done go into a section above, like every other failure.
+
+### LabelCollectorBehind
+
+The label collector has written labels more than two hours older than the
+labels feed has sent, for fifteen minutes. The labels topic keeps a day:
+past that, labels are gone and their rows are lost from the kept sample
+(ADR 18). Look at `docker logs --tail 100 verdict-labels`. A collector that
+is running but slow is working off a backlog and needs nothing unless the
+gap keeps growing; one that is restarting in a loop needs its error fixed
+within the day. Losing some labels costs rows from the sample, which the
+day's manifest reports as unlabelled; it does not stop the platform.
+
+### HistoryUnsealed
+
+An hour of staged decisions or labels ended more than three hours ago and is
+still unsealed. Either compaction runs are failing (`CompactionFailing` will
+usually be firing too) or the compactor is not running. Unsealed staged rows
+take about a gigabyte an hour of the data volume against about a tenth of
+that sealed. Look at `docker logs --tail 100 verdict-compactor` and the
+kernel's log, `dmesg | grep -i oom`; the compactor was killed for memory
+once, on 2026-09-22 (`docs/STATE.md`).
+
+### DayNotFinalised
+
+A day has had all its labels for over an hour and is not final. Finalising a
+day at the live rate takes minutes, so this is a finalising run failing each
+time it tries. Every day waiting keeps eight days of staged rows on the
+volume longer. The compactor's log has the error; `verdict history
+footprint` is the instrument if memory is the suspect (ADR 18's addendum).
+
+### CompactionFailing
+
+Three or more compaction runs exited with an error in half an hour. The
+compactor starts a new process every five minutes, so it will keep trying;
+what matters is why. `docker logs --tail 200 verdict-compactor`, and exit
+code 137 in it means the kernel killed the run.
+
+### ScorerStopped
+
+The scorer has decided nothing for fifteen minutes. That is the platform
+down, and every minute of it counts against the availability figure (ADR
+25). `docker ps` to see whether it is running, then `docker logs --tail 100
+verdict-scorer`. A run of fifty records it cannot decide stops it on
+purpose (the first section above); the dead-letter topic has them.
+
+### TargetDown
+
+A service Prometheus scrapes (`job` in the email says which) has been
+unreachable for ten minutes: stopped, restarting in a loop, or hung. A spot
+replacement takes about four minutes and is not this. `docker ps -a`, then
+its log.
+
+### PrometheusUnreachable
+
+The alerts relay has not been able to read Prometheus for ten minutes, so no
+other alert can fire until it can. Alerts already emailed are not called
+resolved while Prometheus cannot be seen. `docker logs --tail 50
+verdict-prometheus`; its data is on the volume and survives a restart.
+
+If no email comes at all, the stack may be gone rather than quiet: the
+auto-scaling group could not find spot capacity, or the host's sender
+(`systemctl status verdict-alert-send`) has stopped. The dashboard's "Since
+the last decision" panel is the check that needs nothing on the instance.
