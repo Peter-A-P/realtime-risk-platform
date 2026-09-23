@@ -102,6 +102,8 @@ services:
       - score
       - --bootstrap=redpanda:9092
       - --history=/data/history
+      # ADR 18 sized the disk with this on; its cost measured as nothing.
+      - --compression=zstd
       - --metrics-host=0.0.0.0
       - --metrics-port=9108
       # The champion pointer, on the volume so a rollback survives a

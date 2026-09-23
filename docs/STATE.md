@@ -500,6 +500,21 @@ if the stack is still up then on today's image, it must be rolled first. The dry
 does measure the reviewed-or-declined share, which sets the candidates and
 so most of that 890 MB (the measurement assumed four percent).
 
+**The data volume, measured on the dry run (2026-09-23T08:30Z).** 72 of
+150 GB used: the `transactions` topic 35 GB and `decisions` 25 GB (a full
+day each, so level from here), staged history 9.8 GB for 39 hours at about
+280 MB a sealed hour. Staged hours are kept eight days, so that part levels
+at about 54 GB, above ADR 18's 31 to 42 GB. With labels and the kept sample,
+that is about 140 GB at the window's end, too close. ADR 18 sized the volume
+with zstd on the scorer's producer, measured as costing nothing, but the live
+compose file never turned it on; it now does (`--compression=zstd`, asserted
+in `tests/test_live_stack.py`), which should take most of the 25 GB off.
+**Not yet on the instance**: it rides the next roll with items 8 and the
+chaos fix. The disk does not fill during the dry run (about 40 GB more by
+2026-09-29), so it does not need its own restart of the clock. The scorer's
+memory at 11 hours after its last start was 6.8 GiB, near ADR 20's measured
+curve (about 91 percent of level at that point), so about 7.5 GiB at level.
+
 ---
 
 ## 7. The real-data track, as measured

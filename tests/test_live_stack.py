@@ -206,6 +206,15 @@ def test_the_scorer_stages_its_decisions_on_the_data_volume() -> None:
     assert "/data/history:/data/history" in scorer["volumes"]
 
 
+def test_the_scorer_compresses_what_it_writes_to_the_broker() -> None:
+    """ADR 18's 150 GB volume assumes zstd on the decisions and shadow topics.
+
+    Uncompressed, the decisions topic alone held 25 GB of its day on the dry run.
+    """
+    scorer = _compose(LIVE_COMPOSE)["services"]["scorer"]
+    assert "--compression=zstd" in scorer["command"]
+
+
 def test_the_image_leaves_the_data_directory_out() -> None:
     """An image pushed to a registry is a redistribution (docs/data.md)."""
     ignore = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
