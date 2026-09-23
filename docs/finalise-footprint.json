@@ -1,0 +1,38 @@
+{
+  "measured_at": "2026-09-23T00:38:35+00:00",
+  "host": "Windows AMD64, Python 3.13.5",
+  "what": "peak resident memory above baseline while finalising a day of one staged hour",
+  "acted_share": 0.04,
+  "readings": [
+    {
+      "rows": 500000,
+      "candidates": 67854,
+      "kept_rows": 25906,
+      "peak_rss_mb": 299.6,
+      "arrow_pool_peak_mb": 115.3,
+      "seconds": 1.91,
+      "sha256": "c9612fd1095f231fb212b9b8bc48fca26b647a9754dbf650a9693a41b587d3e6"
+    },
+    {
+      "rows": 1000000,
+      "candidates": 135703,
+      "kept_rows": 52162,
+      "peak_rss_mb": 372.1,
+      "arrow_pool_peak_mb": 131.5,
+      "seconds": 3.43,
+      "sha256": "7461be614e724ff0d6017571dc6dfce103e5cd33dbcc537cd32e4329e68c50d6"
+    },
+    {
+      "rows": 2000000,
+      "candidates": 271849,
+      "kept_rows": 104135,
+      "peak_rss_mb": 585.1,
+      "arrow_pool_peak_mb": 187.4,
+      "seconds": 8.13,
+      "sha256": "4a204045265b2ae36414ee7cfe028fdf7fdc7c6348e66470cd8a60a4892242b8"
+    }
+  ],
+  "mb_per_million_rows": 193.6,
+  "fixed_mb": 193.1,
+  "live_hour_estimate_mb": 890
+}

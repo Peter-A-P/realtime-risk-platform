@@ -873,6 +873,38 @@ def history_compact(
         typer.echo(json.dumps(asdict(manifest), sort_keys=True))
 
 
+@history_app.command("footprint")
+def history_footprint(
+    work: Annotated[
+        Path, typer.Option(help="Scratch space for the hours written; outside any synced folder.")
+    ],
+    rows: Annotated[
+        list[int] | None, typer.Option(help="Staged rows in the hour; repeat for each size.")
+    ] = None,
+    out: Annotated[Path, typer.Option(help="Where to write the report.")] = Path(
+        "docs/finalise-footprint.json"
+    ),
+) -> None:
+    """Measure the memory finalising a day holds per staged hour (ADR 18's addendum).
+
+    Writes and finalises an hour at each size in fresh processes. At the
+    default sizes, under a minute and about 1.5 GB of memory at the peak.
+
+    Args:
+        work: Scratch space.
+        rows: The sizes.
+        out: Where to write the report.
+    """
+    from verdict.history.footprint import measure
+
+    report = measure(rows or [500_000, 1_000_000, 2_000_000], work)
+    out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    typer.echo(
+        f"{report['mb_per_million_rows']} MB per million staged rows; a live hour is about "
+        f"{report['live_hour_estimate_mb']} MB"
+    )
+
+
 live_app = typer.Typer(
     name="live", help="The live feeds: the generator in real time (ADR 15).", no_args_is_help=True
 )

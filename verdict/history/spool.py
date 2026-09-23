@@ -193,27 +193,39 @@ def _stream_batches(path: Path, schema: pa.Schema) -> Iterator[pa.RecordBatch]:
         pass  # a truncated last batch, from a writer that died mid-write
 
 
-def _iter_hour(directory: Path, key: str, schema: pa.Schema) -> Iterator[pa.RecordBatch]:
+def iter_hour(
+    directory: Path, key: str, schema: pa.Schema, *, columns: Sequence[str] | None = None
+) -> Iterator[pa.RecordBatch]:
     """Every row of one hour, sealed and unsealed, a batch at a time.
 
     In the order `read_hours` would concatenate them, without ever holding
-    more of the hour than one batch.
+    more of the hour than one batch. The order is fixed for as long as the
+    hour's files are, so two passes over a closed hour see the same rows in
+    the same batches (`compact._finalise_hour` relies on it).
 
     Args:
         directory: The spool's directory.
         key: The hour.
         schema: The rows' columns.
+        columns: Only these columns, if given. A sealed hour reads only
+            them from disk; an unsealed one reads every column and drops
+            the rest.
 
     Yields:
         Record batches.
     """
     sealed = directory / f"{key}.parquet"
     if sealed.exists():
-        yield from pq.ParquetFile(sealed).iter_batches()
+        wanted = list(columns) if columns is not None else None
+        # Without pre-buffering: with it, Arrow reads ahead several row
+        # groups, and streaming a sealed hour of a million rows peaked at
+        # 265 MB in Arrow's pool against 102 MB without (2026-09-22).
+        yield from pq.ParquetFile(sealed, pre_buffer=False).iter_batches(columns=wanted)
     folder = directory / key
     if folder.is_dir():
         for path in sorted([*folder.glob("*.arrow"), *folder.glob("*.part")]):
-            yield from _stream_batches(path, schema)
+            for batch in _stream_batches(path, schema):
+                yield batch.select(list(columns)) if columns is not None else batch
 
 
 def hours(directory: Path) -> list[str]:
@@ -296,7 +308,7 @@ def seal(directory: Path, key: str, schema: pa.Schema) -> bool:
     with pq.ParquetWriter(temporary, schema, compression="zstd") as writer:
         chunk: list[pa.RecordBatch] = []
         rows = 0
-        for batch in _iter_hour(directory, key, schema):
+        for batch in iter_hour(directory, key, schema):
             chunk.append(batch)
             rows += batch.num_rows
             if rows >= SEAL_CHUNK_ROWS:

@@ -154,6 +154,52 @@ once the load test has measured what it costs.
   placeholder rules every transaction of 5,000 dollars or more is reviewed.
   The dry run measures it before the rates are sealed.
 
+## Addendum, 2026-09-22: finalising streams an hour
+
+The dry run's compactor was killed by the kernel at 9.3 GB sealing a backlog,
+because sealing read each hour whole; sealing was made to stream
+(`docs/STATE.md`). Finalising had the same shape and had not been reached on
+any track yet: a day is first final eight days after it starts, so the live
+window's eighth day would have been its first run at scale. It had two
+costs, and the second was the larger:
+
+- **Every staged hour read whole**, and each of the up to eight label hours
+  it joins against read whole too.
+- **A set of every event id in the day**, for finding duplicates, held until
+  the day was done. Measured at about 100 bytes an id, that is about 8.7 GB
+  by the day's last hour at 1,000 a second.
+
+On one staged hour at a time, the committed code peaked at 803 MB above its
+baseline for a million rows and 1,519 MB for two million, about 2.7 GB for a
+live hour of 3.6 million; with the id set, about 11 GB by the end of a day,
+on the 16 GB instance that also holds the engine and the broker. The
+compactor would have been killed on every attempt, and the staged hours it
+never deleted would have filled the volume.
+
+Now, with the same rows kept (the same SHA-256 on both versions, on the same
+hours):
+
+- **Two passes over each hour, neither holding it.** The first reads only the
+  event ids and computes each row's draw, eight bytes a row; the second
+  streams the rows and keeps only the candidates. Labels are streamed and
+  filtered a batch at a time.
+- **Duplicates per hour, found by their draw first.** A row is filed by its
+  transaction's event time, and a redelivery carries the same event, so both
+  copies land in the same hour. Only rows whose draw repeats within the hour
+  are compared by id.
+- **Sealed hours are read without Arrow's pre-buffering**, which read ahead
+  several row groups: 265 MB against 102 MB in Arrow's pool for a million
+  rows. Sealing reads through the same function and gains the same.
+
+`verdict history footprint` measures it (`docs/finalise-footprint.json`):
+about 194 MB per million staged rows plus 193 MB, so **about 890 MB for a
+live hour**, and nothing carried from one hour to the next. Those rows have
+about four percent reviewed or declined; the candidates, and so most of what
+finalising holds, grow with that share, which the dry run measures before
+the rates are sealed. `tests/test_history.py` shows a day finalised to the
+same rows sealed or unsealed, in one batch or many, with duplicates split
+across batches, and fails if finalising reads any hour whole.
+
 ## Sources
 
 - Horvitz and Thompson (1952), "A generalization of sampling without

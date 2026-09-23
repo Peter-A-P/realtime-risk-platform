@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Any, Final, cast
 
 import numpy as np
+import numpy.typing as npt
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
@@ -218,7 +219,7 @@ def seal_closed(paths: HistoryPaths, now: dt.datetime, *, limit: int | None = No
     return sealed
 
 
-def _strings(column: pa.ChunkedArray[Any]) -> list[str]:
+def _strings(column: pa.Array[Any] | pa.ChunkedArray[Any]) -> list[str]:
     """A non-null string column as Python strings."""
     return cast("list[str]", column.to_pylist())
 
@@ -230,7 +231,12 @@ def _labels_for(
     until: dt.datetime,
     as_of: dt.datetime,
 ) -> pa.Table:
-    """The arrived labels of some events, an hour of labels at a time.
+    """The arrived labels of some events, a batch of labels at a time.
+
+    Only the matching labels are ever held: an hour of labels is about 3.6
+    million rows at the live rate, and this reads up to eight such hours for
+    each staged hour, so reading each whole (as this did until 2026-09-22)
+    held an hour of labels at a time for nothing.
 
     Args:
         paths: The history directories.
@@ -243,21 +249,37 @@ def _labels_for(
         The matching labels, first per event.
     """
     wanted = pc.unique(ids)
+    arrived = pa.scalar(as_of, LABEL_SCHEMA.field("label_time").type)
     first, last = spool.hour_key(since), spool.hour_key(until)
     keys = [k for k in spool.hours(paths.labels) if first <= k <= last]
-    found: list[pa.Table] = []
+    found: list[pa.RecordBatch] = []
     for key in keys:
-        table = spool.read_hours(paths.labels, [key], LABEL_SCHEMA)
-        mask = pc.and_(
-            pc.is_in(table["event_id"], value_set=wanted),
-            pc.less_equal(
-                table["label_time"], pa.scalar(as_of, LABEL_SCHEMA.field("label_time").type)
-            ),
-        )
-        found.append(table.filter(mask))
-    labels = pa.concat_tables(found) if found else LABEL_SCHEMA.empty_table()
+        for batch in spool.iter_hour(paths.labels, key, LABEL_SCHEMA):
+            mask = pc.and_(
+                pc.is_in(batch["event_id"], value_set=wanted),
+                pc.less_equal(batch["label_time"], arrived),
+            )
+            found.append(batch.filter(mask).cast(LABEL_SCHEMA))
+    labels = pa.Table.from_batches(found, schema=LABEL_SCHEMA)
     frame = labels.to_pandas().drop_duplicates("event_id", keep="first")
     return pa.Table.from_pandas(frame, schema=LABEL_SCHEMA, preserve_index=False)
+
+
+def _hour_draws(paths: HistoryPaths, key: str) -> npt.NDArray[np.float64]:
+    """Every staged row's draw in one hour, in `spool.iter_hour`'s order.
+
+    Reads only the event id column of a sealed hour, and holds eight bytes
+    a row: about 29 MB for an hour at the live rate.
+    """
+    parts = [
+        np.fromiter(
+            (draw(event_id) for event_id in _strings(batch["event_id"])),
+            dtype=np.float64,
+            count=batch.num_rows,
+        )
+        for batch in spool.iter_hour(paths.staged, key, staged_schema(), columns=["event_id"])
+    ]
+    return np.concatenate(parts) if parts else np.empty(0, dtype=np.float64)
 
 
 def _finalise_hour(
@@ -269,35 +291,67 @@ def _finalise_hour(
     delay: dt.timedelta,
     grace: dt.timedelta,
     manifest: DayManifest,
-    seen: set[str],
 ) -> pa.Table | None:
-    """Sample one staged hour and join its candidates to their labels."""
-    staged = spool.read_hours(paths.staged, [key], staged_schema())
-    manifest.staged_rows += staged.num_rows
-    if staged.num_rows == 0:
+    """Sample one staged hour and join its candidates to their labels.
+
+    Two passes over the hour, neither holding it whole. An hour is about 3.6
+    million rows at the live rate, and until 2026-09-22 this read it into
+    one table, the shape of cost that killed the compactor at 9.3 GB when
+    sealing did it (`docs/STATE.md`). The first pass computes each row's
+    draw; the second streams the rows and keeps only the candidates, which
+    are the acted rows and about a tenth of the rest.
+
+    Duplicates are found per hour, not per day: a row is filed by its
+    transaction's event time (`StreamScorer`), and a redelivery carries the
+    same event, so both copies land in the same hour. Within the hour a
+    duplicate shares its draw, so only rows whose draw repeats are checked
+    by id; the set of every event id in a day, which this held before,
+    would be several gigabytes by the end of a live day.
+    """
+    draws = _hour_draws(paths, key)
+    manifest.staged_rows += len(draws)
+    if len(draws) == 0:
         return None
+    values, counts = np.unique(draws, return_counts=True)
+    repeated = values[counts > 1]
 
-    ids = _strings(staged["event_id"])
-    first = np.ones(len(ids), dtype=np.bool_)
-    for index, event_id in enumerate(ids):
-        if event_id in seen:
-            first[index] = False
-        else:
-            seen.add(event_id)
-    manifest.duplicates += int((~first).sum())
-
-    acted = np.array(
-        [action != Action.APPROVE.value for action in _strings(staged["action"])], dtype=np.bool_
-    )
-    draws = np.fromiter((draw(event_id) for event_id in ids), dtype=np.float64, count=len(ids))
     ceiling = max(rates.fraud, rates.legit)
-    candidate = first & (acted | (draws < ceiling))
-    manifest.candidates += int(candidate.sum())
-    if not candidate.any():
+    seen: set[str] = set()
+    pieces: list[pa.RecordBatch] = []
+    piece_draws: list[npt.NDArray[np.float64]] = []
+    offset = 0
+    duplicates = 0
+    for batch in spool.iter_hour(paths.staged, key, staged_schema()):
+        size = batch.num_rows
+        batch_draws = draws[offset : offset + size]
+        offset += size
+        first = np.ones(size, dtype=np.bool_)
+        if len(repeated):
+            ids = _strings(batch["event_id"])
+            for row in np.flatnonzero(np.isin(batch_draws, repeated)).tolist():
+                if ids[row] in seen:
+                    first[row] = False
+                else:
+                    seen.add(ids[row])
+        duplicates += int((~first).sum())
+        acted = np.array(
+            [action != Action.APPROVE.value for action in _strings(batch["action"])],
+            dtype=np.bool_,
+        )
+        candidate = first & (acted | (batch_draws < ceiling))
+        if candidate.any():
+            pieces.append(batch.filter(pa.array(candidate)).cast(staged_schema()))
+            piece_draws.append(batch_draws[candidate])
+    if offset != len(draws):
+        msg = f"staged hour {key} changed while it was being finalised"
+        raise RuntimeError(msg)
+    manifest.duplicates += duplicates
+    if not pieces:
         return None
 
-    rows = staged.filter(pa.array(candidate))
-    row_draws = draws[candidate]
+    rows = pa.Table.from_batches(pieces, schema=staged_schema())
+    row_draws = np.concatenate(piece_draws)
+    manifest.candidates += rows.num_rows
     # A label is filed by its own time: for this hour's events, from the hour
     # the delay lands them in, to the hour after, plus the grace.
     start = spool.hour_start(key)
@@ -393,7 +447,6 @@ def finalise_day(
     paths.kept.mkdir(parents=True, exist_ok=True)
     target = paths.kept_file(day)
     temporary = target.with_suffix(".parquet.tmp")
-    seen: set[str] = set()
     with pq.ParquetWriter(temporary, history_schema(), compression="zstd") as writer:
         for key in day_hours(day):
             table = _finalise_hour(
@@ -404,12 +457,12 @@ def finalise_day(
                 delay=delay,
                 grace=grace,
                 manifest=manifest,
-                seen=seen,
             )
             if table is not None:
                 writer.write_table(table)
     temporary.replace(target)
-    manifest.sha256 = hashlib.sha256(target.read_bytes()).hexdigest()
+    with target.open("rb") as kept_file:
+        manifest.sha256 = hashlib.file_digest(kept_file, "sha256").hexdigest()
     manifest_temporary = manifest_path.with_suffix(".json.tmp")
     manifest_temporary.write_text(
         json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n", encoding="utf-8"

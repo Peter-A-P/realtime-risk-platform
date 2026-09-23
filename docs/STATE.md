@@ -454,14 +454,20 @@ record. A spot reclaim inside it is not a reason to restart it
 again: the live window will have them too, and the dry run is where their
 cost gets counted.
 
-**Before the schedule is sealed:** `_finalise_hour` and `_labels_for`
-(`verdict/history/compact.py`) still read a whole hour with `read_hours`,
-the same shape of cost this fix removed from `seal`. They are not reached
-yet on any track (day finalising needs labels up to seven days old, plus
-grace), so they did not cause tonight's crashes, but the sixtieth day of
-the live window will reach them, and that must not be the first time they
-are tested at scale. Needs the same streaming treatment, or a measurement
-that shows it is not needed, before go-live.
+**Finalising a day streams too (2026-09-22, ADR 18's addendum).** It
+read each staged and label hour whole and held a set of every event id in
+the day: about 2.7 GB for a live hour plus about 8.7 GB of ids by the day's
+end, on the 16 GB instance. It is first reached on the live window's eighth
+day, so it would have crash-looped from then on and the volume would have
+filled. Now two passes per hour, neither holding it, duplicates found per
+hour by their draw, and sealed hours read without Arrow's pre-buffering:
+about 890 MB for a live hour, measured with `verdict history footprint`
+(`docs/finalise-footprint.json`), the same rows kept. **Not yet on the
+instance**: the dry run's first day (2026-09-21) is final from
+2026-09-29T06:00Z, after the clock ends, so it rides the next image; but
+if the stack is still up then on today's image, it must be rolled first. The dry run
+does measure the reviewed-or-declined share, which sets the candidates and
+so most of that 890 MB (the measurement assumed four percent).
 
 ---
 

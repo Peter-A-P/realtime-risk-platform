@@ -19,6 +19,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 from collections.abc import Iterable
+from dataclasses import asdict
 from pathlib import Path
 from typing import cast
 
@@ -304,6 +305,80 @@ def test_a_duplicate_delivery_is_kept_once(tmp_path: Path) -> None:
     assert manifest.staged_rows == 1_100
     kept = read_kept(paths, [DAY]).to_pandas()
     assert kept["event_id"].is_unique
+
+
+def _a_redelivered_day(paths: HistoryPaths, n: int) -> None:
+    """Stage a day in many small batches, some rows delivered again later in the hour.
+
+    The way a restarted scorer stages: every few rows a flush, and a
+    redelivery lands a few batches after the first copy, never beside it.
+    """
+    rng = np.random.default_rng(11)
+    rules = DecisionRules()
+    staged = spool.SpoolWriter(paths.staged, staged_schema())
+    labels = spool.SpoolWriter(paths.labels, LABEL_SCHEMA)
+    again: list[tuple[dt.datetime, dict[str, object]]] = []
+    for i in range(n):
+        at = DAY_START + dt.timedelta(seconds=86_399 * i / n)
+        score = float(rng.random())
+        event = an_event(i, card=f"card-{i % 97}").model_copy(update={"event_time": at})
+        action, _ = rules.decide(score, event)
+        row = staged_row(event, FEATURES, _decision(event, action, score), None)
+        staged.append(at, row)
+        if i % 13 == 0:
+            again.append((at, row))
+        if i % 7 == 6:
+            staged.flush()
+            if len(again) > 3:
+                staged.append(*again.pop(0))
+        labels.append(at + DELAY, _label(i, at + DELAY, fraud=bool(rng.random() < 0.05)))
+    staged.close()
+    labels.close()
+
+
+def test_finalising_does_not_depend_on_how_an_hour_is_stored(tmp_path: Path) -> None:
+    """Sealed or not, in one batch or many, a day finalises to the same rows.
+
+    Finalising streams each hour twice and finds duplicates by their draw
+    before their id, so a duplicate split across batches, or an hour whose
+    batches differ between its two forms, is where a row could be lost or
+    kept twice.
+    """
+    unsealed, sealed = HistoryPaths(tmp_path / "unsealed"), HistoryPaths(tmp_path / "sealed")
+    _a_redelivered_day(unsealed, 2_000)
+    _a_redelivered_day(sealed, 2_000)
+    seal_closed(sealed, DAY_START + dt.timedelta(days=9))
+    assert all(not (sealed.staged / key).is_dir() for key in spool.hours(sealed.staged))
+
+    as_of = final_after(DAY)
+    a = finalise_day(unsealed, DAY, as_of=as_of, rates=TEST_RATES)
+    b = finalise_day(sealed, DAY, as_of=as_of, rates=TEST_RATES)
+    assert a.duplicates > 0
+    assert a.staged_rows == 2_000 + a.duplicates
+    assert asdict(a) | {"sha256": ""} == asdict(b) | {"sha256": ""}
+    kept_a, kept_b = read_kept(unsealed, [DAY]), read_kept(sealed, [DAY])
+    assert kept_a.equals(kept_b)
+    assert kept_a["event_id"].to_pandas().is_unique
+
+
+def test_finalising_never_reads_an_hour_whole(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An hour is about 3.6 million rows live; finalising streams it.
+
+    Reading an hour whole is what put the compactor over the instance's
+    memory when sealing did it (docs/STATE.md), and finalising read both
+    staged and label hours whole until 2026-09-22.
+    """
+    paths = HistoryPaths(tmp_path)
+    _a_redelivered_day(paths, 500)
+
+    def refuse(*_: object, **__: object) -> pa.Table:
+        raise AssertionError("finalising read an hour whole")
+
+    monkeypatch.setattr(spool, "read_hours", refuse)
+    manifest = finalise_day(paths, DAY, as_of=final_after(DAY), rates=TEST_RATES)
+    assert manifest.candidates > 0
 
 
 def test_a_label_that_arrived_after_finalising_does_not_count(tmp_path: Path) -> None:
