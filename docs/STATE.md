@@ -469,6 +469,22 @@ compaction in its own process and reports on the runs and the spools.
 what applying it takes. The user data is now about 430 bytes under its
 limit (with the test's 2 KB margin); ADR 26 says what to do next time.
 
+**Chaos, 2026-09-22 (`verdict chaos run`, `docs/chaos/`, `docs/failure-modes.md`).**
+Against the local broker at the live rate. Found and fixed: the broker frozen
+for 15 s inside a scorer batch stopped the scorer on its 10 s flush timeout,
+and the restart began with empty feature windows (up to a day of thin
+features live) and decided 132 transactions twice. Producers now wait a
+broker out for ten minutes (`RIDE_OUT_SECONDS`, ADR 8's third addendum);
+after, 15 s and 60 s freezes are ridden out by one scorer with every
+transaction decided once, caught up 6 and 19 s after the broker returns. A
+60 s scorer stall catches up in 16 s; a broker throttled to 0.05 CPU did not
+hurt at this rate (a harder throttle is untried). Clock skew is tested in the
+feed. Every PLAN scenario now has a section; `redis_down` became the broker,
+since there is no Redis on the path (PLAN amended). **The fix is not on the
+instance**: it rides the same image roll as the alerts (item 8). The chaos
+test runs with `VERDICT_CHAOS=1` and the local stack; the throttle left the
+local broker's CPU limit set to the Docker VM's 12, which is no limit.
+
 **Finalising a day streams too (2026-09-22, ADR 18's addendum).** It
 read each staged and label hour whole and held a set of every event id in
 the day: about 2.7 GB for a live hour plus about 8.7 GB of ids by the day's

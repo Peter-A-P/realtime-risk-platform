@@ -40,7 +40,13 @@ import time
 from collections.abc import Callable, Iterable, Sequence
 from typing import TYPE_CHECKING, Any, Final, TypeVar
 
-from verdict.stream.base import Position, Record, StreamError, UnknownTopicError
+from verdict.stream.base import (
+    RIDE_OUT_SECONDS,
+    Position,
+    Record,
+    StreamError,
+    UnknownTopicError,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - import cost, not behaviour
     from confluent_kafka import Consumer
@@ -156,6 +162,9 @@ class RedpandaStream:
                 "acks": "all",
                 "linger.ms": linger_ms,
                 "compression.type": compression,
+                # librdkafka keeps retrying a record this long before it
+                # reports it undeliverable: the same ride-out as the flush.
+                "message.timeout.ms": int(RIDE_OUT_SECONDS * 1000),
             }
         )
         self._admin = AdminClient(self._common)
@@ -247,11 +256,12 @@ class RedpandaStream:
         if error is not None:
             self._delivery_errors.append(str(error))
 
-    def flush(self, timeout_seconds: float = 10.0) -> None:
+    def flush(self, timeout_seconds: float = RIDE_OUT_SECONDS) -> None:
         """Wait for every queued record to be acknowledged.
 
         Args:
-            timeout_seconds: How long to wait.
+            timeout_seconds: How long to wait: a broker that has stopped
+                answering is waited for, up to `RIDE_OUT_SECONDS`.
 
         Raises:
             StreamError: If records are undelivered, or any delivery failed.
@@ -381,6 +391,7 @@ class RedpandaStream:
         retrying(
             lambda: consumer.commit(offsets=offsets, asynchronous=False),
             f"committing {group}'s offsets on {topic}",
+            deadline_seconds=RIDE_OUT_SECONDS,
         )
         for tp in offsets:
             self._committed[(topic, group, tp.partition)] = tp.offset

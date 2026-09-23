@@ -35,6 +35,7 @@ from verdict.events.generator.entities import EntityGraph, Population
 from verdict.events.generator.regimes import SealedCommitment
 from verdict.events.schema import LabelEvent, TransactionEvent
 from verdict.live.feed import (
+    MAX_BATCH,
     Clock,
     Feed,
     LiveFeed,
@@ -321,3 +322,63 @@ def test_a_feed_with_nothing_sent_since_its_last_save_does_not_save_again(
     clock.at = START + dt.timedelta(days=7, seconds=10)
     assert feed.step() > 0
     assert feed.metrics.snapshots._value.get() == 2
+
+
+# --- the host's clock jumps (docs/failure-modes.md, clock skew) -------------
+
+
+def test_a_clock_that_jumps_forward_is_caught_up_in_order_and_nothing_skipped(
+    graph: EntityGraph, tmp_path: Path
+) -> None:
+    """An hour's jump makes an hour's records due at once.
+
+    They go out `MAX_BATCH` at a time, flushed between, in event order, with
+    nothing skipped or doubled; the lag metric says how far behind the feed
+    is until it has caught up. The stream's event times do not move: only
+    when they are sent does.
+    """
+    broker = _broker()
+    clock = FakeClock(START + dt.timedelta(seconds=10))
+    feed = _feed(broker, graph, Feed.TRANSACTIONS, tmp_path, clock)
+    feed.step()
+    clock.at += dt.timedelta(hours=1)
+    steps = []
+    while sent := feed.step():
+        steps.append(sent)
+        assert sent <= MAX_BATCH
+        if len(steps) == 1:
+            assert feed.metrics.lag._value.get() > 3_000
+    assert len(steps) > 1, "an hour at this rate is more than one batch"
+    assert feed.metrics.lag._value.get() < 1
+    sent_events = [TransactionEvent.model_validate_json(v) for v in _read(broker, "transactions")]
+    expected = [r.event for r in Generator(CONFIG, graph=graph).stream(limit=len(sent_events))]
+    assert [e.event_id for e in sent_events] == [e.event_id for e in expected]
+    assert all(e.event_time <= clock.at for e in sent_events)
+
+
+def test_a_clock_that_jumps_back_sends_nothing_again_and_waits(
+    graph: EntityGraph, tmp_path: Path
+) -> None:
+    """A step back in time sends nothing until the clock passes where it was.
+
+    Nothing already sent is sent again: the feed's place is in the stream, not
+    the clock. The stream is quiet for as long as the jump, which the scorer
+    and the dashboard see as no traffic, and `ScorerStopped` fires if it is
+    over fifteen minutes.
+    """
+    broker = _broker()
+    clock = FakeClock(START + dt.timedelta(minutes=5))
+    feed = _feed(broker, graph, Feed.TRANSACTIONS, tmp_path, clock)
+    while feed.step():
+        pass
+    clock.at -= dt.timedelta(minutes=2)
+    for _ in range(3):
+        assert feed.step() == 0
+        clock.at += dt.timedelta(seconds=30)
+    clock.at = START + dt.timedelta(minutes=6)
+    while feed.step():
+        pass
+    sent = [TransactionEvent.model_validate_json(v) for v in _read(broker, "transactions")]
+    assert len(sent) > 0
+    ids = [e.event_id for e in sent]
+    assert len(ids) == len(set(ids)), "nothing sent twice"

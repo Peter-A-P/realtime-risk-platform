@@ -115,7 +115,8 @@ def create_app(
                 if outcome.shadow_payload is not None:
                     stream.produce(shadow_topic, event.card_id, outcome.shadow_payload)
                 if durable:
-                    stream.flush()
+                    # A request cannot wait out a broker (RIDE_OUT_SECONDS).
+                    stream.flush(10.0)
             persisted = time.perf_counter_ns()
         timing = {
             "queue": started - received,

@@ -1,0 +1,25 @@
+{
+  "measured_at": "2026-09-23T02:14:16+00:00",
+  "host": "Windows AMD64, Python 3.13.5",
+  "fault": "pause",
+  "rate_per_second": 1000.0,
+  "sent": 90000,
+  "fault_at_s": 10.0,
+  "fault_seconds": 15.0,
+  "mid_batch": true,
+  "scorers": [
+    {
+      "started_s": 0.0,
+      "stopped_s": null,
+      "error": null,
+      "decided": 90000
+    }
+  ],
+  "restarted_cold": false,
+  "max_behind_s": 15.26,
+  "caught_up_after_s": 5.97,
+  "decided_once": 90000,
+  "decided_twice_or_more": 0,
+  "undecided": 0,
+  "set_aside": {}
+}

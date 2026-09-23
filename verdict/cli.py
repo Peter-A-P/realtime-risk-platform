@@ -1607,6 +1607,60 @@ def rollback_drill(
     )
 
 
+chaos_app = typer.Typer(
+    name="chaos",
+    help="Faults done on purpose, for docs/failure-modes.md.",
+    no_args_is_help=True,
+)
+app.add_typer(chaos_app)
+
+
+@chaos_app.command("run")
+def chaos_run(
+    fault: Annotated[str, typer.Option(help="pause, throttle or scorer-stall.")],
+    seconds: Annotated[float, typer.Option(help="How long the fault lasts.")],
+    rate: Annotated[float, typer.Option(help="Transactions a second.")] = 1_000.0,
+    count: Annotated[int, typer.Option(help="Transactions in all.")] = 90_000,
+    container: Annotated[str, typer.Option(help="The broker's container.")] = "verdict-redpanda",
+    mid_batch: Annotated[
+        bool, typer.Option(help="Begin inside a scorer batch, before its flush.")
+    ] = True,
+    out: Annotated[Path | None, typer.Option(help="Write the report here as JSON.")] = None,
+) -> None:
+    """Do one fault while the scorer decides, and report what it did.
+
+    Needs the local stack (deploy/compose) and Docker. The default is the
+    live rate for a minute and a half: one core for the scorer, a little
+    for the broker; nothing here is a timing.
+
+    Args:
+        fault: Which fault (verdict/chaos/faults.py).
+        seconds: How long it lasts.
+        rate: The send rate.
+        count: How many to send.
+        container: The broker's container.
+        mid_batch: Begin it from inside a batch.
+        out: Where to write the report.
+    """
+    from verdict.chaos.faults import as_dict, run_fault
+
+    report = as_dict(
+        run_fault(
+            fault,
+            seconds=seconds,
+            rate=rate,
+            count=count,
+            container=container,
+            mid_batch=mid_batch,
+        )
+    )
+    text = json.dumps(report, indent=2)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+    typer.echo(text)
+
+
 observe_app = typer.Typer(
     name="observe", help="What the platform shows about itself.", no_args_is_help=True
 )

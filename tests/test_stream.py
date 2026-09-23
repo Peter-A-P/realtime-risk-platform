@@ -12,6 +12,7 @@ each test creates its own topics and deletes them afterwards.
 
 from __future__ import annotations
 
+import inspect
 import time
 import uuid
 from collections.abc import Callable, Iterator
@@ -20,6 +21,7 @@ from dataclasses import dataclass
 import pytest
 
 from verdict.stream import Position, Record, Stream, StreamError, UnknownTopicError
+from verdict.stream.base import RIDE_OUT_SECONDS
 from verdict.stream.memory import MemoryBroker, partition_for
 from verdict.stream.redpanda import DEFAULT_BOOTSTRAP, RedpandaStream, broker_reachable, retrying
 
@@ -390,3 +392,74 @@ def test_the_flush_probe_measures_every_connection_it_opens() -> None:
         assert 0.0 < result.fastest <= result.p50 <= result.slowest
         assert result.path in {"fast", "slow"}
     assert summarise(results)["connections"] == 2
+
+
+# --- a broker that stops answering (docs/failure-modes.md) ----------------
+
+
+def test_a_producer_waits_out_a_broker_that_has_stopped_answering(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Freezing the broker for 15 s inside a scorer batch stopped the scorer.
+
+    Its flush gave up at 10 s and raised, the service stopped on the error,
+    and its restart began with empty feature windows (docs/chaos/
+    pause-15s-before.json). The flush and librdkafka's own delivery timeout
+    now wait `RIDE_OUT_SECONDS`, and a real broker frozen for 60 s is ridden
+    out (docs/chaos/pause-60s-after.json).
+    """
+    import confluent_kafka
+
+    seen: dict[str, object] = {}
+
+    class Producer:
+        """Records how it was configured and how long a flush may wait."""
+
+        def __init__(self, config: dict[str, object]) -> None:
+            """Keep the configuration."""
+            seen["config"] = config
+
+        def flush(self, timeout: float) -> int:
+            """Nothing left undelivered."""
+            seen["flush"] = timeout
+            return 0
+
+    monkeypatch.setattr(confluent_kafka, "Producer", Producer)
+    RedpandaStream("localhost:1").flush()
+    assert RIDE_OUT_SECONDS >= 300, "past any broker restart"
+    assert seen["flush"] == RIDE_OUT_SECONDS
+    config = seen["config"]
+    assert isinstance(config, dict)
+    assert config["message.timeout.ms"] == int(RIDE_OUT_SECONDS * 1000)
+
+
+def test_every_stream_flushes_with_the_same_patience() -> None:
+    """The in-process stream is the reference; it must not promise less."""
+    for flush in (Stream.flush, MemoryBroker().open().flush, RedpandaStream.flush):
+        default = inspect.signature(flush).parameters["timeout_seconds"].default
+        assert default == RIDE_OUT_SECONDS
+
+
+def test_a_checkpoint_waits_out_a_broker_as_long_as_a_flush(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A commit that meets the outage after the flush must not stop the scorer either."""
+    import verdict.stream.redpanda as redpanda
+
+    deadlines: list[float] = []
+
+    def recording(action: Callable[[], object], what: str, **kwargs: float) -> object:
+        deadlines.append(kwargs.get("deadline_seconds", redpanda.RETRY_DEADLINE_SECONDS))
+        return None
+
+    class Consumer:
+        """Accepts a commit."""
+
+        def commit(self, **kwargs: object) -> None:
+            """Nothing to do."""
+
+    stream = RedpandaStream("localhost:1")
+    monkeypatch.setattr(redpanda, "retrying", recording)
+    monkeypatch.setattr(stream, "_consumer", lambda topic, group: Consumer())
+    stream.checkpoint("t", "g", [Position("0", "5")])
+    assert deadlines == [RIDE_OUT_SECONDS]

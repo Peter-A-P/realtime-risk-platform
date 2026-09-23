@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Final, Protocol, runtime_checkable
 
 
 class StreamError(RuntimeError):
@@ -91,6 +91,21 @@ class Record:
     position: Position
 
 
+RIDE_OUT_SECONDS: Final = 600.0
+"""How long a producer waits for a broker that has stopped answering.
+
+Until 2026-09-22 a flush gave up after 10 s and raised, and every service
+that produces stops on that error. For the scorer, stopping means a
+restart with empty feature windows, every card served "no history" for up
+to a day (ADR 8), to get past a broker that was only slow; freezing the
+local broker inside a scorer batch for 15 s did exactly that
+(`docs/failure-modes.md`, "The broker stops answering"). Nothing is decided
+while the broker is away whether the scorer waits or restarts, so it waits.
+Ten minutes is past any broker restart; longer than that is an outage a
+person should look at, and the `ScorerStopped` alert says so at fifteen.
+"""
+
+
 @runtime_checkable
 class Stream(Protocol):
     """A stream the platform can produce to and consume from."""
@@ -108,11 +123,12 @@ class Stream(Protocol):
         """
         ...
 
-    def flush(self, timeout_seconds: float = 10.0) -> None:
+    def flush(self, timeout_seconds: float = RIDE_OUT_SECONDS) -> None:
         """Wait until every queued record is durably on the stream.
 
         Args:
-            timeout_seconds: How long to wait.
+            timeout_seconds: How long to wait. Long by default: a broker
+                that is only slow is waited for (`RIDE_OUT_SECONDS`).
 
         Raises:
             StreamError: If records are still undelivered when time runs out.

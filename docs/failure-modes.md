@@ -47,6 +47,127 @@ decisions.
 manual step with no tool yet, and nothing alarms on the dead-letter count.
 Both belong with the dashboards and alarms, on the live stack.
 
+## The broker stops answering (the plan's redis_down and stream_throttle)
+
+**Found:** 2026-09-22, on purpose, against the local broker. The plan names
+Redis going away; there is no Redis on the decision path, because the
+features live in the scorer's process (ADRs 4 and 8), so the store that can
+go away under the scorer is the broker.
+
+**What was done.** `verdict chaos run` (`verdict/chaos/faults.py`) sends
+generated transactions at the live rate, 1,000 a second, through fresh
+topics on the local Redpanda container, runs the real scorer as the service
+runs it and under the live stack's restart policy, and freezes the broker's
+container with `docker pause` for 15 seconds, from inside a scorer batch:
+after a transaction is decided and before its decision is flushed.
+
+**What it did** (`docs/chaos/pause-15s-before.json`). The scorer's flush
+gave up after 10 seconds and raised `132 records still undelivered after
+10.0s`; the service stopped on it, 20 seconds into the run. The restart
+policy started a second scorer, which began cold: empty feature windows,
+every card served "no history", which live is up to a day of thin features
+after a broker blip of seconds. The 132 transactions of the batch that had
+not been checkpointed were decided a second time. The same freeze at a
+wall-clock moment usually misses a batch in flight and was ridden out
+(`pause-15s-between-batches-before.json`), so this is a fault that is rare
+per outage and all but certain over a sixty-day window. A standalone
+producer and consumer showed the same split: the producer gave up at 10
+seconds; the consumer rode out 15 and 60.
+
+**What changed.** A producer waits for a broker that has stopped answering,
+for ten minutes (`RIDE_OUT_SECONDS`, `verdict/stream/base.py`): the flush's
+default, librdkafka's delivery timeout and the checkpoint's retry deadline.
+Nothing is decided while the broker is away whether the scorer waits or
+restarts, and waiting keeps its windows. The feeds and the label collector
+use the same client, so they wait too, where before a feed would have
+stopped and resent up to 30 seconds of the stream from its saved place. ADR
+8's addendum of 2026-09-22 records it.
+
+**After** (`docs/chaos/pause-15s-after.json`, `pause-60s-after.json`, 90,000
+transactions each): through 15 and 60 second freezes inside a batch, one
+scorer throughout, every transaction decided exactly once, none set aside.
+Decisions fell at most 15.3 and 62.7 seconds behind their sends and were
+back within a second of them 6.0 and 19.4 seconds after the broker returned:
+a backlog of 60,000 cleared in about 19 seconds, roughly four times the
+live rate.
+
+**Throttled, not frozen** (`throttle-60s-after.json`): the broker held to
+a twentieth of one CPU for 60 seconds. Decisions were never more than 1.0
+second behind and nothing was lost or doubled. At this rate that was not
+enough starvation to hurt; a harder throttle is the next thing to try, not
+a result claimed here.
+
+**Held in place by** `tests/test_stream.py`: the producer is configured with
+the ride-out and its flush waits it, every stream implementation defaults
+to the same patience, and a checkpoint retries as long as a flush waits.
+The experiment itself needs Docker and the local broker, and reruns with
+`verdict chaos run --fault pause --seconds 15`.
+
+## The scorer stalls while the stream keeps coming (consumer lag)
+
+**Found:** 2026-09-22, on purpose; on the live stack before that, by a spot
+reclaim.
+
+**What was done.** The scorer stopped for 60 seconds inside a batch, as a
+long pause in the process or a very slow model would stop it, while
+transactions kept arriving at 1,000 a second (`verdict chaos run --fault
+scorer-stall --seconds 60`).
+
+**What it did** (`docs/chaos/scorer-stall-60s-after.json`). It carried on
+from where it stopped: 60.0 seconds behind at worst, back within a second
+of the stream 16.0 seconds after it resumed, all 90,000 decided exactly
+once. On the dry run a spot reclaim does the same for about four minutes,
+and the catch-up ran at about 2,200 a second (`docs/STATE.md`).
+
+**What changed.** Nothing: the lag is reported, not hidden. The dashboard
+separates latency while serving from the catch-up (ADR 25), and decisions
+made during a catch-up are as old as they are.
+
+## Duplicates
+
+**What produces them.** Delivery is at least once. A scorer that stops
+between flushing a batch's decisions and checkpointing its transactions is
+given the batch again when it restarts, and its ledger of decided events is
+in memory, so it decides them again: the 132 in the broker experiment's
+before run. A feed restarted after a spot replacement resends up to 30
+seconds of records from its saved place.
+
+**What happens to them.** A duplicate within one scorer's life is caught by
+the ledger before the feature engine sees it, so no window counts it twice
+(`tests/test_scoring.py`). One decided twice across a restart appears twice
+on the decisions topic, whose readers key by event id, and is staged twice,
+which finalising a day removes (`tests/test_history.py`, including a
+duplicate split across batches). A feed's resent transaction arrives behind
+the restarted scorer's clock and is set aside as `late` rather than decided
+twice; that is reasoned from the code, not yet counted on the live stack,
+where the dead-letter panel will show it after each replacement.
+
+**What changed.** The broker fix above removes the commonest cause, a
+scorer or feed stopping over a slow broker. The rest is the at-least-once
+design (ADR 8) and stays.
+
+## The host's clock jumps (clock skew)
+
+**What was done.** In process, with the feed's clock under the test's
+control (`tests/test_live_feed.py`): an hour forward, and two minutes back.
+The feed is the only part of the platform that reads the wall clock to
+decide anything; the feature engine and the scorer work in event time.
+
+**What it did.** Forward: an hour's records fell due at once and went out
+5,000 at a time, flushed between, in event order, none skipped or sent
+twice, with the feed's lag metric reporting the hour until it had caught
+up. Back: the feed sent nothing until the clock passed where it had been,
+and nothing twice. Its place is in the stream, not in the clock.
+
+**What it costs.** A forward jump is a burst the scorer works through like
+any catch-up. A backward jump is a silence as long as the jump; over fifteen
+minutes `ScorerStopped` fires. The event-to-decision metric subtracts event
+time from the wall clock, so it is wrong by the jump while the clock is; the
+scorer's own hop timings use a monotonic clock and are not.
+
+**What changed.** Nothing. The instance keeps time with the Amazon Time Sync
+Service, and a step of seconds is the realistic case.
+
 ## Known before it happens: history the platform could lose (ADR 18)
 
 Not yet tried, so there is no observed behaviour; recorded now because the

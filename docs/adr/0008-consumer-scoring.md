@@ -173,6 +173,42 @@ path that decided fewer transactions than the reference reports them as
 missing. A stream that reorders is therefore caught by parity as a set of
 missing decisions, where before it stopped the check with an exception.
 
+## Addendum, 2026-09-22: a broker that stops answering is waited for
+
+**The fault.** A flush gave up after 10 seconds and raised, and every
+service that produces stops on that error. The local broker's container was
+frozen for 15 seconds from inside a scorer batch, after a transaction was
+decided and before its decision was flushed, at the live rate
+(`verdict chaos run`, `docs/chaos/pause-15s-before.json`). The scorer
+stopped 10 seconds in (`132 records still undelivered after 10.0s`). The
+restart policy started another, which began with empty feature windows,
+every card "no history" for up to a day live, and decided again the 132
+transactions of the batch that had not been checkpointed. The same freeze
+at a random moment usually misses a batch in flight and was ridden out
+(`pause-15s-between-batches-before.json`): the fault is real but rare,
+which is the kind a sixty-day window finds.
+
+**The decision.** A producer waits for a broker that has stopped answering,
+for `RIDE_OUT_SECONDS` (ten minutes, `verdict/stream/base.py`): the flush's
+default, librdkafka's `message.timeout.ms`, and the deadline on retrying a
+checkpoint are all set to it. Nothing is decided while the broker is away
+whether the scorer waits or restarts; waiting keeps its feature windows and
+its ledger, restarting throws both away. Ten minutes is past any broker
+restart. Longer is an outage for a person, and `ScorerStopped` (ADR 26)
+emails one at fifteen. The HTTP endpoint keeps a 10 second flush: a request
+cannot wait out a broker.
+
+**After:** the same 15 second freeze, and a 60 second one, each inside a
+batch at the live rate: one scorer throughout, all 90,000 transactions
+decided exactly once, and decisions back within a second of their sends 6
+and 19 seconds after the broker returned (`docs/chaos/pause-*-after.json`,
+`docs/failure-modes.md`).
+
+**What it costs.** A stop request during an outage waits for the flush, up to
+the container's 30 second grace, and is then killed; the batch in hand was
+not checkpointed, so it is delivered again, which at least once already
+covers.
+
 ## Options not taken
 
 - **Deduplicate on the decisions topic only.** Cheap, and it lets the engine

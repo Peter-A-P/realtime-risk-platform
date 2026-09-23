@@ -18,7 +18,13 @@ import hashlib
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 
-from verdict.stream.base import Position, Record, StreamError, UnknownTopicError
+from verdict.stream.base import (
+    RIDE_OUT_SECONDS,
+    Position,
+    Record,
+    StreamError,
+    UnknownTopicError,
+)
 
 
 def partition_for(key: str, partitions: int) -> int:
@@ -123,7 +129,7 @@ class MemoryStream:
         partitions = self.broker.topic(topic).partitions
         partitions[partition_for(key, len(partitions))].append((key, value))
 
-    def flush(self, timeout_seconds: float = 10.0) -> None:
+    def flush(self, timeout_seconds: float = RIDE_OUT_SECONDS) -> None:
         """Nothing is queued in process, so there is nothing to wait for.
 
         Args:
