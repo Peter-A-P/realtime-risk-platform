@@ -247,6 +247,16 @@ Twenty-three ADRs, in `docs/adr/`: 1 to 15 and 17 to 24. Read them before reopen
 
 ## 5. Things that will break if you do not know them
 
+**OneDrive can roll the checkout back under git.** Found 2026-09-24: at
+about 19:27 local on 2026-09-23 every file here that existed on 2026-09-19,
+`.git`'s refs and reflogs included, went back to that day's version, and
+newer files were left in place as untracked. The objects were intact and
+GitHub was not touched, so nothing committed was lost; it was restored with
+`git stash push -u` (the untracked copies, all identical to the last commit,
+kept in the stash) and `git merge --ff-only`. If `git log` is suddenly days
+behind GitHub, check `git ls-remote origin` and the objects before anything
+else, and push commits as they are made.
+
 **The regime schedule is sealed.** `verdict/events/generator/regimes.py` is
 frozen: a test asserts its source hash against `docs/generator-hashes.json`.
 Editing it is a deliberate act that belongs in the same commit as an
