@@ -525,6 +525,26 @@ chaos fix. The disk does not fill during the dry run (about 40 GB more by
 memory at 11 hours after its last start was 6.8 GiB, near ADR 20's measured
 curve (about 91 percent of level at that point), so about 7.5 GiB at level.
 
+**The dry run's record (2026-09-22T16:53Z to 2026-09-25T16:53Z,
+`docs/dry-run-report.json`).** Synthetic live track. Latency while serving,
+4,224 minutes and 261 million decisions: p50 7.1 ms, p95 10.0 ms, p99 22.3 ms;
+daily p99 22.4 ms (21.8 to 22.9, four daily windows). Uptime 99.24 percent,
+33 minutes without decisions. **Eleven spot reclaims, every one with AWS's
+notice on the volume, and no stop of the platform's own**; recovery 7 to 11
+minutes, 96 minutes in all, about 3.9 million decisions late. Over every
+minute the p99 is 63 s, which is those recoveries. Eight of the eleven fell
+on 2026-09-25 alone, across four instance types, so widening the pools
+spread the reclaims rather than stopping them.
+
+**What that rate means for the live window: ADR 15's open item is now a
+go-live question.** A replacement's scorer starts with empty feature windows,
+and the day-long ones take a day to refill; at a reclaim every few hours the
+scorer is almost never on full history, so the live window's shadow,
+drift and queue evidence would be measured on features thinner than the
+model was trained on. ADR 20 settled the memory question that blocked the
+rebuild's design. Peter's call on the approach; see the options put to him
+on 2026-09-25.
+
 ---
 
 ## 7. The real-data track, as measured

@@ -1,0 +1,194 @@
+{
+  "track": "synthetic live",
+  "rules": {
+    "feed_on_time_s": 1.0,
+    "catch_up_factor": 1.1,
+    "sustain_minutes": 2,
+    "late_s": 1.0
+  },
+  "window": {
+    "first_minute": "2026-09-22T16:53:00+00:00",
+    "last_minute": "2026-09-25T16:52:00+00:00",
+    "minutes": 4320
+  },
+  "latency_while_serving": {
+    "decisions": 261318707.36694258,
+    "p50_ms": 7.123462486188928,
+    "p95_ms": 9.998618525335612,
+    "p99_ms": 22.337933021668427,
+    "minutes": 4224,
+    "daily_mean_95ci": {
+      "p50_ms": {
+        "mean": 7.123,
+        "low": 7.068,
+        "high": 7.177,
+        "runs": 4
+      },
+      "p95_ms": {
+        "mean": 10.437,
+        "low": 9.474,
+        "high": 11.401,
+        "runs": 4
+      },
+      "p99_ms": {
+        "mean": 22.354,
+        "low": 21.821,
+        "high": 22.887,
+        "runs": 4
+      }
+    },
+    "by_day": {
+      "2026-09-22": {
+        "decisions": 25720146.080413807,
+        "p50_ms": 7.139639627740578,
+        "p95_ms": 10.543705688507467,
+        "p99_ms": 22.67693464198428
+      },
+      "2026-09-23": {
+        "decisions": 88456184.09375247,
+        "p50_ms": 7.158243957895171,
+        "p95_ms": 11.252338509279298,
+        "p99_ms": 22.5950321601308
+      },
+      "2026-09-24": {
+        "decisions": 88538293.1927766,
+        "p50_ms": 7.113316223453127,
+        "p95_ms": 9.98578473368218,
+        "p99_ms": 22.1625745786057
+      },
+      "2026-09-25": {
+        "decisions": 58604084.00000009,
+        "p50_ms": 7.078894593070349,
+        "p95_ms": 9.96756758282415,
+        "p99_ms": 21.982644927020967
+      }
+    }
+  },
+  "latency_every_minute": {
+    "decisions": 267147731.26083156,
+    "p50_ms": 7.171482265966804,
+    "p95_ms": 14.370032129622418,
+    "p99_ms": 62954.40071262117
+  },
+  "availability": {
+    "minutes_with_decisions": 4287,
+    "minutes_without_decisions": 33,
+    "uptime_percent": 99.23611111111111,
+    "decisions": 267147554.0474316,
+    "decided_late": 4011893.6811551764,
+    "spot_reclaims": [
+      {
+        "instance_id": "i-0d3a7630a740d8afc",
+        "noticed_at": "2026-09-22T21:15:53+00:00",
+        "action": "terminate",
+        "recovered_at": "2026-09-22T21:26:00+00:00",
+        "recovery_minutes": 11,
+        "minutes_without_decisions": 4,
+        "decided": 714690.2133333333,
+        "decided_late": 525038.0546666667
+      },
+      {
+        "instance_id": "i-0f637318c5c4bbdec",
+        "noticed_at": "2026-09-23T14:11:59+00:00",
+        "action": "terminate",
+        "recovered_at": "2026-09-23T14:21:00+00:00",
+        "recovery_minutes": 10,
+        "minutes_without_decisions": 4,
+        "decided": 584969.928,
+        "decided_late": 399354.6666666666
+      },
+      {
+        "instance_id": "i-0f96bb1c16de62c6a",
+        "noticed_at": "2026-09-24T04:49:32+00:00",
+        "action": "terminate",
+        "recovered_at": "2026-09-24T04:58:00+00:00",
+        "recovery_minutes": 9,
+        "minutes_without_decisions": 3,
+        "decided": 540900.4773333333,
+        "decided_late": 368837.3493333333
+      },
+      {
+        "instance_id": "i-0720bbccbda183850",
+        "noticed_at": "2026-09-25T03:40:50+00:00",
+        "action": "terminate",
+        "recovered_at": "2026-09-25T03:48:00+00:00",
+        "recovery_minutes": 8,
+        "minutes_without_decisions": 3,
+        "decided": 443418.78933333326,
+        "decided_late": 270774.6666666666
+      },
+      {
+        "instance_id": "i-0362d780fbaeac26d",
+        "noticed_at": "2026-09-25T07:12:45+00:00",
+        "action": "terminate",
+        "recovered_at": "2026-09-25T07:20:00+00:00",
+        "recovery_minutes": 8,
+        "minutes_without_decisions": 2,
+        "decided": 498071.0895333333,
+        "decided_late": 299603.4421333333
+      },
+      {
+        "instance_id": "i-0cb87ed4d194c90fd",
+        "noticed_at": "2026-09-25T08:04:48+00:00",
+        "action": "terminate",
+        "recovered_at": "2026-09-25T08:11:00+00:00",
+        "recovery_minutes": 7,
+        "minutes_without_decisions": 2,
+        "decided": 421519.2414,
+        "decided_late": 253793.61633333334
+      },
+      {
+        "instance_id": "i-0cdbd5124678ebc2d",
+        "noticed_at": "2026-09-25T08:22:12+00:00",
+        "action": "terminate",
+        "recovered_at": "2026-09-25T08:30:00+00:00",
+        "recovery_minutes": 8,
+        "minutes_without_decisions": 3,
+        "decided": 456693.9566,
+        "decided_late": 289108.67848888884
+      },
+      {
+        "instance_id": "i-087ef67d8d1200788",
+        "noticed_at": "2026-09-25T11:21:50+00:00",
+        "action": "terminate",
+        "recovered_at": "2026-09-25T11:30:00+00:00",
+        "recovery_minutes": 9,
+        "minutes_without_decisions": 3,
+        "decided": 548784.6666666666,
+        "decided_late": 342198.70728888887
+      },
+      {
+        "instance_id": "i-0ea6f960fa51b7b1c",
+        "noticed_at": "2026-09-25T12:09:23+00:00",
+        "action": "terminate",
+        "recovered_at": "2026-09-25T12:17:00+00:00",
+        "recovery_minutes": 8,
+        "minutes_without_decisions": 2,
+        "decided": 505514.01166666666,
+        "decided_late": 346595.0448888889
+      },
+      {
+        "instance_id": "i-040f51b6c3531aafc",
+        "noticed_at": "2026-09-25T12:32:20+00:00",
+        "action": "terminate",
+        "recovered_at": "2026-09-25T12:42:00+00:00",
+        "recovery_minutes": 10,
+        "minutes_without_decisions": 4,
+        "decided": 606981.8561333333,
+        "decided_late": 475987.7479111111
+      },
+      {
+        "instance_id": "i-03b0fc06a1892432a",
+        "noticed_at": "2026-09-25T14:35:18+00:00",
+        "action": "terminate",
+        "recovered_at": "2026-09-25T14:43:00+00:00",
+        "recovery_minutes": 8,
+        "minutes_without_decisions": 3,
+        "decided": 507302.45048888883,
+        "decided_late": 377144.07928888884
+      }
+    ],
+    "other_stops": []
+  },
+  "note": "The 72-hour dry run, development schedule at 1,000 a second, image of 2026-09-22 (ADR 25 deploy). verdict observe report on the instance."
+}
