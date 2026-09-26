@@ -115,6 +115,16 @@ def _statements(path: Path) -> list[dict[str, Any]]:
 
 
 @pytest.mark.parametrize("path", [DEPLOY_POLICY, BOOTSTRAP_POLICY])
+def test_every_policy_fits_what_iam_accepts(path: Path) -> None:
+    """IAM refuses a managed policy over 6,144 characters, whitespace not counted.
+
+    Found on 2026-09-26, when the alerts' statements took the deploy policy 92
+    over and the console would not save it.
+    """
+    assert len(re.sub(r"\s", "", path.read_text(encoding="utf-8"))) <= 6_144
+
+
+@pytest.mark.parametrize("path", [DEPLOY_POLICY, BOOTSTRAP_POLICY])
 def test_no_policy_grants_a_whole_service(path: Path) -> None:
     for statement in _statements(path):
         actions = statement["Action"]

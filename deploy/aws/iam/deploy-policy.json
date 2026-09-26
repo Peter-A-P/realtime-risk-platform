@@ -19,7 +19,7 @@
       }
     },
     {
-      "Sid": "CreateOnlyTagged",
+      "Sid": "CreateTagged",
       "Effect": "Allow",
       "Action": [
         "ec2:CreateInternetGateway",
@@ -76,7 +76,7 @@
       }
     },
     {
-      "Sid": "ChangeOnlyTagged",
+      "Sid": "ChangeTagged",
       "Effect": "Allow",
       "Action": [
         "ec2:AssociateRouteTable",
@@ -112,7 +112,7 @@
       }
     },
     {
-      "Sid": "SecurityGroupRules",
+      "Sid": "SgRules",
       "Effect": "Allow",
       "Action": [
         "ec2:AuthorizeSecurityGroupEgress",
@@ -121,7 +121,7 @@
       "Resource": "arn:aws:ec2:ca-central-1:*:security-group-rule/*"
     },
     {
-      "Sid": "LaunchOnlyFromATemplate",
+      "Sid": "LaunchFromTemplate",
       "Effect": "Allow",
       "Action": [
         "ec2:RunInstances"
@@ -137,7 +137,7 @@
       }
     },
     {
-      "Sid": "GroupCreateOnlyTagged",
+      "Sid": "GroupCreateTagged",
       "Effect": "Allow",
       "Action": [
         "autoscaling:CreateAutoScalingGroup"
@@ -151,7 +151,7 @@
       }
     },
     {
-      "Sid": "GroupChangeOnlyTagged",
+      "Sid": "GroupChangeTagged",
       "Effect": "Allow",
       "Action": [
         "autoscaling:CreateOrUpdateTags",
@@ -187,7 +187,7 @@
       }
     },
     {
-      "Sid": "OwnRolesAndProfiles",
+      "Sid": "OwnRoles",
       "Effect": "Allow",
       "Action": [
         "iam:AddRoleToInstanceProfile",
@@ -216,7 +216,7 @@
       ]
     },
     {
-      "Sid": "OnlyTheSessionManagerPolicy",
+      "Sid": "SsmCorePolicyOnly",
       "Effect": "Allow",
       "Action": [
         "iam:AttachRolePolicy",
@@ -230,7 +230,7 @@
       }
     },
     {
-      "Sid": "PassOwnRoleToEc2",
+      "Sid": "PassRoleToEc2",
       "Effect": "Allow",
       "Action": [
         "iam:PassRole"
@@ -243,7 +243,7 @@
       }
     },
     {
-      "Sid": "AlertsTopicCreateOnlyTagged",
+      "Sid": "AlertsTopicCreate",
       "Effect": "Allow",
       "Action": [
         "sns:CreateTopic",
@@ -257,7 +257,7 @@
       }
     },
     {
-      "Sid": "AlertsTopic",
+      "Sid": "Alerts",
       "Effect": "Allow",
       "Action": [
         "sns:DeleteTopic",
@@ -284,7 +284,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "OwnRepository",
+      "Sid": "OwnRepo",
       "Effect": "Allow",
       "Action": [
         "ecr:BatchCheckLayerAvailability",
@@ -313,7 +313,7 @@
       "Resource": "arn:aws:ecr:ca-central-1:*:repository/verdict"
     },
     {
-      "Sid": "ReachOwnInstances",
+      "Sid": "OwnInstances",
       "Effect": "Allow",
       "Action": [
         "ssm:SendCommand",
@@ -327,7 +327,7 @@
       }
     },
     {
-      "Sid": "SessionAndCommandDocuments",
+      "Sid": "SsmDocuments",
       "Effect": "Allow",
       "Action": [
         "ssm:SendCommand",
@@ -348,7 +348,7 @@
       "Resource": "arn:aws:ssm:*:*:session/${aws:username}-*"
     },
     {
-      "Sid": "ReadWhyARequestWasRefused",
+      "Sid": "DecodeRefusals",
       "Effect": "Allow",
       "Action": [
         "sts:DecodeAuthorizationMessage"
