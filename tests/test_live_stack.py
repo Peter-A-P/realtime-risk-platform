@@ -206,6 +206,16 @@ def test_the_scorer_stages_its_decisions_on_the_data_volume() -> None:
     assert "/data/history:/data/history" in scorer["volumes"]
 
 
+def test_the_scorer_saves_its_feature_state_on_the_data_volume() -> None:
+    """ADR 27: a replacement starts from the saved state, which must outlive the instance."""
+    scorer = _compose(LIVE_COMPOSE)["services"]["scorer"]
+    assert "--engine-snapshot=/data/engine" in scorer["command"]
+    assert "/data/engine:/data/engine" in scorer["volumes"]
+    boot = (TERRAFORM / "boot.sh.tftpl").read_text(encoding="utf-8")
+    assert re.search(r"mkdir -p .*/data/engine", boot)
+    assert re.search(r"chown 10001:10001 .*/data/engine", boot)
+
+
 def test_the_scorer_compresses_what_it_writes_to_the_broker() -> None:
     """ADR 18's 150 GB volume assumes zstd on the decisions and shadow topics.
 

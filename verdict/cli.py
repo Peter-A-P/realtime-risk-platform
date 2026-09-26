@@ -560,6 +560,13 @@ def score(
         str | None,
         typer.Option(help="Score the shipped model in this role (challenger) in shadow."),
     ] = None,
+    engine_snapshot: Annotated[
+        Path | None,
+        typer.Option(help="Save the feature state here as it runs, and start from it (ADR 27)."),
+    ] = None,
+    snapshot_every: Annotated[
+        float, typer.Option(help="Seconds between the starts of saves of the feature state.")
+    ] = 900.0,
 ) -> None:
     """Run the stream scorer until interrupted: the platform's decision path.
 
@@ -569,9 +576,10 @@ def score(
     stops it after the batch in hand. Metrics listen on localhost by default:
     nothing about the scoring path is meant to be public (`PLAN.md` section 8).
 
-    A scorer that starts cold serves every card "no history" until its
-    windows refill; ADR 8 records that as a known gap until the live stack's
-    recovery work.
+    With `--engine-snapshot`, the feature state is saved a slice at a time
+    between batches, and a scorer that finds a save starts from it and replays
+    the records after it (ADR 27). Without one, or when a save cannot be used,
+    it starts cold: every card "no history" until its windows refill.
 
     Args:
         bootstrap: Broker address. Defaults to the compose stack's.
@@ -583,6 +591,8 @@ def score(
         compression: Producer batch compression.
         initial_champion: The role a new pointer starts at.
         shadow: The role to score in shadow (ADR 11).
+        engine_snapshot: Where the feature state is saved, if anywhere.
+        snapshot_every: Seconds between the starts of saves.
     """
     import signal
     import threading
@@ -591,8 +601,8 @@ def score(
 
     from verdict.features.engine import FeatureEngine
     from verdict.observe.metrics import ScorerMetrics
-    from verdict.scoring import service
-    from verdict.scoring.consumer import StreamScorer
+    from verdict.scoring import recovery, service
+    from verdict.scoring.consumer import TRANSACTIONS_TOPIC, StreamScorer
     from verdict.scoring.core import Decider, EngineFeatures
     from verdict.scoring.flags import FlaggedModels, set_champion
     from verdict.scoring.model import FixedModel, ModelSource, StandInModel
@@ -617,17 +627,50 @@ def score(
         paths = HistoryPaths(history)
         spool.recover(paths.staged)
         staging = spool.SpoolWriter(paths.staged, staged_schema())
+    if metrics_port:
+        start_http_server(metrics_port, addr=metrics_host, registry=metrics.registry)
+    engine = FeatureEngine()
+    restored = None
+    if engine_snapshot is not None:
+        outcome = recovery.restore(engine_snapshot, stream, group=group, topic=TRANSACTIONS_TOPIC)
+        if isinstance(outcome, recovery.Restored):
+            restored, engine = outcome, outcome.engine
+            metrics.restored.set(1)
+            metrics.restore_seconds.set(outcome.seconds)
+            metrics.replayed.set(outcome.replayed)
+            typer.echo(
+                f"restored {outcome.entities:,} entities saved from "
+                f"{outcome.snapshot_started_at.isoformat(timespec='seconds')} and replayed "
+                f"{outcome.replayed:,} records in {outcome.seconds:.1f}s"
+            )
+        else:
+            metrics.restored.set(0)
+            typer.echo(f"starting with empty feature windows: {outcome.reason}")
+    decider = Decider(features=EngineFeatures(engine), models=models, shadow=shadow_models)
     scorer = StreamScorer(
         stream,
-        decider=Decider(
-            features=EngineFeatures(FeatureEngine()), models=models, shadow=shadow_models
-        ),
+        decider=decider,
         group=group,
         on_decided=metrics.on_decided,
         history=staging,
     )
-    if metrics_port:
-        start_http_server(metrics_port, addr=metrics_host, registry=metrics.registry)
+    snapshots = None
+    if engine_snapshot is not None:
+        if restored is not None:
+            for event_id in restored.ledger:
+                decider.remember(event_id)
+            scorer.recent.extend(restored.recent)
+            scorer.before_recent = restored.before_recent
+        else:
+            scorer.before_recent = stream.committed(TRANSACTIONS_TOPIC, group, "0")
+        snapshots = recovery.Snapshotter(
+            engine_snapshot,
+            scorer,
+            engine,
+            topic=TRANSACTIONS_TOPIC,
+            every_seconds=snapshot_every,
+            on_saved=metrics.on_saved,
+        )
     stop = threading.Event()
 
     def ask_to_stop(signum: int, frame: object) -> None:
@@ -641,7 +684,7 @@ def score(
         + (f", metrics on {metrics_host}:{metrics_port}" if metrics_port else "")
     )
     try:
-        summary = service.run(scorer, stop=stop, metrics=metrics)
+        summary = service.run(scorer, stop=stop, metrics=metrics, snapshots=snapshots)
     finally:
         if staging is not None:
             staging.close()

@@ -37,12 +37,13 @@ than for convenience:
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Final, TypeVar
 
 from verdict.stream.base import (
     RIDE_OUT_SECONDS,
     Position,
+    PositionGoneError,
     Record,
     StreamError,
     UnknownTopicError,
@@ -395,6 +396,99 @@ class RedpandaStream:
         )
         for tp in offsets:
             self._committed[(topic, group, tp.partition)] = tp.offset
+
+    def committed(self, topic: str, group: str, partition: str) -> Position | None:
+        """The last record a group checkpointed in one partition.
+
+        Read through the group's own consumer, which is where `consume` will
+        carry on from, so the two agree.
+
+        Args:
+            topic: The topic.
+            group: The consumer group.
+            partition: The partition.
+
+        Returns:
+            That record's position, or None if the group has checkpointed
+            nothing there.
+        """
+        self._consumer(topic, group)
+        following = self._committed.get((topic, group, int(partition)))
+        return (
+            None if following is None or following == 0 else Position(partition, str(following - 1))
+        )
+
+    def reread(
+        self, topic: str, partition: str, after: Position | None, through: Position
+    ) -> Iterator[Record]:
+        """Read one partition again, between two positions, touching no group.
+
+        A consumer of its own, assigned at the offset after `after`, which
+        never commits: a reread must not move anyone's progress.
+
+        Args:
+            topic: The topic.
+            partition: The partition.
+            after: Start after this record; None for the partition's first.
+            through: Stop after this record.
+
+        Yields:
+            The records.
+
+        Raises:
+            PositionGoneError: If the broker no longer keeps the records after
+                `after`.
+            StreamError: If the broker reports an error, or stops sending
+                before `through`.
+        """
+        from confluent_kafka import Consumer, TopicPartition
+
+        index, last = int(partition), int(through.token)
+        consumer = Consumer(
+            {**self._common, "group.id": "verdict-reread", "enable.auto.commit": False}
+        )
+        try:
+            low, _high = retrying(
+                lambda: consumer.get_watermark_offsets(
+                    TopicPartition(topic, index), timeout=10, cached=False
+                ),
+                f"reading {topic}'s retained offsets",
+            )
+            start = low if after is None else int(after.token) + 1
+            if start < low:
+                msg = f"{topic} partition {partition} keeps offsets from {low}, not {start}"
+                raise PositionGoneError(msg)
+            if start > last:
+                return
+            consumer.assign([TopicPartition(topic, index, start)])
+            quiet_since = time.monotonic()
+            while True:
+                messages = consumer.consume(num_messages=10_000, timeout=1.0)
+                if not messages:
+                    if time.monotonic() - quiet_since > 60:
+                        msg = f"{topic} stopped sending before offset {last}"
+                        raise StreamError(msg)
+                    continue
+                quiet_since = time.monotonic()
+                for message in messages:
+                    error = message.error()
+                    if error is not None:
+                        msg = f"error rereading {topic}: {error}"
+                        raise StreamError(msg)
+                    offset = message.offset()
+                    if offset is None:
+                        continue
+                    raw_key = message.key()
+                    yield Record(
+                        topic=topic,
+                        key=raw_key.decode("utf-8") if isinstance(raw_key, bytes) else "",
+                        value=bytes(message.value() or b""),
+                        position=Position(partition, str(offset)),
+                    )
+                    if offset >= last:
+                        return
+        finally:
+            consumer.close()
 
     def close(self) -> None:
         """Close consumers and let the producer finish what it was sending."""

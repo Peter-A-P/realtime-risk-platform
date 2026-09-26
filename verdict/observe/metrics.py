@@ -15,6 +15,14 @@ What a running scorer reports, and why each one is there:
   (ADR 8 addendum), which nothing else counts.
 - `verdict_last_decision_timestamp_seconds`, gauge: liveness; a scorer that
   has stopped deciding stops moving it.
+- `verdict_engine_snapshot_timestamp_seconds`, gauge, with
+  `verdict_engine_snapshot_seconds` and `_bytes`: when the feature state was
+  last saved whole, how long the pass took and how big it was (ADR 27). A
+  save that stops moving means a replacement will replay further, or start
+  cold.
+- `verdict_engine_restored`, gauge, with `verdict_engine_restore_seconds`:
+  whether this scorer started from saved state (1) or empty (0), and how long
+  the restore took; `verdict_engine_replayed_records` is how far it replayed.
 
 What it does not report, and why: end-to-end latency from the moment of ingest,
 because the scorer does not know when a transaction entered the stream. That
@@ -44,6 +52,7 @@ from verdict.scoring.timing import HopSample
 if TYPE_CHECKING:  # pragma: no cover - types only
     from verdict.events.schema import DecisionEvent, TransactionEvent
     from verdict.scoring.consumer import StreamScorer
+    from verdict.scoring.recovery import SavedPass
 
 HOP_BUCKETS: Final[tuple[float, ...]] = (
     0.00005,
@@ -149,8 +158,48 @@ class ScorerMetrics:
             "Wall-clock time of the most recent decision.",
             registry=self.registry,
         )
+        self.snapshot_at = Gauge(
+            "verdict_engine_snapshot_timestamp_seconds",
+            "Wall-clock time the feature state was last saved whole.",
+            registry=self.registry,
+        )
+        self.snapshot_seconds = Gauge(
+            "verdict_engine_snapshot_seconds",
+            "How long the last complete save of the feature state took.",
+            registry=self.registry,
+        )
+        self.snapshot_bytes = Gauge(
+            "verdict_engine_snapshot_bytes",
+            "Size of the last complete save of the feature state.",
+            registry=self.registry,
+        )
+        self.restored = Gauge(
+            "verdict_engine_restored",
+            "1 if this scorer started from saved feature state, 0 if from empty windows.",
+            registry=self.registry,
+        )
+        self.restore_seconds = Gauge(
+            "verdict_engine_restore_seconds",
+            "How long restoring the feature state took at start.",
+            registry=self.registry,
+        )
+        self.replayed = Gauge(
+            "verdict_engine_replayed_records",
+            "Records replayed onto the saved feature state at start.",
+            registry=self.registry,
+        )
         self._seen_duplicates = 0
         self._seen_dead: dict[str, int] = {}
+
+    def on_saved(self, saved: SavedPass) -> None:
+        """Record a complete save of the feature state. Shaped to be `on_saved`.
+
+        Args:
+            saved: What the pass did.
+        """
+        self.snapshot_at.set(time.time())
+        self.snapshot_seconds.set(saved.seconds)
+        self.snapshot_bytes.set(saved.bytes)
 
     def on_decided(
         self, event: TransactionEvent, decision: DecisionEvent, sample: HopSample

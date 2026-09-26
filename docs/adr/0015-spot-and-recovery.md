@@ -1,9 +1,9 @@
 # 15. Surviving a spot replacement: the feeds resume exactly; the scorer's rebuild is open
 
-- Status: accepted in part, 2026-09-19. The feeds' recovery is decided and
-  built. The scorer's recovery (rebuilding its feature windows after a
-  replacement) is **open**, and so is a finding about the engine's memory at
-  the live rate that bears on it.
+- Status: accepted, 2026-09-19. The feeds' recovery was decided and built
+  then. The scorer's, left open here, is decided by ADR 27 (2026-09-26): it
+  saves its feature state as it runs and restores from it. The memory
+  finding below was settled by ADR 20.
 - Date: 2026-09-19
 - Deciders: the build session, within `PLAN.md` section 2.8 as amended
 
@@ -74,6 +74,10 @@ The window's start is a Terraform variable (`window_start`), fixed for the
 window, because every restart continues from it.
 
 ## Open: the scorer's state after a replacement
+
+**Closed 2026-09-26 by ADR 27**: the scorer saves its engine to the data
+volume a slice at a time and a replacement restores the last save and
+replays the records after it. The analysis as it stood follows.
 
 The scorer starts a replacement with an empty engine, so every card has "no
 history" until its windows refill: up to 24 hours of decisions on features

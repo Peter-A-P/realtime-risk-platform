@@ -27,6 +27,7 @@ scoring is not in shadow.
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 import time
 from collections import OrderedDict
 from collections.abc import Mapping
@@ -272,6 +273,27 @@ class Decider:
             The count, which never exceeds `ledger_size`.
         """
         return len(self._ledger)
+
+    def ledger_tail(self, count: int) -> list[str]:
+        """The most recently remembered event ids, oldest first, to be saved.
+
+        Args:
+            count: The most to return.
+
+        Returns:
+            The ids.
+        """
+        tail = list(itertools.islice(reversed(self._ledger), count))
+        tail.reverse()
+        return tail
+
+    def remember(self, event_id: str) -> None:
+        """Remember an event as seen without deciding it: a restore's replay.
+
+        Args:
+            event_id: The event.
+        """
+        self._remember(event_id)
 
     def _remember(self, event_id: str) -> None:
         self._ledger[event_id] = None

@@ -188,19 +188,43 @@ design chose to accept them, and each needs a chaos run before go-live.
   (`HistoryUnsealed`), and failing runs and a day not finalised are alerts of
   their own (below).
 
-## Known before it happens: a spot replacement (ADR 15)
+## A spot replacement (ADR 15, ADR 25, ADR 27)
 
-Not yet tried on the instance. What the design says happens, to be checked by
-a timed interruption drill before go-live:
+**What was done to it:** nothing; AWS did it. Eleven times in the 72-hour dry
+run (2026-09-22T16:53Z to 2026-09-25T16:53Z, `docs/dry-run-report.json`),
+eight of them on 2026-09-25, every one with AWS's two-minute notice recorded
+on the volume by the spot watcher.
 
-- **The feeds** restore their saved place and resend up to 30 seconds of
-  records, then catch up on whatever came due while they were down. The
-  duplicates are visible on the dashboard and absorbed by the scorer's ledger
-  and history's finalising. A fresh start with no saved place, more than an
-  hour into the window, is refused rather than replaying the window.
-- **The scorer** starts with empty feature windows and serves "no history"
-  until they refill. Its rebuild by replay is not built, and the engine's
-  memory at the live rate is the first thing to measure (ADR 15).
+**What it did:** each time, about two to four minutes with no decisions (the
+notice, a launch, a boot), then a catch-up at about twice the live rate, and
+decisions on time again seven to eleven minutes after the notice. No stop was
+the platform's own. The feeds restored their saved place and resent up to 30
+seconds of records, which the scorer's ledger turned away. **The scorer
+started every time with empty feature windows**: every card "no history",
+and the day-long features a day from full. At a reclaim every few hours it
+was almost never on full history, which would have left the live window's
+shadow, drift and queue evidence measured on features thinner than the
+model was trained on.
+
+**What was changed:** ADR 27. The scorer saves its feature state to the data
+volume a slice at a time between batches, a pass every fifteen minutes, and
+a replacement restores the last complete pass and replays the records after
+it before deciding (`verdict/scoring/recovery.py`). Measured locally on
+2026-09-26 at a tenth of the live engine's size: steps of 2.1 ms at p50 and
+at most about 11 ms, 7.9 s of pickling a pass, a restore in 5.6 s. At the
+live size that is about 80 s of pickling spread over about seven minutes,
+and about a minute to restore plus the replay, which lengthens each
+reclaim's recovery by that much and ends the day of thin features.
+
+**The test:** `tests/test_recovery.py` stops a scorer at points spread through
+several passes, including between deciding a batch and checkpointing it,
+restores another, and holds every feature it serves to an uninterrupted
+scorer's; six deliberate faults in the save and the restore were each
+caught. A save
+that cannot be used (none, other feature code, cut short, older than the
+topic keeps) starts cold and says why. Not yet seen on the instance: the
+first replacement after the roll is the check, in the scorer's log and the
+`verdict_engine_restored` metric.
 
 ## Alerts, and what to do about each (ADR 26)
 
@@ -259,6 +283,17 @@ down, and every minute of it counts against the availability figure (ADR
 25). `docker ps` to see whether it is running, then `docker logs --tail 100
 verdict-scorer`. A run of fifty records it cannot decide stops it on
 purpose (the first section above); the dead-letter topic has them.
+
+### EngineSnapshotStale
+
+The scorer has not finished a save of its feature state for over an hour
+(ADR 27); a pass normally finishes minutes after it starts, every fifteen.
+The scorer is still deciding, so this costs nothing until the next
+replacement, which will replay further than it should or, if the last save
+is older than the day the topic keeps, start with empty windows. `docker logs
+--tail 100 verdict-scorer`, `ls -la /data/engine` (a `.partial` file that is
+not growing means a pass has stopped), and `df -h /data`: a full volume stops
+a save before it stops anything else.
 
 ### TargetDown
 

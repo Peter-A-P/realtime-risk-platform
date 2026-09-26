@@ -159,8 +159,10 @@ class FeatureEngine:
         self._since_prune = 0
         self._observed_through: dt.datetime | None = None
         # Events at the newest timestamp, held back until time moves on. See
-        # `process` for why this buffer exists.
+        # `process` for why this buffer exists. Beside each, the entities it
+        # must not be folded into, which only a replay ever sets (`replay`).
         self._pending: list[TransactionEvent] = []
+        self._pending_skip: list[frozenset[tuple[EntityKind, str]]] = []
         self._pending_time: dt.datetime | None = None
 
     @property
@@ -205,15 +207,19 @@ class FeatureEngine:
             )
         return rows
 
-    def observe(self, event: TransactionEvent) -> None:
+    def observe(
+        self, event: TransactionEvent, skip: frozenset[tuple[EntityKind, str]] = frozenset()
+    ) -> None:
         """Fold an event into the state, for the events that follow it.
 
         Args:
             event: The event to record.
+            skip: Entities whose state already holds this event, which only a
+                replay onto restored state has (`replay`).
         """
         for kind, specs in self._by_entity.items():
             entity_id = entity_id_of(event, kind)
-            if entity_id is None:
+            if entity_id is None or (kind, entity_id) in skip:
                 continue
             state = self._state.setdefault((kind, entity_id), {})
             recency = self._recency[kind]
@@ -270,9 +276,37 @@ class FeatureEngine:
             if event.event_time > self._pending_time:
                 self.flush()
         rows = self.serve(event)
-        self._pending.append(event)
-        self._pending_time = event.event_time
+        self._hold(event, frozenset())
         return rows
+
+    def replay(
+        self, event: TransactionEvent, skip: frozenset[tuple[EntityKind, str]] = frozenset()
+    ) -> None:
+        """Take an event exactly as `process` does, without serving it.
+
+        For rebuilding state after a restart (`verdict/scoring/recovery.py`):
+        the event was decided before, so nothing is served, but it joins the
+        history at the same moment and refuses lateness the same way, so the
+        state that results is the state the scorer had.
+
+        Args:
+            event: The event.
+            skip: Entities restored from a snapshot that already hold it.
+
+        Raises:
+            LateEventError: As `process` does.
+        """
+        if self._pending_time is not None:
+            if event.event_time < self._pending_time:
+                raise LateEventError(event, self._pending_time)
+            if event.event_time > self._pending_time:
+                self.flush()
+        self._hold(event, skip)
+
+    def _hold(self, event: TransactionEvent, skip: frozenset[tuple[EntityKind, str]]) -> None:
+        self._pending.append(event)
+        self._pending_skip.append(skip)
+        self._pending_time = event.event_time
 
     def flush(self) -> None:
         """Fold the events waiting at the current instant into the state.
@@ -280,9 +314,10 @@ class FeatureEngine:
         Called automatically when the stream moves to a later timestamp, and
         by the caller at the end of a replay.
         """
-        for event in self._pending:
-            self.observe(event)
+        for event, skip in zip(self._pending, self._pending_skip, strict=True):
+            self.observe(event, skip)
         self._pending.clear()
+        self._pending_skip.clear()
 
     def run(self, events: Iterable[TransactionEvent]) -> list[list[FeatureRow]]:
         """Process a whole replay in order.
@@ -368,6 +403,95 @@ class FeatureEngine:
             The timestamp, or None if nothing has been observed.
         """
         return self._observed_through
+
+    # --- saving and restoring state (ADR 27) ---------------------------------
+
+    @property
+    def kinds(self) -> tuple[EntityKind, ...]:
+        """The entity kinds this engine keeps state for.
+
+        Returns:
+            The kinds, in the order the engine visits them.
+        """
+        return tuple(self._by_entity)
+
+    @property
+    def reached(self) -> dt.datetime | None:
+        """The latest event time taken, held back or observed.
+
+        Returns:
+            The timestamp, or None before the first event.
+        """
+        return self._pending_time or self._observed_through
+
+    def pending_ids(self) -> frozenset[str]:
+        """The events served but not yet folded into the state.
+
+        Returns:
+            Their event ids.
+        """
+        return frozenset(event.event_id for event in self._pending)
+
+    def entity_keys(self) -> list[tuple[EntityKind, str]]:
+        """Every entity with state, in the order it was first given state.
+
+        Not recency order: copying the per-kind recency lists costs about
+        seven times as much (49 ms against 7 ms for 200,000 entities,
+        measured 2026-09-26), and every decision waits for it. An engine
+        restored in this order prunes less promptly until its entities are
+        seen again, at most a day, which costs memory and never a feature
+        (`prune`).
+
+        Returns:
+            (kind, entity id) pairs: a copy, so the engine can go on changing.
+        """
+        return list(self._state)
+
+    def entity_state(self, kind: EntityKind, entity_id: str) -> dict[str, Aggregator] | None:
+        """One entity's aggregators, to be saved.
+
+        Args:
+            kind: The entity's kind.
+            entity_id: The entity.
+
+        Returns:
+            Feature name to aggregator, the engine's own objects, or None if
+            the entity has no state (never seen, or pruned).
+        """
+        return self._state.get((kind, entity_id))
+
+    def restore_entity(
+        self, kind: EntityKind, entity_id: str, state: dict[str, Aggregator]
+    ) -> None:
+        """Put back one entity's saved aggregators, before any event is replayed.
+
+        Called in the order the entities were saved (`entity_keys`).
+
+        Args:
+            kind: The entity's kind.
+            entity_id: The entity.
+            state: Feature name to aggregator.
+        """
+        self._state[(kind, entity_id)] = state
+        recency = self._recency[kind]
+        if entity_id in recency:
+            recency.move_to_end(entity_id)
+        else:
+            recency[entity_id] = None
+
+    def resume_at(self, reached: dt.datetime | None) -> None:
+        """Say how far restored state had got, so a late event is still refused.
+
+        Called after the replay, and only matters when the replay was empty:
+        a replay reaches at least as far as the saved engine did. Lateness is
+        judged against the instant held back, so that is what is set; with
+        nothing held, the next event later than it just moves on.
+
+        Args:
+            reached: The latest event time the saved engine had taken.
+        """
+        if self._pending_time is None:
+            self._pending_time = reached
 
 
 def _field_for(event: TransactionEvent, spec: FeatureSpec) -> float | str | None:

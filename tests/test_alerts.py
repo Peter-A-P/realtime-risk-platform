@@ -165,6 +165,24 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: A day has had all its labels for over an hour and is not final.
+  # Saved at 10 minutes and never again: quiet for the first hour, not after.
+  # Before the first save the gauge is zero, which the 45 minutes rides out.
+  - interval: 1m
+    input_series:
+      - series: 'verdict_engine_snapshot_timestamp_seconds'
+        values: '0x9 600x200'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: EngineSnapshotStale
+        exp_alerts: []
+      - eval_time: 100m
+        alertname: EngineSnapshotStale
+        exp_alerts: []
+      - eval_time: 2h
+        alertname: EngineSnapshotStale
+        exp_alerts:
+          - exp_annotations:
+              summary: The scorer's feature state has not been saved whole for over an hour.
   # A spot replacement's four minutes down is not an alert.
   - interval: 1m
     input_series:

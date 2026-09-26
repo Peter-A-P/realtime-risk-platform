@@ -20,10 +20,11 @@ around them, and the three things a loop adds.
   is frozen (`gc.freeze`): reference counting still frees it, and the
   collector looks only at what is newer. Cyclic garbage that is frozen
   before it is collected is kept, which is why the dry run watches memory.
-- **What it does not do yet, stated rather than discovered.** A scorer that
-  starts cold serves every card "no history" until its windows refill, which
-  for the longest window is a day. ADR 8 records that; rebuilding the windows
-  by replaying the stream before scoring is recovery work for the live stack.
+- **The feature state is saved as it goes** (ADR 27). With a `Snapshotter`,
+  each poll is followed by one short step of saving the engine to the data
+  volume, so a replacement starts from it rather than from empty windows
+  (`recovery.py`). A step is bounded in time, because every decision behind
+  it waits.
 """
 
 from __future__ import annotations
@@ -31,9 +32,13 @@ from __future__ import annotations
 import gc
 import threading
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from verdict.observe.metrics import ScorerMetrics
 from verdict.scoring.consumer import StreamScorer
+
+if TYPE_CHECKING:  # pragma: no cover - types only
+    from verdict.scoring.recovery import Snapshotter
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +65,7 @@ def run(
     metrics: ScorerMetrics | None = None,
     max_records: int = 500,
     timeout_seconds: float = 0.1,
+    snapshots: Snapshotter | None = None,
 ) -> RunSummary:
     """Poll until `stop` is set, finishing the batch in hand.
 
@@ -71,19 +77,28 @@ def run(
         max_records: The most records per batch.
         timeout_seconds: How long one poll waits when the stream is quiet,
             which is also the longest a stop request waits to be seen.
+        snapshots: What saves the engine between polls, if anything. A pass
+            in progress when the loop stops is abandoned, and the last
+            complete one stays.
 
     Returns:
         What the run did.
     """
     polls = records = 0
-    while not stop.is_set():
-        got = scorer.poll(max_records=max_records, timeout_seconds=timeout_seconds)
-        polls += 1
-        records += got
-        if got:
-            gc.freeze()
-        if metrics is not None:
-            metrics.after_poll(scorer, got)
+    try:
+        while not stop.is_set():
+            got = scorer.poll(max_records=max_records, timeout_seconds=timeout_seconds)
+            polls += 1
+            records += got
+            if got:
+                gc.freeze()
+            if metrics is not None:
+                metrics.after_poll(scorer, got)
+            if snapshots is not None:
+                snapshots.step()
+    finally:
+        if snapshots is not None:
+            snapshots.abandon()
     return RunSummary(
         polls=polls,
         records=records,

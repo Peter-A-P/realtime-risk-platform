@@ -205,7 +205,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-Twenty-three ADRs, in `docs/adr/`: 1 to 15 and 17 to 24. Read them before reopening anything they cover.
+ADRs 1 to 15 and 17 to 27, in `docs/adr/`. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -232,6 +232,7 @@ Twenty-three ADRs, in `docs/adr/`: 1 to 15 and 17 to 24. Read them before reopen
 | 23 | The drift monitors are run over a replayed stream against the schedule's own regime days, which they are never told: reference fixed to the champion's training window, each day judged on a hash-drawn 3 percent, the trigger asked once a day | Seven baseline days flagged nothing; all three regime changes caught on their first full day; the first retraining request opens one day after the first change, the floor the rule sets |
 | 24 | The retraining job fits a candidate, compares it to the incumbent on rows neither saw, writes a pull request, and stops: it never moves the pointer or runs the gate. It reports whether the candidate has seen the drift, judged by the transactions and not the cutoff | Under the card-testing wave the champion falls from 0.84 to 0.27. The candidate built when the alarm fires loses (-0.0024); one built once three drifted days' labels arrive recovers to 0.82 (+0.5626), about nine days after the drift. A request now closes only when answered or when the drift has stopped for two consecutive days (`drift/trigger.resolve`) |
 | 25 | Two live numbers: latency while serving, leaving out only the recovery after a spot reclaim AWS announced (the notice the boot script's watcher writes to `/data/interruptions`, the window ending on throughput, never latency), and availability with every minute counted, each reclaim and each other stop listed | Peter's call, 2026-09-22, after five reclaims in a day. `verdict observe report` computes both from Prometheus (kept 75 days now) and the notices; the dashboard adds a p99-while-caught-up panel and 60 s and 120 s latency buckets |
+| 27 | The scorer saves its engine to `/data/engine` a slice at a time between batches (at most 2 ms a step, 8 ms apart, a pass every 15 minutes, the final `fsync` on a thread of its own), and a replacement restores the last complete pass and replays the records after it before deciding; each slice records how many records after the pass's start it holds and which events were held back, so the replay folds into each entity only what its slice lacked | Decided 2026-09-26 (Peter chose it over a whole day's replay, about 80 minutes a time, or accepting thin features). Held exact by `tests/test_recovery.py`, which stops a scorer throughout passes; six planted faults caught. Fails towards starting cold. Not yet on the instance |
 | 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Accepted by Peter on 2026-09-19**, all three choices as written: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code
@@ -314,7 +315,7 @@ unreachable.
 | 7 | ~~The storage question in ADR 14~~ **Decided 2026-09-19** (ADR 18): a day on each topic, and a weighted sample for the record. The original item: **The storage question in ADR 14.** Keep a sample of legitimate traffic, with weights, instead of every row; or pay for disk; or lower the rate | Peter | Before go-live, and before week 6's queue evaluation reads the live history |
 | 5 | ~~Review ADR 17~~ **Done 2026-09-19**: Peter accepted all three choices (the card key, no device, the 2017-12-01 reference date) as written. Week 5 can train on the real data | | |
 | 6 | ~~Kinesis and the 50 ms budget~~ **Decided 2026-09-18: Redpanda on the instance** (ADR 3). The original item: **Kinesis cannot meet the 50 ms budget as PLAN.md 2.4 measures it.** AWS documents about 200 ms average propagation for a polling consumer and about 70 ms with enhanced fan-out, before the scorer starts. Three options in ADR 3's open question: start the clock at the scorer, run Redpanda on the live instance instead, or keep Kinesis and publish what it measures. The first changes the one-liner's wording, the second the AWS story, the third the headline number | Peter | Before week 7's Kinesis client is written; nothing earlier depends on it |
-| 8 | **Alerts (ADR 26), built 2026-09-22, not applied.** (1) Attach the updated `deploy/aws/iam/deploy-policy.json` to the deploy identity: it adds SNS on `verdict-alerts` only. (2) `export TF_VAR_alert_email=...` (never committed), then apply. (3) Confirm the subscription from the email AWS sends. (4) Roll the image: every service runs it, so the scorer restarts cold, as at ADR 25's deploy, and the dry-run clock restarts or waits for 2026-09-25T16:53Z (Peter's call). The roll also carries the broker ride-out and the streaming finaliser. The compose file is baked into the boot script, so the running instance gets it over SSM, as with the 2026-09-22 hotfix. The running instance booted before the host's sender existed: start it once by hand over SSM, as with the spot watcher, or let the next replacement start it | Peter | Before go-live; the sooner, the sooner the dry run is watched |
+| 8 | **Alerts (ADR 26), built 2026-09-22, not applied.** (1) Attach the updated `deploy/aws/iam/deploy-policy.json` to the deploy identity: it adds SNS on `verdict-alerts` only. (2) `export TF_VAR_alert_email=...` (never committed), then apply. (3) Confirm the subscription from the email AWS sends. (4) Roll the image: every service runs it, so the scorer restarts cold, as at ADR 25's deploy, and the dry-run clock restarts or waits for 2026-09-25T16:53Z (Peter's call). The roll also carries the broker ride-out, the streaming finaliser, zstd on the scorer's producer and ADR 27's saved feature state; for the last, `mkdir -p /data/engine && chown 10001:10001 /data/engine` on the running instance first. The compose file is baked into the boot script, so the running instance gets it over SSM, as with the 2026-09-22 hotfix. The running instance booted before the host's sender existed: start it once by hand over SSM, as with the spot watcher, or let the next replacement start it | Peter | Before go-live; the sooner, the sooner the dry run is watched |
 
 **Before sealing:** the docstrings in `regimes.py` say "Jul 1 2027". That
 file is hashed, so changing the text is a deliberate edit with
@@ -542,8 +543,22 @@ and the day-long ones take a day to refill; at a reclaim every few hours the
 scorer is almost never on full history, so the live window's shadow,
 drift and queue evidence would be measured on features thinner than the
 model was trained on. ADR 20 settled the memory question that blocked the
-rebuild's design. Peter's call on the approach; see the options put to him
-on 2026-09-25.
+rebuild's design.
+
+**Decided and built 2026-09-26: ADR 27.** Peter chose a saved snapshot and a
+short replay over replaying the whole day (about 80 minutes a time,
+measured) or accepting thin features. The scorer saves its engine to
+`/data/engine` a slice at a time between batches and a replacement restores
+it (`verdict/scoring/recovery.py`, `verdict score --engine-snapshot`); a
+test stops a scorer throughout its passes and holds the restored one to an
+uninterrupted one's features. Measured locally at a tenth of the live size;
+at the live size about seven minutes a pass and a minute or two added to
+each reclaim's recovery. An `EngineSnapshotStale` alert covers a save that
+stops. **Not yet on the instance**: it rides the roll in item 8 of section
+6, which needs `/data/engine` made on the running instance first (the boot
+script makes it on every later boot). The first reclaim after the roll is
+its test: the scorer's log says "restored ... entities" and
+`verdict_engine_restored` is 1.
 
 ---
 

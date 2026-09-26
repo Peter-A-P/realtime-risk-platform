@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import pytest
 
 from verdict.stream import Position, Record, Stream, StreamError, UnknownTopicError
-from verdict.stream.base import RIDE_OUT_SECONDS
+from verdict.stream.base import RIDE_OUT_SECONDS, PositionGoneError, Rereadable
 from verdict.stream.memory import MemoryBroker, partition_for
 from verdict.stream.redpanda import DEFAULT_BOOTSTRAP, RedpandaStream, broker_reachable, retrying
 
@@ -463,3 +463,41 @@ def test_a_checkpoint_waits_out_a_broker_as_long_as_a_flush(
     monkeypatch.setattr(stream, "_consumer", lambda topic, group: Consumer())
     stream.checkpoint("t", "g", [Position("0", "5")])
     assert deadlines == [RIDE_OUT_SECONDS]
+
+
+def test_a_partition_can_be_read_again_between_two_positions(backend: Backend) -> None:
+    """What a scorer restoring saved feature state reads (ADR 27), and it moves no group."""
+    stream = backend.handle()
+    assert isinstance(stream, Rereadable)
+    for index in range(10):
+        stream.produce(backend.topic, "card-a", f"v{index}".encode())
+    stream.flush()
+    records = drain(stream, backend.topic, "scorer", 10)
+    partition = records[0].position.partition
+    stream.checkpoint(backend.topic, "scorer", [records[6].position])
+
+    other = backend.handle()
+    assert isinstance(other, Rereadable)
+    through = other.committed(backend.topic, "scorer", partition)
+    assert through == records[6].position
+    again = other.reread(backend.topic, partition, records[2].position, through)
+    assert [record.value for record in again] == [f"v{index}".encode() for index in range(3, 7)]
+    first = other.reread(backend.topic, partition, None, records[1].position)
+    assert [record.value for record in first] == [b"v0", b"v1"]
+    assert list(other.reread(backend.topic, partition, through, through)) == []
+    assert other.committed(backend.topic, "nobody", partition) is None
+    resumed = drain(other, backend.topic, "scorer", 3)
+    assert [record.value for record in resumed] == [b"v7", b"v8", b"v9"]
+
+
+def test_a_reread_from_before_what_the_topic_keeps_says_so() -> None:
+    broker = MemoryBroker()
+    broker.create_topic("transactions", 1)
+    stream = broker.open()
+    for index in range(5):
+        stream.produce("transactions", "k", f"v{index}".encode())
+    broker.expire("transactions", 0, before=3)
+    with pytest.raises(PositionGoneError):
+        list(stream.reread("transactions", "0", Position("0", "0"), Position("0", "4")))
+    kept = stream.reread("transactions", "0", Position("0", "2"), Position("0", "4"))
+    assert [record.value for record in kept] == [b"v3", b"v4"]

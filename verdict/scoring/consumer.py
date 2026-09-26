@@ -59,6 +59,7 @@ from __future__ import annotations
 import base64
 import json
 import time
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Final
@@ -76,7 +77,7 @@ from verdict.history.records import staged_row
 from verdict.history.spool import SpoolWriter
 from verdict.scoring.core import Decider
 from verdict.scoring.timing import HopSample
-from verdict.stream.base import Record, Stream, StreamError
+from verdict.stream.base import Position, Record, Stream, StreamError
 
 TRANSACTIONS_TOPIC: Final = "transactions"
 DECISIONS_TOPIC: Final = "decisions"
@@ -93,6 +94,14 @@ It is a guard, not a tuned threshold, and it says so when it trips.
 
 DETAIL_LIMIT: Final = 500
 """How much of an error's text a dead letter keeps."""
+
+RECENT_RECORDS: Final = 10_000
+"""Records the scorer remembers the position of, newest last.
+
+For saving its feature state (ADR 27): a save has to say which records the
+state holds, and the events the engine is still holding back at that moment
+are among the last few read. Ten seconds at the live rate is far more than
+one instant's worth."""
 SCORER_GROUP: Final = "scorer"
 
 Decided = Callable[[TransactionEvent, DecisionEvent, HopSample], None]
@@ -218,6 +227,11 @@ class StreamScorer:
         self.commits = CommitStats()
         self.history = history
         self._latest_event: TransactionEvent | None = None
+        self.consumed = 0
+        self.recent: deque[tuple[Position, str | None]] = deque(maxlen=RECENT_RECORDS)
+        self.before_recent: Position | None = None
+        """The record just before the first one in `recent`: at the start, the
+        group's checkpoint, or the record before a restore's replayed tail."""
 
     def poll(self, max_records: int = 500, timeout_seconds: float = 0.1) -> int:
         """Consume one batch, decide it, commit it.
@@ -238,7 +252,10 @@ class StreamScorer:
         if not records:
             return 0
         for record in records:
-            self._handle(record)
+            if len(self.recent) == self.recent.maxlen:
+                self.before_recent = self.recent[0][0]
+            self.recent.append((record.position, self._handle(record)))
+        self.consumed += len(records)
         if self.history is not None:
             # Before the decisions are flushed, so before the checkpoint. Not
             # inside the commit timing: it is its own cost, and the load test
@@ -261,7 +278,12 @@ class StreamScorer:
         self.commits.batches += 1
         return len(records)
 
-    def _handle(self, record: Record) -> None:
+    def _handle(self, record: Record) -> str | None:
+        """Decide one record.
+
+        Returns:
+            The event id, if the record decoded as a transaction.
+        """
         started = time.perf_counter_ns()
         try:
             event = decode_transaction(record.value)
@@ -271,18 +293,18 @@ class StreamScorer:
             # the dead-letter topic needs to tell those apart.
             reason = "undecodable" if error.found is None else "unknown-schema-version"
             self._set_aside(record, reason, str(error))
-            return
+            return None
         except (UnicodeDecodeError, ValidationError) as error:
             self._set_aside(record, "undecodable", str(error))
-            return
+            return None
         try:
             outcome = self.decider.decide(event, started)
         except LateEventError as error:
             self._set_aside(record, "late", str(error))
-            return
+            return event.event_id
         self._dead_in_a_row = 0
         if outcome is None:
-            return
+            return event.event_id
         before_persist = time.perf_counter_ns()
         self.stream.produce(self.decisions_topic, event.card_id, outcome.payload)
         persisted = time.perf_counter_ns()
@@ -306,6 +328,7 @@ class StreamScorer:
                     persist_ns=persisted - before_persist,
                 ),
             )
+        return event.event_id
 
     def _set_aside(self, record: Record, reason: str, detail: str) -> None:
         """Send a record to the dead-letter topic, or stop if too many have gone.

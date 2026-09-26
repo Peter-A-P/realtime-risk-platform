@@ -62,6 +62,10 @@ by replaying the stream, and that is week 7's recovery work, when the live
 stack exists to recover. Until then a restart is a known degradation, stated
 here rather than discovered.
 
+**Decided 2026-09-26 (ADR 27):** the scorer saves its engine as it runs, and a
+restart restores the last save and replays only the records after it; a
+whole day's replay would have taken about 80 minutes per restart.
+
 ### Features are served from the engine in process
 
 The engine is the one computation of every feature (ADR 6). Serving from it

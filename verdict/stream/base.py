@@ -34,7 +34,7 @@ late-event refusal is what catches a violation of event time.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from typing import Final, Protocol, runtime_checkable
 
@@ -175,4 +175,57 @@ class Stream(Protocol):
 
     def close(self) -> None:
         """Release connections. Does not checkpoint anything."""
+        ...
+
+
+class PositionGoneError(StreamError):
+    """Raised when records after a position are no longer on the stream.
+
+    A topic keeps a day (ADR 18); a position older than that cannot be read
+    from, and a caller that needed it has to start without it.
+    """
+
+
+@runtime_checkable
+class Rereadable(Protocol):
+    """A stream that can read one partition again between two positions.
+
+    What a scorer restoring saved feature state needs (ADR 27): the records
+    that came after the state was saved, up to where its group had got. Kept
+    apart from `Stream`, which is all the platform's consumers need.
+    """
+
+    def committed(self, topic: str, group: str, partition: str) -> Position | None:
+        """The last record a group checkpointed in one partition.
+
+        Args:
+            topic: The topic.
+            group: The consumer group.
+            partition: The partition.
+
+        Returns:
+            That record's position, or None if the group has checkpointed
+            nothing there.
+        """
+        ...
+
+    def reread(
+        self, topic: str, partition: str, after: Position | None, through: Position
+    ) -> Iterator[Record]:
+        """Read one partition again, in order, without touching any group.
+
+        Args:
+            topic: The topic.
+            partition: The partition.
+            after: Start with the record after this one; None for the first
+                record the partition ever held.
+            through: Stop after this record.
+
+        Yields:
+            The records.
+
+        Raises:
+            PositionGoneError: If the records after `after` are no longer
+                kept.
+        """
         ...

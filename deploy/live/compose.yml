@@ -110,12 +110,16 @@ services:
       # replacement. Started at the shipped champion only if it does not exist.
       - --flag=/data/flags/champion.json
       - --initial-champion=champion
+      # The feature state, saved as it runs, so a replacement starts from it
+      # and replays what came after rather than from empty windows (ADR 27).
+      - --engine-snapshot=/data/engine
     depends_on:
       redpanda:
         condition: service_healthy
     volumes:
       - /data/history:/data/history
       - /data/flags:/data/flags
+      - /data/engine:/data/engine
     # A stop never splits a batch (scoring/service.py); give it time to finish.
     stop_grace_period: 30s
     restart: unless-stopped
@@ -359,6 +363,13 @@ configs:
               for: 5m
               annotations:
                 summary: The scorer has decided nothing for over fifteen minutes.
+            # A pass takes minutes and starts every fifteen; an hour with none
+            # finished means a replacement would replay further or start cold.
+            - alert: EngineSnapshotStale
+              expr: time() - verdict_engine_snapshot_timestamp_seconds > 3600
+              for: 45m
+              annotations:
+                summary: The scorer's feature state has not been saved whole for over an hour.
             # A spot replacement takes about four minutes, so ten is not one.
             - alert: TargetDown
               expr: up == 0

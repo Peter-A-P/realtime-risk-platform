@@ -183,8 +183,9 @@ example). Pulling a thousand
 events per second from Kinesis to a VPS on another cloud would cost more in egress than
 the compute, so the whole live stack, stream, consumers, stores, dashboard, runs in
 `ca-central-1` on one spot instance behind an auto-scaling group of size one, with state on
-a separate EBS volume reattached at boot and the online store rebuilt by replaying the
-stream after a replacement. Spot interruptions are counted and reported as part of uptime;
+a separate EBS volume reattached at boot and the online store rebuilt after a replacement
+from a snapshot the scorer saves on that volume as it runs, plus a replay of the stream
+after it (ADR 27, 2026-09-26: a whole day's replay would take about 80 minutes each time). Spot interruptions are counted and reported as part of uptime;
 recovering from them on one command is part of the evidence. Locally and for interviews the
 same stack runs on Docker Compose with Redpanda in place of Kinesis behind one `Stream`
 interface, and a parity test asserts both paths produce identical features on the same
@@ -377,7 +378,7 @@ go-live; the live-window report is `v1.1.0` on Jul 1.
 | Largest build in the plan, most likely to overrun | Nine weeks with a drop order (section 5); 01, 02 and 03 exist before it; five months of smaller projects follow to absorb slip; go-live can move a week without touching the live budget |
 | Employer boundary | Public data and public problem statements only; card-transaction fraud, never a government scenario; ADRs cite public sources; if the design drifts toward the internal system, stop and substitute the supply-chain or energy-grid anomaly platform. Rule G applies to every commit |
 | Live-month cost overrun | Budget alarms at 50, 80 and 100 percent of the line before the first resource exists; `down.sh` asserted to leave nothing billable; teardown on Jul 1 is in the calendar |
-| Spot interruptions | Counted and reported; ASG of one with state on EBS and the online store rebuilt by replay; if interruptions exceed one a week the instance type changes and the ADR records why |
+| Spot interruptions | Counted and reported; ASG of one with state on EBS and the online store restored from a saved snapshot and a short replay (ADR 27); if interruptions exceed one a week the instance type changes and the ADR records why |
 | p99 misses 50 ms | Measured in week 4 before anything is optimised; per-hop breakdown shows where; the honest number is published whichever side of 50 it lands |
 | No real leak for the leakage test to catch | Say so. The test and the planted fixture remain; the ADR records that the design prevented the class of error |
 | Synthetic fraud is too easy or too hard | Scenario difficulty is tuned in week 1 to a champion PR-AUC in the range the real data shows; the parameters are published. **Done 2026-09-19, not in week 1** (ADR 21): there was no model to tune against until week 5. The first champion scored 0.9996 on the synthetic track; the attacks now blend into the traffic and the traffic has look-alikes of its own, which takes it to 0.8427 (0.8393 to 0.8464) over the full ten-day replay, and the parameters are in `docs/generator.md` with the replaced ones in ADR 21 |
