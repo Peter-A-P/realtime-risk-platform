@@ -395,3 +395,20 @@ def test_merchants_are_rebuilt_from_the_hour_before_a_save_and_nothing_more(
     wrong = [event_id for event_id, values in served.items() if values != served_once[event_id]]
     assert served
     assert not wrong, f"{len(wrong)} of {len(served)} served differently"
+
+
+def test_a_scorer_that_knows_nothing_before_it_notes_where_it_starts(
+    payloads: list[bytes],
+) -> None:
+    """A cold start mid-partition clears the marks; the first poll must begin them again.
+
+    Found on the instance on 2026-09-27: the first poll read the last mark of
+    an empty list and the scorer stopped on every restart.
+    """
+    scorer = a_scorer(a_broker(payloads).open(), FeatureEngine(), {})
+    scorer.marks.clear()
+    for _ in range(100):
+        scorer.poll(max_records=BATCH)
+    assert scorer.marks
+    times = [at for at, _ in scorer.marks]
+    assert times == sorted(times)

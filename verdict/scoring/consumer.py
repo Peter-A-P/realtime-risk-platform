@@ -279,7 +279,7 @@ class StreamScorer:
         self.consumed += len(records)
         if self._last_seen is not None:
             at, position = self._last_seen
-            if at - self.marks[-1][0] >= MARK_EVERY:
+            if not self.marks or at - self.marks[-1][0] >= MARK_EVERY:
                 self.marks.append((at, position))
         if self.history is not None:
             # Before the decisions are flushed, so before the checkpoint. Not
