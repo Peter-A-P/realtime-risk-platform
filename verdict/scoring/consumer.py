@@ -1,8 +1,9 @@
 """The scorer: a stream consumer, not an HTTP service.
 
 For each transaction on the stream, in order: check it has not already been
-decided, serve its features, score it, apply the rules, and hand the decision
-to the stream. After each batch: wait for the decisions to be acknowledged,
+decided and serve its features. Then the batch's served transactions are
+scored in one call to the model, and each decision is handed to the stream in
+the same order. After each batch: wait for the decisions to be acknowledged,
 then checkpoint the transactions. ADR 8 records why it is shaped this way;
 three properties are worth stating where the code is. The decision itself is
 made by `core.Decider`, which the HTTP endpoint shares.
@@ -76,7 +77,7 @@ from verdict.events.schema import (
 from verdict.features.engine import LateEventError
 from verdict.history.records import staged_row
 from verdict.history.spool import SpoolWriter
-from verdict.scoring.core import Decider
+from verdict.scoring.core import Decider, Outcome, Served
 from verdict.scoring.timing import HopSample
 from verdict.stream.base import Position, Record, Stream, StreamError
 
@@ -272,10 +273,19 @@ class StreamScorer:
         )
         if not records:
             return 0
+        # Every record is served in order first, as the engine requires; the
+        # model then scores them all in one call (ADR 8's addendum of
+        # 2026-09-27), and each decision goes out in the same order.
+        taken: list[Served] = []
         for record in records:
             if len(self.recent) == self.recent.maxlen:
                 self.before_recent = self.recent[0][0]
-            self.recent.append((record.position, self._handle(record)))
+            event_id, served = self._take(record)
+            self.recent.append((record.position, event_id))
+            if served is not None:
+                taken.append(served)
+        for served, outcome in zip(taken, self.decider.decide_all(taken), strict=True):
+            self._emit(served, outcome)
         self.consumed += len(records)
         if self._last_seen is not None:
             at, position = self._last_seen
@@ -303,11 +313,12 @@ class StreamScorer:
         self.commits.batches += 1
         return len(records)
 
-    def _handle(self, record: Record) -> str | None:
-        """Decide one record.
+    def _take(self, record: Record) -> tuple[str | None, Served | None]:
+        """Serve one record its features, or set it aside.
 
         Returns:
-            The event id, if the record decoded as a transaction.
+            The event id if the record decoded as a transaction, and the
+            served event if it is to be decided.
         """
         started = time.perf_counter_ns()
         try:
@@ -319,18 +330,21 @@ class StreamScorer:
             # the dead-letter topic needs to tell those apart.
             reason = "undecodable" if error.found is None else "unknown-schema-version"
             self._set_aside(record, reason, str(error))
-            return None
+            return None, None
         except (UnicodeDecodeError, ValidationError) as error:
             self._set_aside(record, "undecodable", str(error))
-            return None
+            return None, None
         try:
-            outcome = self.decider.decide(event, started)
+            served = self.decider.take(event, started)
         except LateEventError as error:
             self._set_aside(record, "late", str(error))
-            return event.event_id
+            return event.event_id, None
         self._dead_in_a_row = 0
-        if outcome is None:
-            return event.event_id
+        return event.event_id, served
+
+    def _emit(self, served: Served, outcome: Outcome) -> None:
+        """Hand one decision to the stream and to history."""
+        event = served.event
         before_persist = time.perf_counter_ns()
         self.stream.produce(self.decisions_topic, event.card_id, outcome.payload)
         persisted = time.perf_counter_ns()
@@ -347,14 +361,13 @@ class StreamScorer:
                 event,
                 outcome.decision,
                 HopSample(
-                    started_ns=started,
+                    started_ns=served.started_ns,
                     features_ns=outcome.features_ns,
                     model_ns=outcome.model_ns,
                     decision_ns=outcome.decision_ns,
                     persist_ns=persisted - before_persist,
                 ),
             )
-        return event.event_id
 
     def _set_aside(self, record: Record, reason: str, detail: str) -> None:
         """Send a record to the dead-letter topic, or stop if too many have gone.

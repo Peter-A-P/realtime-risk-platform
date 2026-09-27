@@ -30,12 +30,15 @@ import datetime as dt
 import itertools
 import time
 from collections import OrderedDict
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Final, Protocol
 
+import numpy as np
+
 from verdict.events.schema import DecisionEvent, ShadowEvent, TransactionEvent
 from verdict.features.engine import FeatureEngine
+from verdict.models.inputs import vector
 from verdict.scoring.model import Model, ModelSource
 from verdict.scoring.rules import DecisionRules
 from verdict.store.features import NO_EVENTS
@@ -204,73 +207,129 @@ class Decider:
             The outcome, or None for a duplicate, which is counted and
             otherwise ignored.
         """
+        taken = self.take(event, started_ns)
+        return None if taken is None else self.decide_all([taken])[0]
+
+    def take(self, event: TransactionEvent, started_ns: int) -> Served | None:
+        """Serve an event its features, unless it has been seen before.
+
+        The first half of a decision. The engine takes events one at a time
+        and in order whatever happens after, so serving is never batched;
+        only the model is (`decide_all`).
+
+        Args:
+            event: The event.
+            started_ns: When the caller started on it.
+
+        Returns:
+            The served event, or None for a duplicate, which is counted.
+        """
         if self.seen(event.event_id):
             self.stats.duplicates += 1
             return None
-
         served = self.features.serve(event)
         self._remember(event.event_id)
-        featured = time.perf_counter_ns()
+        return Served(event, served, started_ns, time.perf_counter_ns())
 
+    def decide_all(self, taken: Sequence[Served]) -> list[Outcome]:
+        """Score served events with one call to each model, and decide each.
+
+        One call to ONNX Runtime costs nearly the same for one row as for
+        hundreds (ADR 8's addendum of 2026-09-27: 47 percent of the live
+        scorer's time was that overhead, one row at a time). Each event's
+        score is the one it would have had alone; the model is asked for once
+        per batch, so a rollback takes effect at the next batch.
+
+        Args:
+            taken: Served events, in the order they were served.
+
+        Returns:
+            One outcome each, in the same order.
+        """
+        if not taken:
+            return []
         model: Model = self.models.current()
-        score = model.score(served, event)
+        scoring = time.perf_counter_ns()
+        scores = _scores(model, taken)
         scored = time.perf_counter_ns()
+        decisions: list[tuple[DecisionEvent, bytes, int]] = []
+        for item, score in zip(taken, scores, strict=True):
+            started = time.perf_counter_ns()
+            action, rule = self.rules.decide(score, item.event)
+            decision = DecisionEvent(
+                event_id=item.event.event_id,
+                card_id=item.event.card_id,
+                action=action,
+                score=score,
+                rule=rule,
+                model_version=model.version,
+                decided_at=dt.datetime.now(dt.UTC),
+            )
+            payload = decision.to_json().encode("utf-8")
+            decisions.append((decision, payload, time.perf_counter_ns() - started))
+            self.stats.decided += 1
+        shadows = self._shadows(taken, [decision for decision, _, _ in decisions])
+        return [
+            Outcome(
+                decision=decision,
+                payload=payload,
+                features_ns=item.featured_ns - item.started_ns,
+                model_ns=scored - scoring,
+                decision_ns=decision_ns,
+                shadow=shadow,
+                shadow_payload=shadow_payload,
+                shadow_ns=shadow_ns,
+                features=item.features,
+            )
+            for item, (decision, payload, decision_ns), (shadow, shadow_payload, shadow_ns) in zip(
+                taken, decisions, shadows, strict=True
+            )
+        ]
 
-        action, rule = self.rules.decide(score, event)
-        decision = DecisionEvent(
-            event_id=event.event_id,
-            card_id=event.card_id,
-            action=action,
-            score=score,
-            rule=rule,
-            model_version=model.version,
-            decided_at=dt.datetime.now(dt.UTC),
-        )
-        payload = decision.to_json().encode("utf-8")
-        decided = time.perf_counter_ns()
-
-        self.stats.decided += 1
-        shadow, shadow_payload, shadow_ns = self._shadow(served, event, decision)
-        return Outcome(
-            decision=decision,
-            payload=payload,
-            features_ns=featured - started_ns,
-            model_ns=scored - featured,
-            decision_ns=decided - scored,
-            shadow=shadow,
-            shadow_payload=shadow_payload,
-            shadow_ns=shadow_ns,
-            features=served,
-        )
-
-    def _shadow(
-        self, served: dict[str, float], event: TransactionEvent, champion: DecisionEvent
-    ) -> tuple[ShadowEvent | None, bytes | None, int]:
-        if self.shadow is None or (
-            self.shadow_when is not None and not self.shadow_when(event, champion)
-        ):
-            return None, None, 0
+    def _shadows(
+        self, taken: Sequence[Served], champion: Sequence[DecisionEvent]
+    ) -> list[tuple[ShadowEvent | None, bytes | None, int]]:
+        none: list[tuple[ShadowEvent | None, bytes | None, int]] = [(None, None, 0)] * len(taken)
+        if self.shadow is None:
+            return none
+        chosen = [
+            index
+            for index, (item, decision) in enumerate(zip(taken, champion, strict=True))
+            if self.shadow_when is None or self.shadow_when(item.event, decision)
+        ]
+        if not chosen:
+            return none
         started = time.perf_counter_ns()
+        out = list(none)
         try:
             model = self.shadow.current()
-            score = model.score(served, event)
-            action, rule = self.rules.decide(score, event)
-            record = ShadowEvent(
-                event_id=event.event_id,
-                card_id=event.card_id,
-                model_version=model.version,
-                score=score,
-                action=action,
-                rule=rule,
-                champion_version=champion.model_version,
-                champion_action=champion.action,
-                decided_at=champion.decided_at,
-            )
-            payload = record.to_json().encode("utf-8")
+            scores = _scores(model, [taken[index] for index in chosen])
+            records = []
+            for index, score in zip(chosen, scores, strict=True):
+                event, decision = taken[index].event, champion[index]
+                action, rule = self.rules.decide(score, event)
+                record = ShadowEvent(
+                    event_id=event.event_id,
+                    card_id=event.card_id,
+                    model_version=model.version,
+                    score=score,
+                    action=action,
+                    rule=rule,
+                    champion_version=decision.model_version,
+                    champion_action=decision.action,
+                    decided_at=decision.decided_at,
+                )
+                records.append((index, record, record.to_json().encode("utf-8")))
         except Exception:  # a shadow must never break the champion
-            self.stats.shadow_failures += 1
-            return None, None, time.perf_counter_ns() - started
-        return record, payload, time.perf_counter_ns() - started
+            self.stats.shadow_failures += len(chosen)
+            elapsed = time.perf_counter_ns() - started
+            for index in chosen:
+                out[index] = (None, None, elapsed)
+            return out
+        elapsed = time.perf_counter_ns() - started
+        for index, record, payload in records:
+            out[index] = (record, payload, elapsed)
+        return out
 
     @property
     def remembered(self) -> int:
@@ -306,3 +365,41 @@ class Decider:
         self._ledger[event_id] = None
         if len(self._ledger) > self.ledger_size:
             self._ledger.popitem(last=False)
+
+
+@dataclass(frozen=True, slots=True)
+class Served:
+    """An event served its features and not yet scored.
+
+    Attributes:
+        event: The event.
+        features: What it was served.
+        started_ns: When the caller started on it.
+        featured_ns: When its features were ready.
+    """
+
+    event: TransactionEvent
+    features: dict[str, float]
+    started_ns: int
+    featured_ns: int
+
+
+def _scores(model: Model, taken: Sequence[Served]) -> list[float]:
+    """Each served event's score, from one call where the model allows it.
+
+    The batched path gives each row exactly the score the single-row path
+    would, clamped the same way; `tests/test_scoring.py` holds the shipped
+    champion to that.
+
+    Args:
+        model: The model.
+        taken: The served events.
+
+    Returns:
+        One score each, in order.
+    """
+    batched = getattr(model, "score_matrix", None)
+    if batched is None or len(taken) == 1:
+        return [model.score(item.features, item.event) for item in taken]
+    rows = np.asarray([vector(item.features, item.event) for item in taken], dtype=np.float64)
+    return [float(min(1.0, max(0.0, score))) for score in batched(rows)]

@@ -556,3 +556,72 @@ def test_a_shadow_can_be_spared_the_rows_history_will_drop() -> None:
     assert shadowed == expected
     assert 0 < len(shadowed) < len(events) // 4
     assert len(decisions_on(broker)) == len(events)
+
+
+def test_a_batch_scored_in_one_call_decides_exactly_what_one_event_at_a_time_would() -> None:
+    """ADR 8's addendum: the model is called once a batch, and nothing it decides changes.
+
+    The shipped champion and challenger, on generated traffic with records
+    sent twice and one that does not decode: a scorer taking up to 500 a
+    poll and one taking one a poll write the same decisions, score for score
+    to the last bit, and shadow the same rows with the same actions.
+    """
+    from verdict.events.generator.driver import Generator, GeneratorConfig
+    from verdict.events.generator.entities import EntityGraph, Population
+    from verdict.history.sampling import SampleRates, could_be_kept
+    from verdict.scoring.registry import known_models, version_of
+
+    known = known_models()
+    champion, challenger = known[version_of("champion")], known[version_of("challenger")]
+    rates = SampleRates()
+    population = Population(cards=200, devices=150, merchants=20)
+    config = GeneratorConfig(
+        seed=4, population=population, events_per_second=30.0, target_fraud_share=0.05
+    )
+    events = [
+        record.event
+        for record in Generator(config, EntityGraph.build(seed=4, population=population)).stream(
+            limit=1_500
+        )
+    ]
+
+    def run(per_poll: int) -> tuple[list[DecisionEvent], list[ShadowEvent]]:
+        broker, stream = a_shadow_setup()
+        for index, event in enumerate(events):
+            stream.produce("transactions", event.card_id, event.to_json().encode("utf-8"))
+            if index % 97 == 3:
+                stream.produce("transactions", event.card_id, event.to_json().encode("utf-8"))
+            if index == 700:
+                stream.produce("transactions", "x", b"not a transaction")
+        scorer = StreamScorer(
+            stream,
+            decider=Decider(
+                features=EngineFeatures(FeatureEngine()),
+                models=FixedModel(champion),
+                shadow=FixedModel(challenger),
+                shadow_when=lambda e, d: could_be_kept(e.event_id, d.action, rates),
+            ),
+        )
+        while scorer.poll(max_records=per_poll):
+            pass
+        return decisions_on(broker), shadow_records_on(broker)
+
+    one_decisions, one_shadows = run(1)
+    many_decisions, many_shadows = run(500)
+
+    def essence(d: DecisionEvent) -> tuple[str, float, Action, str, str]:
+        return (d.event_id, d.score, d.action, d.rule, d.model_version)
+
+    assert len(one_decisions) == len(events)
+    assert sorted(map(essence, many_decisions)) == sorted(map(essence, one_decisions))
+    # The challenger is a neural network: its float32 matrix products add up
+    # in an order that depends on how many rows they are given, so a score
+    # moves in about the seventh decimal place with the batch. Its decisions
+    # do not; the champion's trees are exact.
+    assert one_shadows
+    alone = {s.event_id: s for s in one_shadows}
+    assert {s.event_id for s in many_shadows} == set(alone)
+    for batched in many_shadows:
+        single = alone[batched.event_id]
+        assert (batched.action, batched.model_version) == (single.action, single.model_version)
+        assert abs(batched.score - single.score) < 1e-5

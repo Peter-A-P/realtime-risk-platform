@@ -213,6 +213,35 @@ the container's 30 second grace, and is then killed; the batch in hand was
 not checkpointed, so it is delivered again, which at least once already
 covers.
 
+## Addendum, 2026-09-27: the model is called once a batch
+
+**Found on the live instance.** The load test with the live configuration
+(`docs/loadtest-live-*.json`) kept up at 1,000 a second (p99 12.4 ms) and not
+reliably at 2,000. py-spy on the live scorer draining a backlog, batches
+full, put 47 percent of its time in ONNX Runtime's call path: every event
+was scored with its own call, champion and shadow, and a call costs nearly
+the same for one row as for hundreds. Flush and checkpoint were about 1.5 ms
+a batch, not the limit.
+
+**Decision.** Serving stays one event at a time and in order, which the
+engine's leakage guarantee depends on; only scoring moves. `Decider.take`
+serves an event and records it in the ledger; `Decider.decide_all` scores a
+batch's served events in one call to each model and applies the rules to
+each. At the live rate a batch holds about six transactions and little
+changes; under load batches fill, and the model's cost per transaction falls
+with them. The model source is asked once a batch, so a rollback takes
+effect at the next batch rather than the next event: at the live rate a few
+milliseconds, and the rollback drill is re-measured on the new path.
+
+**What does not change.** The champion's scores: a tree ensemble scores each
+row independently, and `tests/test_scoring.py` holds a scorer taking 500 a
+poll to exactly the decisions of one taking a single transaction a poll,
+score for score, with the shipped models, records sent twice and a record
+that does not decode. The challenger's scores move in about the seventh
+decimal place with the batch, because a neural network's float32 matrix
+products add up in an order that depends on how many rows they get; its
+actions and the rows it scores do not change, which the same test holds.
+
 ## Options not taken
 
 - **Deduplicate on the decisions topic only.** Cheap, and it lets the engine
