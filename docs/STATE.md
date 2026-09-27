@@ -513,6 +513,27 @@ if the stack is still up then on today's image, it must be rolled first. The dry
 does measure the reviewed-or-declined share, which sets the candidates and
 so most of that 890 MB (the measurement assumed four percent).
 
+**Go-live preparation, 2026-09-26 to 2026-09-27.** Built, tested and
+pushed, **none of it yet on the instance** except ADR 27 (rolled 2026-09-26):
+ADR 27's saved feature state, proven live when AWS reclaimed the instance at
+03:58Z on 2026-09-27 and the replacement restored 511,519 entities and
+replayed 1,202,045 records in 96 s; the schedule sealed by Peter in AWS
+CloudShell (85d3d07); the challenger in shadow on the rows history could
+keep (ADR 11's addendum) and the whole user data gzipped (2e2f96f); ADR 28's
+models job (0ac94cc); ADR 16 and `down.sh`'s allowance fixed (928adb4); the
+load test able to run the live configuration (ad85e75); `docs/go-live.md`
+and `deploy/go-live.sh` (d2bd69c). CI had failed since 2026-09-23 on the
+promtool test only (a file permission on Linux runners, 21c9c99).
+
+**What go-live now waits on**, all in `docs/go-live.md`: (1) Peter's go to
+roll the new image onto the pre-live stack (a `terraform apply` for the
+gzipped user data, then an instance replacement, which is also the gzip's
+first real boot); (2) the models job judging the dry run's clean baseline
+days, 2026-09-28 to 2026-10-04 on the development schedule, and flagging
+nothing; (3) the load test on the instance with the champion, shadow and
+history on; (4) Peter's GitHub token in SSM at `/verdict/github-token`;
+(5) Peter's go for `deploy/go-live.sh`.
+
 **The data volume, measured on the dry run (2026-09-23T08:30Z).** 72 of
 150 GB used: the `transactions` topic 35 GB and `decisions` 25 GB (a full
 day each, so level from here), staged history 9.8 GB for 39 hours at about
