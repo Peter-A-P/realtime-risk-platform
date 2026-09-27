@@ -655,6 +655,18 @@ def score(
         else:
             metrics.restored.set(0)
             typer.echo(f"starting with empty feature windows: {outcome.reason}")
+        from verdict.drift.live import STARTS_FILE, record_start
+
+        # The drift monitors leave a day unjudged if the scorer started cold
+        # within a day of it (ADR 28), so every start is written down.
+        record_start(
+            engine_snapshot / STARTS_FILE,
+            at=dt.datetime.now(dt.UTC),
+            restored=restored is not None,
+            detail=f"restored {outcome.entities} entities, replayed {outcome.replayed}"
+            if isinstance(outcome, recovery.Restored)
+            else outcome.reason,
+        )
     shadow_when = None
     if shadow_kept_only:
         from verdict.history.sampling import SampleRates, could_be_kept
@@ -1606,6 +1618,114 @@ def queue_eval(
         f"${caught['difference'] / 100:,.2f} per analyst-hour "
         f"(${caught['low'] / 100:,.2f} to ${caught['high'] / 100:,.2f})"
     )
+
+
+@app.command(name="models-job")
+def models_job(
+    history: Annotated[Path, typer.Option(help="The history root the scorer stages to.")],
+    state: Annotated[Path, typer.Option(help="Where the job keeps its state.")],
+    since: Annotated[str, typer.Option(help="The live window's start, RFC 3339.")],
+    flag: Annotated[Path, typer.Option(help="The champion pointer.")],
+    starts: Annotated[Path, typer.Option(help="The scorer's record of its starts.")],
+    every: Annotated[float, typer.Option(help="Seconds between passes.")] = 3600.0,
+    once: Annotated[bool, typer.Option(help="One pass, then stop.")] = False,
+    metrics_port: Annotated[int, typer.Option(help="Serve metrics here; 0 for none.")] = 9113,
+    metrics_host: Annotated[str, typer.Option(help="Interface the metrics listen on.")] = (
+        "127.0.0.1"
+    ),
+) -> None:
+    """The live window's drift monitors, retraining and promotion gate (ADR 28).
+
+    Judges each finished day, fits a candidate when a drift request is open
+    and one is due, and runs the gate on the shadow model's labelled week,
+    opening a pull request for each; it never merges, deploys or moves the
+    pointer. Pull requests need `VERDICT_GITHUB_TOKEN`; without it they are
+    written under the state directory only, and the log says so.
+
+    Args:
+        history: The history root.
+        state: The job's state directory.
+        since: The live window's start.
+        flag: The champion pointer.
+        starts: The scorer's record of its starts.
+        every: Seconds between passes.
+        once: Run one pass and stop.
+        metrics_port: Where metrics are served, or 0.
+        metrics_host: The interface they listen on.
+    """
+    import os
+    import time
+
+    from prometheus_client import start_http_server
+
+    from verdict.drift import live as drift_live
+    from verdict.history.compact import HistoryPaths
+    from verdict.live.github import GitHub, urllib_transport
+    from verdict.live.models_job import Job, JobMetrics, run_pass
+    from verdict.models.champion import SYNTHETIC, synthetic_records
+    from verdict.scoring.flags import read_pointer
+    from verdict.scoring.onnx_model import OnnxModel
+    from verdict.scoring.registry import path_of
+
+    nice = getattr(os, "nice", None)
+    if nice is not None:
+        nice(19)
+    metrics = JobMetrics()
+    if metrics_port:
+        start_http_server(metrics_port, addr=metrics_host, registry=metrics.registry)
+    token = os.environ.get("VERDICT_GITHUB_TOKEN", "").strip()
+    github = GitHub(urllib_transport(token)) if token else None
+    if github is None:
+        typer.echo("no VERDICT_GITHUB_TOKEN: pull requests are written locally only")
+    window = dt.datetime.fromisoformat(since.replace("Z", "+00:00"))
+
+    while True:
+        try:
+            champion = read_pointer(flag).champion
+            champion_path = path_of(champion)
+            reference_path = state / drift_live.REFERENCE_FILE
+            reference = None
+            if reference_path.exists():
+                reference, meta = drift_live.load_reference(reference_path)
+                if meta.get("champion") != champion:
+                    reference = None
+            if reference is None:
+                typer.echo(f"building the drift reference for {champion}; this takes a while")
+                cutoff = SYNTHETIC.start_time + dt.timedelta(days=drift_live.REFERENCE_DAYS)
+                reference = drift_live.build_reference(
+                    synthetic_records(drift_live.REFERENCE_DAYS),
+                    model=OnnxModel(champion_path),
+                    cutoff=cutoff,
+                )
+                drift_live.save_reference(
+                    reference,
+                    reference_path,
+                    meta={"champion": champion, "cutoff": cutoff.isoformat()},
+                )
+            job = Job(
+                paths=HistoryPaths(history),
+                state_dir=state,
+                reference=reference,
+                since=window,
+                starts_file=starts,
+                champion_path=champion_path,
+                shadow_path=None,
+                github=github,
+            )
+            said = run_pass(job)
+            metrics.passes.labels("ok").inc()
+            metrics.pull_requests.labels("candidate").inc(1 if "candidate" in said else 0)
+            metrics.pull_requests.labels("verdict").inc(1 if "verdict" in said else 0)
+            metrics.days_judged.set(len(job.drift_state.judged()))
+            metrics.request_open.set(1 if job.drift_state.open_request() else 0)
+            typer.echo(json.dumps(said, default=str))
+        except Exception as error:  # a pass that fails is counted and retried, not fatal
+            metrics.passes.labels("failed").inc()
+            typer.echo(f"pass failed: {type(error).__name__}: {error}", err=True)
+        metrics.last_pass.set(time.time())
+        if once:
+            return
+        time.sleep(every)
 
 
 @app.command(name="rollback-drill")

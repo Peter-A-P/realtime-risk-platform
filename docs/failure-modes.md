@@ -295,6 +295,35 @@ is older than the day the topic keeps, start with empty windows. `docker logs
 not growing means a pass has stopped), and `df -h /data`: a full volume stops
 a save before it stops anything else.
 
+### DriftRequestOpened
+
+The drift monitors judged the same quantity drifted on two consecutive days
+of the live window and opened a retraining request (ADR 12, ADR 28). It is
+news, not a fault: the sealed schedule is meant to shift. Nothing is needed
+from a person yet. The request is in `/data/models/drift/request.json`, the
+days' reports beside it, and the models job fits a candidate once three
+finalised days exist, then again as the drifted days' labels arrive, a week
+and a few days later (ADR 24). `ModelPullRequestOpened` follows when it does.
+
+### ModelPullRequestOpened
+
+The models job opened a pull request: a retraining candidate (merging it
+makes the candidate the shadow model, after an image roll) or the promotion
+gate's verdict on the shadow model (merging an eligible one is the approval,
+after which `verdict flag set <version>` on the instance moves the pointer).
+Read it on GitHub; the job never merges or deploys anything itself. Without
+a token in `/verdict/github-token` it writes the same body under
+`/data/models/work/` instead and opens nothing.
+
+### ModelsJobFailing
+
+Three or more passes of the models job failed in four hours. It retries
+every hour, so the question is why. `docker logs --tail 100 verdict-models`.
+A missing reference is rebuilt on the first pass and takes a while, which
+is not a failure; a GitHub error names the call and status, never the token;
+a memory kill shows as exit code 137 and would come from fitting, whose
+tables are bounded (`verdict/models/live.py`).
+
 ### TargetDown
 
 A service Prometheus scrapes (`job` in the email says which) has been

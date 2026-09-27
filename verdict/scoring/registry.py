@@ -63,3 +63,25 @@ def version_of(role: str, directory: Path = ARTIFACTS) -> str:
         msg = f"no {role} ships in {directory}"
         raise FileNotFoundError(msg)
     return model_version(path, role)
+
+
+def path_of(version: str, directory: Path = ARTIFACTS) -> Path:
+    """The shipped file a version names.
+
+    Args:
+        version: A model version, `<stem>-<hash>`.
+        directory: Where the ONNX files are.
+
+    Returns:
+        The file.
+
+    Raises:
+        FileNotFoundError: If no shipped file has that version.
+    """
+    from verdict.scoring.onnx_model import model_version
+
+    for path in sorted(directory.glob("*.onnx")):
+        if model_version(path, path.stem) == version:
+            return path
+    msg = f"no shipped model has version {version}"
+    raise FileNotFoundError(msg)

@@ -216,6 +216,33 @@ services:
       - /data/history:/data/history
     restart: unless-stopped
 
+  # The live window's drift monitors, retraining and promotion gate (ADR
+  # 28): judges each finished day, fits a candidate when a drift request is
+  # due one, and runs the gate on the shadow model's labelled week, opening a
+  # pull request for each. It never merges, deploys or moves the pointer.
+  # The token is optional: without it pull requests stay under /data/models.
+  models:
+    image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
+    container_name: verdict-models
+    command:
+      - models-job
+      - --history=/data/history
+      - --state=/data/models
+      - --since=${VERDICT_WINDOW_START:?the boot script writes it}
+      - --flag=/data/flags/champion.json
+      - --starts=/data/engine/starts.jsonl
+      - --metrics-host=0.0.0.0
+      - --metrics-port=9113
+    env_file:
+      - path: /etc/verdict/github.env
+        required: false
+    volumes:
+      - /data/history:/data/history:ro
+      - /data/models:/data/models
+      - /data/engine:/data/engine:ro
+      - /data/flags:/data/flags:ro
+    restart: unless-stopped
+
   # Firing alerts into an outbox on the volume; the host sends them (ADR 26).
   alerts:
     image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
@@ -328,6 +355,9 @@ configs:
         - job_name: compactor
           static_configs:
             - targets: ["compactor:9112"]
+        - job_name: models
+          static_configs:
+            - targets: ["models:9113"]
   # What reaches Peter by email (ADR 26): Prometheus evaluates these, and the
   # relay on the host (deploy/live/alert-relay.sh) sends each one that fires,
   # and its end, to the verdict-alerts topic. docs/failure-modes.md has what
@@ -375,6 +405,22 @@ configs:
               for: 45m
               annotations:
                 summary: The scorer's feature state has not been saved whole for over an hour.
+            # A drift request opening is news; staying open is not, so this
+            # fires in the hour after it opens and then stops (ADR 28).
+            - alert: DriftRequestOpened
+              expr: verdict_drift_request_open == 1 and verdict_drift_request_open offset 1h == 0
+              annotations:
+                summary: The drift monitors opened a retraining request.
+            # Each pull request the live job opens is for a person to read.
+            - alert: ModelPullRequestOpened
+              expr: increase(verdict_models_pull_requests_total[2h]) > 0
+              annotations:
+                summary: The live models job opened a pull request for a person to read.
+            # A pass an hour; three failures in four hours is not a blip.
+            - alert: ModelsJobFailing
+              expr: increase(verdict_models_job_passes_total{outcome="failed"}[4h]) >= 3
+              annotations:
+                summary: Three or more passes of the drift, retraining and gate job failed in four hours.
             # A spot replacement takes about four minutes, so ten is not one.
             - alert: TargetDown
               expr: up == 0

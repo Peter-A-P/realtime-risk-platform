@@ -199,6 +199,7 @@ def compare_models(
     challenger_path: Path,
     *,
     train_share: float = 0.7,
+    challenger_prefix: str = "challenger",
 ) -> dict[str, Any]:
     """Score two exported models on the same test rows and compare them, paired.
 
@@ -213,6 +214,8 @@ def compare_models(
         train_share: Where the split falls. It must be the share the newer of
             the two was fitted with, or the test rows would include rows it
             was trained on.
+        challenger_prefix: The name the challenger's version starts with,
+            which is its file's stem wherever the registry loads it.
 
     Returns:
         Both PR-AUCs with intervals, and the paired difference.
@@ -226,11 +229,13 @@ def compare_models(
     )
     labels, weights = split.test.labels, split.test.weights
     champion = OnnxModel(champion_path).score_matrix(split.test.inputs)
-    challenger = OnnxModel(challenger_path, prefix="challenger").score_matrix(split.test.inputs)
+    challenger = OnnxModel(challenger_path, prefix=challenger_prefix).score_matrix(
+        split.test.inputs
+    )
     return {
         "track": "real data, offline" if track == "real" else "synthetic, offline replay",
         "champion": model_version(champion_path),
-        "challenger": model_version(challenger_path, "challenger"),
+        "challenger": model_version(challenger_path, challenger_prefix),
         "cutoff": split.cutoff.isoformat(),
         "test": {"rows": len(labels), "frauds": int(labels.sum())},
         "champion_pr_auc": asdict(pr_auc(labels, champion, weights)),

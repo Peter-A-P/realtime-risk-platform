@@ -48,6 +48,7 @@ def retrain(
     champion_path: Path,
     candidate_path: Path,
     train_share: float = 0.7,
+    threads: int = 6,
 ) -> dict[str, Any]:
     """Fit a candidate on the arrived history and compare it to the champion.
 
@@ -60,6 +61,8 @@ def retrain(
         train_share: Where in the history the split falls. A later split is
             a later retrain: more of the history has arrived, and less is
             left to test on.
+        threads: XGBoost threads. The live job fits with one, beside the
+            scorer (ADR 28).
 
     Returns:
         The report: what asked for the retrain, what was fitted, and how the
@@ -68,10 +71,15 @@ def retrain(
     table = pq.read_table(table_path)
     split = split_by_time(table, train_share=train_share, wait_for_labels=track == "synthetic")
     last_trained_on = _last_transaction(table, split.train.event_ids)
-    fitted = fit_champion(split.train)
+    fitted = fit_champion(split.train, threads=threads)
     export_onnx(fitted, candidate_path, split.test.inputs[:5_000])
     comparison = compare_models(
-        track, table_path, champion_path, candidate_path, train_share=train_share
+        track,
+        table_path,
+        champion_path,
+        candidate_path,
+        train_share=train_share,
+        challenger_prefix=candidate_path.stem,
     )
     beats = comparison["challenger_minus_champion"]["low"] > 0.0
     return {

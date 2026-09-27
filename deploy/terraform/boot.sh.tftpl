@@ -64,9 +64,9 @@ mountpoint -q /data
 # runs as: Redpanda 101, the platform's image 10001 (deploy/image), and
 # Prometheus 65534. The feeds' saved places are what let a replacement
 # carry on the stream where it stopped (ADR 15).
-mkdir -p /data/redpanda /data/history /data/feeds /data/flags /data/grafana /data/prometheus /data/alerts/outbox /data/engine
+mkdir -p /data/redpanda /data/history /data/feeds /data/flags /data/grafana /data/prometheus /data/alerts/outbox /data/engine /data/models
 chown 101:101 /data/redpanda
-chown 10001:10001 /data/history /data/feeds /data/flags /data/grafana /data/alerts /data/alerts/outbox /data/engine
+chown 10001:10001 /data/history /data/feeds /data/flags /data/grafana /data/alerts /data/alerts/outbox /data/engine /data/models
 chown 65534:65534 /data/prometheus
 
 # Spot notices, kept on the data volume so they outlive the instance they
@@ -122,6 +122,11 @@ umask 077
 printf 'TUNNEL_TOKEN=%s\n' "$(aws ssm get-parameter --region "$REGION" \
   --name /verdict/cloudflare-tunnel-token --with-decryption \
   --query Parameter.Value --output text)" > /etc/verdict/tunnel.env
+# The models job's GitHub token (ADR 28), if one is stored; without it the
+# job writes its pull requests under /data/models and opens none.
+printf 'VERDICT_GITHUB_TOKEN=%s\n' "$(aws ssm get-parameter --region "$REGION" \
+  --name /verdict/github-token --with-decryption \
+  --query Parameter.Value --output text 2>/dev/null || true)" > /etc/verdict/github.env
 umask 022
 
 # The platform's image, pulled from this stack's own repository by the

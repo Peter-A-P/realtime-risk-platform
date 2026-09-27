@@ -205,6 +205,7 @@ def test_every_platform_service_runs_the_one_pushed_image() -> None:
         "feed-labels",
         "grafana-files",
         "alerts",
+        "models",
     }
     assert len({s["image"] for s in ours.values()}) == 1
 
@@ -221,6 +222,21 @@ def test_the_live_scorer_runs_the_challenger_in_shadow_on_what_history_keeps() -
     command = _compose(LIVE_COMPOSE)["services"]["scorer"]["command"]
     assert "--shadow=challenger" in command
     assert "--shadow-kept-only" in command
+
+
+def test_the_models_job_reads_history_and_writes_only_its_own_state() -> None:
+    """ADR 28: it opens pull requests; it cannot touch history, the pointer or the engine."""
+    models = _compose(LIVE_COMPOSE)["services"]["models"]
+    assert set(models["volumes"]) == {
+        "/data/history:/data/history:ro",
+        "/data/models:/data/models",
+        "/data/engine:/data/engine:ro",
+        "/data/flags:/data/flags:ro",
+    }
+    assert models["env_file"] == [{"path": "/etc/verdict/github.env", "required": False}]
+    boot = (TERRAFORM / "boot.sh.tftpl").read_text(encoding="utf-8")
+    assert "--name /verdict/github-token" in boot
+    assert re.search(r"chown 10001:10001 .*/data/models", boot)
 
 
 def test_the_scorer_saves_its_feature_state_on_the_data_volume() -> None:

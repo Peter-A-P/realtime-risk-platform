@@ -38,6 +38,7 @@ from verdict.history.compactor import CompactorMetrics, run_forever, unsealed_ag
 from verdict.history.labels import CollectorMetrics
 from verdict.history.records import LABEL_SCHEMA, label_row
 from verdict.live.feed import Feed, FeedMetrics
+from verdict.live.models_job import JobMetrics
 from verdict.observe.alerts import REMIND_EVERY, UNREACHABLE, UNREACHABLE_AFTER, Relay, firing
 from verdict.observe.metrics import ScorerMetrics
 
@@ -67,6 +68,7 @@ def _exported(tmp_path: Path) -> set[str]:
         FeedMetrics(Feed.LABELS).registry,
         CollectorMetrics().registry,
         CompactorMetrics(HistoryPaths(tmp_path)).registry,
+        JobMetrics().registry,
     ]
     names: set[str] = set()
     for registry in registries:
@@ -183,6 +185,39 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: The scorer's feature state has not been saved whole for over an hour.
+  # A drift request is news the hour it opens, not every hour it stays open.
+  - interval: 1m
+    input_series:
+      - series: 'verdict_drift_request_open'
+        values: '0x120 1x300'
+    alert_rule_test:
+      - eval_time: 119m
+        alertname: DriftRequestOpened
+        exp_alerts: []
+      - eval_time: 150m
+        alertname: DriftRequestOpened
+        exp_alerts:
+          - exp_annotations:
+              summary: The drift monitors opened a retraining request.
+      - eval_time: 200m
+        alertname: DriftRequestOpened
+        exp_alerts: []
+  # One pull request opened at 01:00 is told, and stops being news by 03:30.
+  - interval: 1m
+    input_series:
+      - series: 'verdict_models_pull_requests_total{kind="candidate"}'
+        values: '0x60 1x240'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: ModelPullRequestOpened
+        exp_alerts:
+          - exp_labels:
+              kind: candidate
+            exp_annotations:
+              summary: The live models job opened a pull request for a person to read.
+      - eval_time: 210m
+        alertname: ModelPullRequestOpened
+        exp_alerts: []
   # A spot replacement's four minutes down is not an alert.
   - interval: 1m
     input_series:
