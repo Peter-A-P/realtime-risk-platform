@@ -200,6 +200,12 @@ def test_the_rules_fire_when_they_should_and_not_before(tmp_path: Path) -> None:
     content = _compose()["configs"]["alert-rules"]["content"].replace("$$", "$")
     (tmp_path / "rules.yml").write_text(content, encoding="utf-8")
     (tmp_path / "tests.yml").write_text(_RULE_TESTS, encoding="utf-8")
+    # promtool runs as the image's own user, nobody; pytest makes its
+    # directories readable by their owner only, which on a Linux runner is
+    # someone else, so the directory and files are opened up to be read.
+    tmp_path.chmod(0o755)
+    for written in tmp_path.iterdir():
+        written.chmod(0o644)
     image = _compose()["services"]["prometheus"]["image"]
     try:
         result = subprocess.run(
