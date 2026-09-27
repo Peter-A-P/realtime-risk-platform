@@ -30,7 +30,7 @@ import datetime as dt
 import itertools
 import time
 from collections import OrderedDict
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Final, Protocol
 
@@ -157,6 +157,7 @@ class Decider:
         rules: DecisionRules | None = None,
         ledger_size: int = DEFAULT_LEDGER_SIZE,
         shadow: ModelSource | None = None,
+        shadow_when: Callable[[TransactionEvent, DecisionEvent], bool] | None = None,
     ) -> None:
         """Assemble the decider.
 
@@ -167,9 +168,13 @@ class Decider:
             rules: The rule set. Defaults to the placeholder thresholds.
             ledger_size: How many event ids to remember.
             shadow: A challenger to score in shadow, if any.
+            shadow_when: Which decisions the shadow scores, if not every one.
+                The live scorer passes history's `could_be_kept`: the
+                promotion gate reads the shadow only on rows history keeps.
         """
         self.features = features
         self.shadow = shadow
+        self.shadow_when = shadow_when
         self.models = models
         self.rules = rules or DecisionRules()
         self.ledger_size = ledger_size
@@ -241,7 +246,9 @@ class Decider:
     def _shadow(
         self, served: dict[str, float], event: TransactionEvent, champion: DecisionEvent
     ) -> tuple[ShadowEvent | None, bytes | None, int]:
-        if self.shadow is None:
+        if self.shadow is None or (
+            self.shadow_when is not None and not self.shadow_when(event, champion)
+        ):
             return None, None, 0
         started = time.perf_counter_ns()
         try:

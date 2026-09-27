@@ -110,6 +110,11 @@ services:
       # replacement. Started at the shipped champion only if it does not exist.
       - --flag=/data/flags/champion.json
       - --initial-champion=champion
+      # The challenger in shadow (ADR 11), on the decisions history could
+      # keep, which is all the promotion gate reads: about a seventh of them,
+      # where scoring every one would take a fifth of the scorer's core.
+      - --shadow=challenger
+      - --shadow-kept-only
       # The feature state, saved as it runs, so a replacement starts from it
       # and replays what came after rather than from empty windows (ADR 27).
       - --engine-snapshot=/data/engine

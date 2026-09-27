@@ -41,7 +41,7 @@ from verdict.events.generator.regimes import (
     source_fingerprint,
 )
 from verdict.events.rawlog import RawEventLog
-from verdict.events.schema import SchemaFingerprint
+from verdict.events.schema import DecisionEvent, SchemaFingerprint, TransactionEvent
 from verdict.scoring.model import Model
 
 app = typer.Typer(
@@ -561,6 +561,13 @@ def score(
         str | None,
         typer.Option(help="Score the shipped model in this role (challenger) in shadow."),
     ] = None,
+    shadow_kept_only: Annotated[
+        bool,
+        typer.Option(
+            help="Score in shadow only the decisions history could keep, which is all the "
+            "promotion gate reads (ADR 11's addendum of 2026-09-27)."
+        ),
+    ] = False,
     engine_snapshot: Annotated[
         Path | None,
         typer.Option(help="Save the feature state here as it runs, and start from it (ADR 27)."),
@@ -592,6 +599,7 @@ def score(
         compression: Producer batch compression.
         initial_champion: The role a new pointer starts at.
         shadow: The role to score in shadow (ADR 11).
+        shadow_kept_only: Spare the shadow the rows history will drop.
         engine_snapshot: Where the feature state is saved, if anywhere.
         snapshot_every: Seconds between the starts of saves.
     """
@@ -647,7 +655,21 @@ def score(
         else:
             metrics.restored.set(0)
             typer.echo(f"starting with empty feature windows: {outcome.reason}")
-    decider = Decider(features=EngineFeatures(engine), models=models, shadow=shadow_models)
+    shadow_when = None
+    if shadow_kept_only:
+        from verdict.history.sampling import SampleRates, could_be_kept
+
+        rates = SampleRates()
+
+        def shadow_when(event: TransactionEvent, decision: DecisionEvent) -> bool:
+            return could_be_kept(event.event_id, decision.action, rates)
+
+    decider = Decider(
+        features=EngineFeatures(engine),
+        models=models,
+        shadow=shadow_models,
+        shadow_when=shadow_when,
+    )
     scorer = StreamScorer(
         stream,
         decider=decider,

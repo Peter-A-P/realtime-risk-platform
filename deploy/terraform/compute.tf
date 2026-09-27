@@ -46,7 +46,10 @@ resource "aws_launch_template" "instance" {
     http_put_response_hop_limit = 1
   }
 
-  user_data = base64encode(templatefile("${path.module}/boot.sh.tftpl", {
+  # Gzipped whole, which cloud-init recognises by its magic bytes and
+  # unpacks: EC2 limits user data to 16 KB, and the boot script with the
+  # compose file inside it outgrew that on 2026-09-27 (ADR 26's note).
+  user_data = base64gzip(templatefile("${path.module}/boot.sh.tftpl", {
     region          = var.region
     volume_id       = aws_ebs_volume.data.id
     compose_version = local.compose_version

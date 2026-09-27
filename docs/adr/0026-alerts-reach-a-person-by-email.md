@@ -105,7 +105,9 @@ how it ended. `promtool check config` passes on the Prometheus configuration.
   built, since a replacement has always arrived within minutes so far.
 - **The user data is nearly full:** about 400 bytes under the 16 KB limit
   with the test's 2 KB margin. The next addition to the boot script should
-  gzip the whole user data, which cloud-init accepts, rather than squeeze.
+  gzip the whole user data, which cloud-init accepts, rather than squeeze. **Done 2026-09-27**, when the
+  shadow's two flags took the compose file over: the whole user data is
+  gzipped (`compute.tf`), and the test measures the gzip.
 - **Dead letters do not alert yet.** Whether a spot replacement's resent
   records are set aside as late is not measured, and an alert on every one
   would email five times a day in the dry run's conditions. The dry run's

@@ -534,3 +534,25 @@ def test_shadow_time_is_kept_out_of_the_champions_hops() -> None:
     assert outcome is not None
     assert outcome.shadow_ns >= 15_000_000
     assert outcome.model_ns + outcome.decision_ns < outcome.shadow_ns
+
+
+def test_a_shadow_can_be_spared_the_rows_history_will_drop() -> None:
+    """ADR 11's addendum: the gate reads the shadow only on rows history could keep."""
+    from verdict.history.sampling import SampleRates, could_be_kept
+
+    rates = SampleRates()
+    events = [an_event(i, card=f"card-{i % 3}") for i in range(300)]
+    broker, stream = a_shadow_setup()
+    send(stream, events)
+    decider = Decider(
+        features=EngineFeatures(FeatureEngine()),
+        models=FixedModel(Recorder(score=0.01)),  # approves everything
+        shadow=FixedModel(Recorder(score=0.95)),
+        shadow_when=lambda event, decision: could_be_kept(event.event_id, decision.action, rates),
+    )
+    drain(StreamScorer(stream, decider=decider))
+    shadowed = {s.event_id for s in shadow_records_on(broker)}
+    expected = {e.event_id for e in events if could_be_kept(e.event_id, Action.APPROVE, rates)}
+    assert shadowed == expected
+    assert 0 < len(shadowed) < len(events) // 4
+    assert len(decisions_on(broker)) == len(events)

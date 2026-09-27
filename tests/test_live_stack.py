@@ -216,6 +216,13 @@ def test_the_scorer_stages_its_decisions_on_the_data_volume() -> None:
     assert "/data/history:/data/history" in scorer["volumes"]
 
 
+def test_the_live_scorer_runs_the_challenger_in_shadow_on_what_history_keeps() -> None:
+    """ADR 11: the promotion gate needs a labelled shadow window from the live path."""
+    command = _compose(LIVE_COMPOSE)["services"]["scorer"]["command"]
+    assert "--shadow=challenger" in command
+    assert "--shadow-kept-only" in command
+
+
 def test_the_scorer_saves_its_feature_state_on_the_data_volume() -> None:
     """ADR 27: a replacement starts from the saved state, which must outlive the instance."""
     scorer = _compose(LIVE_COMPOSE)["services"]["scorer"]
@@ -274,13 +281,18 @@ def test_both_feeds_play_the_same_stream_and_keep_their_place_on_the_volume() ->
 
 
 def test_the_user_data_fits_the_sixteen_kilobyte_limit() -> None:
-    """The boot script carries the compose file gzipped; both must fit."""
+    """The boot script carries the compose file, and the whole is gzipped; it must fit.
+
+    EC2's limit is on the user data as sent, which is the gzip. The 2 KB is
+    for what Terraform fills in (the commitment, the image, the ARNs).
+    """
     import base64
     import gzip
 
     boot = (TERRAFORM / "boot.sh.tftpl").read_bytes()
     compose = base64.b64encode(gzip.compress(LIVE_COMPOSE.read_bytes()))
-    assert len(boot) + len(compose) + 2_048 < 16_384
+    assert len(gzip.compress(boot + compose)) + 2_048 < 16_384
+    assert "base64gzip(templatefile(" in (TERRAFORM / "compute.tf").read_text(encoding="utf-8")
 
 
 def test_the_build_identity_can_never_read_or_replace_the_schedule_secret() -> None:

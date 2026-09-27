@@ -116,6 +116,29 @@ def draw(event_id: str) -> float:
     return int.from_bytes(digest[:8], "big") / 2**64
 
 
+def could_be_kept(event_id: str, action: Action, rates: SampleRates) -> bool:
+    """Whether a decision might be kept, before its label is known.
+
+    Acted rows are kept whatever the label; an approved row is kept only if its
+    draw falls under the rate of whichever stratum its label puts it in, so
+    under the larger of the two it might be. What is not kept is never read
+    by anything that reads history, so work done on a row only for history
+    (scoring it in shadow, ADR 11's addendum of 2026-09-27) can be spared on
+    the rest.
+
+    Args:
+        event_id: The event.
+        action: What the champion decided.
+        rates: The keep probabilities.
+
+    Returns:
+        False only for a row that will certainly be dropped.
+    """
+    if action is not Action.APPROVE:
+        return True
+    return draw(event_id) < max(rates.fraud, rates.legit)
+
+
 def keep(event_id: str, stratum: Stratum, rates: SampleRates) -> float | None:
     """Whether to keep a row, and its weight if so.
 

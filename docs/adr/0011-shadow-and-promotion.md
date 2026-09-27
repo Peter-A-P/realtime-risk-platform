@@ -136,3 +136,20 @@ the weighted PR-AUC and decision cost of a sample to the full data's.
 - Sato et al., "Continuous Delivery for Machine Learning", martinfowler.com,
   2019: shadow deployment as a promotion step.
   https://martinfowler.com/articles/cd4ml.html
+
+## Addendum, 2026-09-27: the shadow scores only what history could keep
+
+The live scorer runs the challenger in shadow from go-live, so that a
+labelled shadow window exists by the time a promotion is asked for. Scored on
+every decision it costs about 0.22 ms each at p50 (`docs/challenger-synthetic.json`),
+a fifth of the scorer's single core at 1,000 a second, on a core already about
+62 percent busy, and that headroom is what a catch-up after a spot reclaim
+runs on. But the gate reads the shadow only from history (the addendum
+above), and history keeps every reviewed or declined row and an approved row
+only if its hash draw falls under its stratum's rate, a tenth at most. Both
+are known when the decision is made, so the shadow scores exactly the rows
+that could be kept (`history.sampling.could_be_kept`, `verdict score
+--shadow-kept-only`), about a seventh of them, and the gate reads the same
+rows it would have. The `shadow` topic carries only those.
+`tests/test_history.py` holds that no row history keeps was ever spared, and
+`tests/test_scoring.py` that the shadow scores exactly the rest.

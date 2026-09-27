@@ -48,7 +48,14 @@ from verdict.history.compact import (
 )
 from verdict.history.labels import LabelCollector
 from verdict.history.records import LABEL_SCHEMA, label_row, staged_row, staged_schema
-from verdict.history.sampling import SampleRates, Stratum, draw, keep, stratum_of
+from verdict.history.sampling import (
+    SampleRates,
+    Stratum,
+    could_be_kept,
+    draw,
+    keep,
+    stratum_of,
+)
 from verdict.models.promote import average_precision, decision_cost
 from verdict.scoring.consumer import StreamScorer
 from verdict.scoring.core import Decider, EngineFeatures
@@ -579,3 +586,16 @@ def test_the_collector_spools_labels_by_their_own_time_and_skips_garbage(
     table = spool.read_hours(tmp_path, spool.hours(tmp_path), LABEL_SCHEMA)
     assert table["event_id"].to_pylist() == [f"evt-{i}" for i in range(4)]
     assert spool.hours(tmp_path) == ["2027-04-12T00", "2027-04-12T01", "2027-04-12T02"]
+
+
+def test_a_row_history_keeps_was_always_one_it_could_keep() -> None:
+    """What spares the shadow a row must never spare one that is later kept."""
+    rates = SampleRates()
+    for index in range(20_000):
+        event_id = f"evt-{index}"
+        for action in Action:
+            for is_fraud in (True, False):
+                if keep(event_id, stratum_of(action, is_fraud), rates) is not None:
+                    assert could_be_kept(event_id, action, rates), (event_id, action)
+    spared = sum(not could_be_kept(f"evt-{i}", Action.APPROVE, rates) for i in range(20_000))
+    assert 0.85 < spared / 20_000 < 0.95
