@@ -42,6 +42,7 @@ the producer's process and a decision timed in the scorer's are on one clock;
 
 from __future__ import annotations
 
+import gc
 import json
 import subprocess
 import sys
@@ -437,7 +438,12 @@ def run_once(
             + sum(scorer.dead_letters.values())
             >= len(events)
         ):
-            scorer.poll(max_records=500, timeout_seconds=0.01)
+            # As the service does (scoring/service.py): what survives a batch
+            # is frozen, so the collector never walks the feature state. Until
+            # 2026-09-27 this loop did not, and on the live instance measured
+            # full collections the live scorer never has.
+            if scorer.poll(max_records=500, timeout_seconds=0.01):
+                gc.freeze()
 
     thread = threading.Thread(target=score_until_done, name="scorer", daemon=True)
     timers = fine_grained_timers()
@@ -457,6 +463,7 @@ def run_once(
         scorer_stream.close()
         topics.teardown()
         timers.__exit__(None, None, None)
+        gc.unfreeze()  # the next run starts as a fresh service would
 
     kept = samples[warmup:]
     missing = [event_id for event_id, _ in kept if event_id not in sent.at_ns]
