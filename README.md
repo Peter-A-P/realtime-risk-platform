@@ -212,16 +212,18 @@ beside it):
 
 | Rate | p50 | p95 | p99 | Kept up |
 |---|---|---|---|---|
-| 1,000 /s | 8.0 (8.0 to 8.1) | 10.6 (10.3 to 10.8) | 12.4 (11.2 to 13.7) | all 5 runs |
-| 2,000 /s | 91.7 (-35.1 to 218.5) | 162.1 (-57.6 to 381.8) | 188.7 (-50.6 to 428.0) | 3 of 5; the first 2 built a queue |
-| 3,000 /s | 3,263 | 6,046 | 6,298 | none |
+| 1,000 /s | 6.2 (6.2 to 6.2) | 7.9 (7.9 to 7.9) | 8.4 (8.3 to 8.4) | all 5 runs |
+| 2,000 /s | 7.6 (7.5 to 7.7) | 10.2 (10.1 to 10.4) | 11.2 (10.9 to 11.6) | all 5 runs |
+| 3,000 /s | 11.2 (10.8 to 11.6) | 16.1 (14.6 to 17.5) | 22.0 (13.8 to 30.3) | all 5 runs |
+| 4,000 /s | 17.6 (17.1 to 18.1) | 23.6 (22.5 to 24.8) | 37.3 (8.2 to 66.4) | all 5 runs |
 
-One scorer on one partition (ADR 8) sustains the live rate with room to spare and meets
-the budget at twice it only some of the time; at three times it falls behind. The
-intervals at 2,000 /s cross zero because the runs are two different regimes, not noise
-around one. The first run of this test, without the collector frozen as the service
-freezes it, reported a p99 of 111 ms at 1,000 /s; that was the harness, fixed the same
-day.
+One scorer on one partition (ADR 8). The first measurement the same day kept up at
+1,000 /s and not reliably at 2,000: profiling the live scorer under a backlog put 47
+percent of its time in calling the model once per transaction, and scoring each batch in
+one call (ADR 8's addendum) lifted it to four times the live rate. At 4,000 /s the p99's
+interval crosses the 50 ms budget; the ceiling is above it and has not been measured.
+Before either, a first run without the collector frozen as the service freezes it
+reported 111 ms at 1,000 /s; that was the harness, fixed the same day.
 
 **Staging history, and rolling back.** Staging every decision with its features (ADR 18)
 costs about 0.1 ms at the median in process and about 1 ms through the broker, and zstd on

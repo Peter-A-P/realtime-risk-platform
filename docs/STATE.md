@@ -542,6 +542,17 @@ this instance so the models job opens no pull request from development
 days; a replacement before go-live would restore the token, and `go-live.sh`
 wipes the job's state either way.
 
+**Throughput, 2026-09-27 (Peter chose to find the bottleneck).** The live
+configuration's load test kept up at 1,000/s (p99 12.4 ms) and not reliably at
+2,000; py-spy on the live scorer under a backlog put 47 percent of its time in
+per-event model calls. Scoring each batch in one call (ADR 8's addendum,
+a70e20a) took the same test to: 1,000/s p99 8.4 ms, 2,000/s 11.2 ms, 3,000/s
+22.0 ms, 4,000/s 37.3 ms (8.2 to 66.4), every run keeping up
+(`docs/loadtest-live-*.json`, README). The ceiling is above 4,000/s and not
+measured. The rollback drill, re-run on the new path: old champion deciding
+7.8 ms (6.5 to 9.1) after the flag, none by the rolled-back model after it,
+with the build machine 17 to 20 percent busy (the 5.8 ms before was idle).
+
 **What go-live now waits on**, all in `docs/go-live.md`: (1) Peter's go to
 roll the new image onto the pre-live stack (a `terraform apply` for the
 gzipped user data, then an instance replacement, which is also the gzip's

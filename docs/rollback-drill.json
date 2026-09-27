@@ -1,40 +1,40 @@
 {
   "track": "synthetic live, local",
-  "rolled_back_from": "champion-9c7b11fd35bb",
+  "rolled_back_from": "champion-8d960d985749",
   "rolled_back_to": "stand-in-0",
   "rate_per_second": 1000.0,
   "runs": [
     {
-      "seconds_to_old_champion": 0.0059611,
+      "seconds_to_old_champion": 0.0095434,
       "decisions_by_new_after_rollback": 0,
-      "decisions": 2002
+      "decisions": 2011
     },
     {
-      "seconds_to_old_champion": 0.0059358,
+      "seconds_to_old_champion": 0.0070625,
       "decisions_by_new_after_rollback": 0,
-      "decisions": 2006
+      "decisions": 2018
     },
     {
-      "seconds_to_old_champion": 0.0059247,
+      "seconds_to_old_champion": 0.0073254,
       "decisions_by_new_after_rollback": 0,
       "decisions": 2012
     },
     {
-      "seconds_to_old_champion": 0.0052408,
+      "seconds_to_old_champion": 0.007066,
       "decisions_by_new_after_rollback": 0,
-      "decisions": 2006
+      "decisions": 2021
     },
     {
-      "seconds_to_old_champion": 0.0060685,
+      "seconds_to_old_champion": 0.0081087,
       "decisions_by_new_after_rollback": 0,
-      "decisions": 2006
+      "decisions": 2021
     }
   ],
   "seconds_to_old_champion": {
-    "mean": 0.00582618,
-    "low": 0.005413817899157502,
-    "high": 0.006238542100842498
+    "mean": 0.0078212,
+    "low": 0.006513176686961105,
+    "high": 0.009129223313038896
   },
   "host": "Windows AMD64, Python 3.13.5",
-  "measured_at": "2026-09-19T18:10:57+00:00"
+  "measured_at": "2026-09-27T21:04:52+00:00"
 }
