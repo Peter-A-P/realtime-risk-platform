@@ -331,3 +331,12 @@ def test_the_build_identity_can_never_read_or_replace_the_schedule_secret() -> N
     actions = set(denied[0]["Action"])
     assert {"ssm:GetParameter", "ssm:GetParameters", "ssm:PutParameter"} <= actions
     assert "ssm:GetParameterHistory" in actions
+
+
+def test_a_teardown_may_leave_only_the_free_parameters_meant_to_outlive_it() -> None:
+    """ADR 16: the tunnel token and the schedule secret stay; a credential never does."""
+    down = (ROOT / "deploy" / "down.sh").read_text(encoding="utf-8")
+    allowed = set(re.findall(r":parameter(/verdict/[a-z-]+)\$", down))
+    assert allowed == {"/verdict/cloudflare-tunnel-token", "/verdict/schedule-secret"}
+    assert "resourcegroupstaggingapi get-resources" in down
+

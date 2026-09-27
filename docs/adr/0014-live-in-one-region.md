@@ -183,7 +183,8 @@ to decision because the feed sends each transaction at its event time.
   interruption drill.
 - Teardown has a check but not yet a test in CI: `deploy/down.sh --check`
   needs the deploy identity, and CI does not hold one. ADR 16 decides whether
-  it should.
+  it should. **Decided 2026-09-27 (ADR 16):** it should not; it is
+  run by hand at teardown and its output committed.
 - The boot script installs Docker from the distribution and Compose as a
   pinned, checksummed binary, on every replacement. A few minutes of every
   recovery go to that. Baking an image would save them and add a build step

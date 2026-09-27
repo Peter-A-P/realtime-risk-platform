@@ -7,7 +7,10 @@
 #   deploy/down.sh --check  only check
 #
 # Exits non-zero if anything tagged remains beyond what is meant to outlive
-# the stack: the tunnel token parameter, which is free and put there by hand.
+# the stack (ADR 16): the tunnel token and the schedule secret, both free
+# standard parameters put there by hand, the secret kept until the reveal.
+# The GitHub token is a credential, so it is reported: delete it here and
+# revoke it on GitHub.
 set -euo pipefail
 cd "$(dirname "$0")/terraform"
 
@@ -25,11 +28,12 @@ left=$(MSYS_NO_PATHCONV=1 aws resourcegroupstaggingapi get-resources \
   --tag-filters Key=project,Values=verdict \
   --query 'ResourceTagMappingList[].ResourceARN' --output text \
   | tr '\t' '\n' | tr -d '\r' \
-  | grep -v ':parameter/verdict/cloudflare-tunnel-token$' | grep -v '^$' || true)
+  | grep -v -e ':parameter/verdict/cloudflare-tunnel-token$' \
+      -e ':parameter/verdict/schedule-secret$' | grep -v '^$' || true)
 
 if [ -n "$left" ]; then
   echo "still tagged project=verdict after teardown:"
   echo "$left"
   exit 1
 fi
-echo "nothing tagged project=verdict remains but the tunnel token parameter"
+echo "nothing tagged project=verdict remains but the tunnel token and the schedule secret"
