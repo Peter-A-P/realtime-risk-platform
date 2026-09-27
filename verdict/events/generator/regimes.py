@@ -12,17 +12,17 @@ confused:
 - **The live realisation is sealed.** The schedule that runs during the live
   window is derived from a secret the repository does not contain. Before
   go-live the repository commits three hashes: of the secret, of the derived
-  schedule, and of this file. On Jul 1 2027 the secret is published, anyone
-  re-derives the schedule, and the committed hashes prove it was fixed in
-  advance and never edited.
+  schedule, and of this file. The day after the sixty-day live window the
+  secret is published, anyone re-derives the schedule, and the committed
+  hashes prove it was fixed in advance and never edited.
 
 That is what "sealed" has to mean for the drift numbers to be worth reading.
 Committing the schedule itself in the clear would have sealed nothing, because
 the monitors would have been written by someone who had read it.
 
-This file is frozen from the moment it is sealed until Jul 1 2027. Its own
-hash is one of the three commitments, so an edit is detectable rather than
-merely discouraged.
+This file is frozen from the moment it is sealed until the secret is
+published. Its own hash is one of the three commitments, so an edit is
+detectable rather than merely discouraged.
 """
 
 from __future__ import annotations
@@ -244,9 +244,9 @@ distribution while the fraud rate and the scenario mix hold still.
 def derive_schedule(secret: str, *, window_days: float, name: str) -> RegimeSchedule:
     """Derive a schedule from a secret.
 
-    The derivation is a pure function: publishing the secret on Jul 1 2027
-    lets anyone reproduce the schedule exactly and check it against the hash
-    committed before go-live.
+    The derivation is a pure function: publishing the secret after the live
+    window lets anyone reproduce the schedule exactly and check it against
+    the hash committed before go-live.
 
     Args:
         secret: The sealed secret. Never committed, never logged.
@@ -390,7 +390,8 @@ class SealedCommitment(Record):
     def verify(self, secret: str) -> bool:
         """Check a revealed secret against this commitment.
 
-        This is the Jul 1 2027 operation, and the one a stranger runs to check
+        This is the operation run when the secret is published, and the one a
+        stranger runs to check
         the live drift numbers were not arranged after the fact.
 
         Args:

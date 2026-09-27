@@ -205,8 +205,9 @@ def schedule_verify(
 ) -> None:
     """Check a revealed secret against the committed hashes.
 
-    This is the Jul 1 2027 operation, and the one a stranger runs to check
-    that the live drift results were not arranged after the fact.
+    This is the operation run when the secret is published, the day after
+    the live window, and the one a stranger runs to check that the live drift
+    results were not arranged after the fact.
 
     Args:
         secret: The revealed secret.
