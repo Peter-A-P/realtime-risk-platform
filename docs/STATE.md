@@ -525,12 +525,29 @@ load test able to run the live configuration (ad85e75); `docs/go-live.md`
 and `deploy/go-live.sh` (d2bd69c). CI had failed since 2026-09-23 on the
 promtool test only (a file permission on Linux runners, 21c9c99).
 
+**Rolled 2026-09-27, 19:14Z and 19:25Z (Peter's go).** Image `e648f65a2e73`
+on the pre-live stack with the development schedule, the launch template
+updated, the instance replaced (the gzipped user data's first boot: 1 min
+46 s). Before it, Peter saw the p99 jump several times an hour: the save
+pass, whose merchants took up to 274 ms a step (ADR 27's addendum, 5d8408e).
+The first roll (`5d8408eaf6c0`) crash-looped the scorer for about eight
+minutes: a cold start mid-partition cleared its marks and the first poll
+read an empty deque (fixed with a test, e648f65, and the template moved to
+the fixed image). The scorer started cold once, the save format having
+changed. `/data/engine/starts.jsonl` was backfilled with a cold start at
+each midnight from 2026-09-21 to 2026-09-27, because every start in the dry
+run before ADR 27 was cold and none was recorded; the drift check's first
+clean day is therefore 2026-09-29. `/etc/verdict/github.env` was emptied on
+this instance so the models job opens no pull request from development
+days; a replacement before go-live would restore the token, and `go-live.sh`
+wipes the job's state either way.
+
 **What go-live now waits on**, all in `docs/go-live.md`: (1) Peter's go to
 roll the new image onto the pre-live stack (a `terraform apply` for the
 gzipped user data, then an instance replacement, which is also the gzip's
 first real boot); (2) the models job judging the dry run's clean baseline
-days, 2026-09-28 to 2026-10-04 on the development schedule, and flagging
-nothing; (3) the load test on the instance with the champion, shadow and
+days, 2026-09-29 to 2026-10-04 on the development schedule, and flagging
+nothing (the first is judged about 03:00Z on 2026-09-30); (3) the load test on the instance with the champion, shadow and
 history on; (4) Peter's GitHub token in SSM at `/verdict/github-token`;
 (5) Peter's go for `deploy/go-live.sh`.
 

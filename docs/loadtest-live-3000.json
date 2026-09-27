@@ -1,0 +1,458 @@
+{
+  "track": "synthetic live, local",
+  "stream": "redpanda",
+  "model": "champion-8d960d985749",
+  "shadow": "challenger-136b21035bfe",
+  "shadow_kept_only": true,
+  "history_staged": true,
+  "compression": "zstd",
+  "features": "served by the in-process engine",
+  "load_producer_ran_in": "its own process",
+  "bootstrap": "redpanda:9092",
+  "rate_target_per_second": 3000.0,
+  "events_per_run": 60000,
+  "warmup_decisions_excluded": 2000,
+  "runs": 5,
+  "host": {
+    "machine": "x86_64",
+    "processor": "",
+    "python": "3.13.15",
+    "system": "Linux 6.18.48-109.150.amzn2023.x86_64"
+  },
+  "measured_at": "2026-09-27T20:16:41+00:00",
+  "summary": {
+    "end_to_end_ms": {
+      "p50": {
+        "mean": 3263.539,
+        "low": 3052.036,
+        "high": 3475.041,
+        "runs": 5
+      },
+      "p95": {
+        "mean": 6046.071,
+        "low": 5678.855,
+        "high": 6413.287,
+        "runs": 5
+      },
+      "p99": {
+        "mean": 6298.33,
+        "low": 5893.051,
+        "high": 6703.609,
+        "runs": 5
+      }
+    },
+    "backlog_ms": {
+      "early_p50": {
+        "mean": 553.207,
+        "low": 435.703,
+        "high": 670.712,
+        "runs": 5
+      },
+      "late_p50": {
+        "mean": 6046.117,
+        "low": 5678.93,
+        "high": 6413.304,
+        "runs": 5
+      }
+    },
+    "hops_ms": {
+      "ingest": {
+        "p50": {
+          "mean": 3263.175,
+          "low": 3051.654,
+          "high": 3474.695,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 6297.969,
+          "low": 5892.721,
+          "high": 6703.218,
+          "runs": 5
+        }
+      },
+      "features": {
+        "p50": {
+          "mean": 0.131,
+          "low": 0.13,
+          "high": 0.132,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 0.22,
+          "low": 0.216,
+          "high": 0.223,
+          "runs": 5
+        }
+      },
+      "model": {
+        "p50": {
+          "mean": 0.168,
+          "low": 0.164,
+          "high": 0.172,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 0.226,
+          "low": 0.223,
+          "high": 0.23,
+          "runs": 5
+        }
+      },
+      "decision": {
+        "p50": {
+          "mean": 0.029,
+          "low": 0.028,
+          "high": 0.029,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 0.043,
+          "low": 0.041,
+          "high": 0.044,
+          "runs": 5
+        }
+      },
+      "persist": {
+        "p50": {
+          "mean": 0.015,
+          "low": 0.015,
+          "high": 0.016,
+          "runs": 5
+        },
+        "p99": {
+          "mean": 0.029,
+          "low": 0.028,
+          "high": 0.029,
+          "runs": 5
+        }
+      }
+    },
+    "commit_per_batch_ms": {
+      "p50": {
+        "mean": 1.546,
+        "low": 1.493,
+        "high": 1.598,
+        "runs": 5
+      },
+      "p99": {
+        "mean": 2.609,
+        "low": 2.564,
+        "high": 2.655,
+        "runs": 5
+      }
+    },
+    "flush_per_batch_ms": {
+      "p50": {
+        "mean": 0.088,
+        "low": -0.006,
+        "high": 0.182,
+        "runs": 5
+      },
+      "p99": {
+        "mean": 1.219,
+        "low": 1.165,
+        "high": 1.272,
+        "runs": 5
+      }
+    },
+    "checkpoint_per_batch_ms": {
+      "p50": {
+        "mean": 1.411,
+        "low": 1.401,
+        "high": 1.421,
+        "runs": 5
+      },
+      "p99": {
+        "mean": 1.56,
+        "low": 1.541,
+        "high": 1.579,
+        "runs": 5
+      }
+    },
+    "records_per_batch": {
+      "mean": 490.217,
+      "low": 485.745,
+      "high": 494.689,
+      "runs": 5
+    },
+    "send_rate_per_second": {
+      "mean": 2999.466,
+      "low": 2998.62,
+      "high": 3000.312,
+      "runs": 5
+    }
+  },
+  "per_run": [
+    {
+      "sent": 60000,
+      "measured": 58000,
+      "fine_timer": false,
+      "producer": "its own process",
+      "send_rate": 2999.277162956438,
+      "end_to_end": {
+        "p50": 3318.261833,
+        "p95": 6085.7988763,
+        "p99": 6310.58407215
+      },
+      "backlog": {
+        "early_p50": 717.419032,
+        "late_p50": 6085.8193
+      },
+      "batches": 121,
+      "records_per_batch": 495.8677685950413,
+      "hops": {
+        "ingest": {
+          "p50": 3317.9527550000003,
+          "p99": 6310.26371311
+        },
+        "features": {
+          "p50": 0.130336,
+          "p99": 0.21536733000000008
+        },
+        "model": {
+          "p50": 0.166957,
+          "p99": 0.22469207000000002
+        },
+        "decision": {
+          "p50": 0.028516,
+          "p99": 0.04241711000000003
+        },
+        "persist": {
+          "p50": 0.015097,
+          "p99": 0.02803908000000002
+        }
+      },
+      "commit": {
+        "p50": 1.494062,
+        "p99": 2.6006541999999997
+      },
+      "flush": {
+        "p50": 0.033029,
+        "p99": 1.2040976
+      },
+      "checkpoint": {
+        "p50": 1.39888,
+        "p99": 1.5835742
+      },
+      "duplicates": 0,
+      "set_aside": {}
+    },
+    {
+      "sent": 60000,
+      "measured": 58000,
+      "fine_timer": false,
+      "producer": "its own process",
+      "send_rate": 3000.028122563624,
+      "end_to_end": {
+        "p50": 3431.646615,
+        "p95": 6340.3023897,
+        "p99": 6597.43154703
+      },
+      "backlog": {
+        "early_p50": 548.7240724999999,
+        "late_p50": 6340.350501
+      },
+      "batches": 122,
+      "records_per_batch": 491.8032786885246,
+      "hops": {
+        "ingest": {
+          "p50": 3431.2353435,
+          "p99": 6597.02997991
+        },
+        "features": {
+          "p50": 0.13186,
+          "p99": 0.22125477000000038
+        },
+        "model": {
+          "p50": 0.171549,
+          "p99": 0.2299463700000001
+        },
+        "decision": {
+          "p50": 0.029202,
+          "p99": 0.04362710000000002
+        },
+        "persist": {
+          "p50": 0.015636,
+          "p99": 0.028827
+        }
+      },
+      "commit": {
+        "p50": 1.5692085,
+        "p99": 2.6272347799999998
+      },
+      "flush": {
+        "p50": 0.165001,
+        "p99": 1.2029620500000002
+      },
+      "checkpoint": {
+        "p50": 1.410902,
+        "p99": 1.5545848700000002
+      },
+      "duplicates": 0,
+      "set_aside": {}
+    },
+    {
+      "sent": 60000,
+      "measured": 58000,
+      "fine_timer": false,
+      "producer": "its own process",
+      "send_rate": 2999.822744223822,
+      "end_to_end": {
+        "p50": 3341.4677425,
+        "p95": 6292.564591200001,
+        "p99": 6616.5280706799995
+      },
+      "backlog": {
+        "early_p50": 491.55627200000004,
+        "late_p50": 6292.587777000001
+      },
+      "batches": 123,
+      "records_per_batch": 487.8048780487805,
+      "hops": {
+        "ingest": {
+          "p50": 3341.1348045,
+          "p99": 6616.13005949
+        },
+        "features": {
+          "p50": 0.13250800000000001,
+          "p99": 0.22342557000000013
+        },
+        "model": {
+          "p50": 0.17087,
+          "p99": 0.22909006
+        },
+        "decision": {
+          "p50": 0.029206,
+          "p99": 0.04402902
+        },
+        "persist": {
+          "p50": 0.015666,
+          "p99": 0.029671
+        }
+      },
+      "commit": {
+        "p50": 1.532052,
+        "p99": 2.6065092
+      },
+      "flush": {
+        "p50": 0.032221,
+        "p99": 1.29510968
+      },
+      "checkpoint": {
+        "p50": 1.42139,
+        "p99": 1.54086114
+      },
+      "duplicates": 0,
+      "set_aside": {}
+    },
+    {
+      "sent": 60000,
+      "measured": 58000,
+      "fine_timer": false,
+      "producer": "its own process",
+      "send_rate": 2998.3558947214547,
+      "end_to_end": {
+        "p50": 3242.659052,
+        "p95": 5883.5156423,
+        "p99": 6120.033999900001
+      },
+      "backlog": {
+        "early_p50": 493.250039,
+        "late_p50": 5883.555623
+      },
+      "batches": 123,
+      "records_per_batch": 487.8048780487805,
+      "hops": {
+        "ingest": {
+          "p50": 3242.3015880000003,
+          "p99": 6119.703392750001
+        },
+        "features": {
+          "p50": 0.1311735,
+          "p99": 0.21906834000000008
+        },
+        "model": {
+          "p50": 0.167289,
+          "p99": 0.22562118000000003
+        },
+        "decision": {
+          "p50": 0.02864,
+          "p99": 0.04208406000000001
+        },
+        "persist": {
+          "p50": 0.015346,
+          "p99": 0.028695
+        }
+      },
+      "commit": {
+        "p50": 1.604295,
+        "p99": 2.5565056
+      },
+      "flush": {
+        "p50": 0.17701,
+        "p99": 1.19344328
+      },
+      "checkpoint": {
+        "p50": 1.410696,
+        "p99": 1.56080542
+      },
+      "duplicates": 0,
+      "set_aside": {}
+    },
+    {
+      "sent": 60000,
+      "measured": 58000,
+      "fine_timer": false,
+      "producer": "its own process",
+      "send_rate": 2999.845855470586,
+      "end_to_end": {
+        "p50": 2983.6573915,
+        "p95": 5628.173159850001,
+        "p99": 5847.07253366
+      },
+      "backlog": {
+        "early_p50": 515.0879255,
+        "late_p50": 5628.2729775
+      },
+      "batches": 123,
+      "records_per_batch": 487.8048780487805,
+      "hops": {
+        "ingest": {
+          "p50": 2983.2481175000003,
+          "p99": 5846.71985803
+        },
+        "features": {
+          "p50": 0.131081,
+          "p99": 0.2195530400000002
+        },
+        "model": {
+          "p50": 0.16294950000000002,
+          "p99": 0.22289505
+        },
+        "decision": {
+          "p50": 0.028217,
+          "p99": 0.04110201
+        },
+        "persist": {
+          "p50": 0.015251500000000001,
+          "p99": 0.028005070000000014
+        }
+      },
+      "commit": {
+        "p50": 1.529176,
+        "p99": 2.6564914
+      },
+      "flush": {
+        "p50": 0.032447,
+        "p99": 1.19752016
+      },
+      "checkpoint": {
+        "p50": 1.414279,
+        "p99": 1.5605883
+      },
+      "duplicates": 0,
+      "set_aside": {}
+    }
+  ],
+  "note": "The live instance (m6i.xlarge, 4 vCPU), 2026-09-27, with the feeds and the live scorer stopped: the scorer as live runs it (the shipped champion, the challenger in shadow on the rows history could keep, history staged, zstd), the load producer in its own process in the same container. Each run starts a fresh engine, so features are thin; the cost measured is the scorer path, not the features a day of history would serve."
+}

@@ -203,6 +203,26 @@ stalls on the broker's side that are not yet explained (the broker's health chec
 tested and ruled out). From the Windows host, each run's figure depends on which path the
 forwarder gave its connections, so it is reported by mode, not averaged.
 
+**On the live instance, with the live configuration** (4 vCPU, the shipped champion,
+the challenger in shadow on the rows history could keep, history staged, zstd; the load
+producer in its own process; five runs of 20 seconds each, the first 2,000 decisions left
+out; 2026-09-27). Synthetic live track, milliseconds, mean of the per-run figure with a
+95 percent interval ([docs/loadtest-live-1000.json](docs/loadtest-live-1000.json) and
+beside it):
+
+| Rate | p50 | p95 | p99 | Kept up |
+|---|---|---|---|---|
+| 1,000 /s | 8.0 (8.0 to 8.1) | 10.6 (10.3 to 10.8) | 12.4 (11.2 to 13.7) | all 5 runs |
+| 2,000 /s | 91.7 (-35.1 to 218.5) | 162.1 (-57.6 to 381.8) | 188.7 (-50.6 to 428.0) | 3 of 5; the first 2 built a queue |
+| 3,000 /s | 3,263 | 6,046 | 6,298 | none |
+
+One scorer on one partition (ADR 8) sustains the live rate with room to spare and meets
+the budget at twice it only some of the time; at three times it falls behind. The
+intervals at 2,000 /s cross zero because the runs are two different regimes, not noise
+around one. The first run of this test, without the collector frozen as the service
+freezes it, reported a p99 of 111 ms at 1,000 /s; that was the harness, fixed the same
+day.
+
 **Staging history, and rolling back.** Staging every decision with its features (ADR 18)
 costs about 0.1 ms at the median in process and about 1 ms through the broker, and zstd on
 the scorer's producer adds nothing measurable; the 99th percentile is not settled, because
