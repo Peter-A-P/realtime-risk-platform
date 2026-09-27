@@ -339,4 +339,3 @@ def test_a_teardown_may_leave_only_the_free_parameters_meant_to_outlive_it() -> 
     allowed = set(re.findall(r":parameter(/verdict/[a-z-]+)\$", down))
     assert allowed == {"/verdict/cloudflare-tunnel-token", "/verdict/schedule-secret"}
     assert "resourcegroupstaggingapi get-resources" in down
-
