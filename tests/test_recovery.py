@@ -30,6 +30,7 @@ from verdict.scoring import recovery
 from verdict.scoring.consumer import StreamScorer
 from verdict.scoring.core import Decider, EngineFeatures
 from verdict.scoring.model import FixedModel, StandInModel
+from verdict.store.features import EntityKind
 from verdict.stream.base import Position, StreamError
 from verdict.stream.memory import MemoryBroker, MemoryStream
 
@@ -261,7 +262,7 @@ def test_a_save_taken_at_the_checkpoint_restores_exactly(
     for payload in payloads[200:]:
         broker.open().produce("transactions", "k", payload)
     outcome, served = resume(Run(broker, tmp_path))
-    assert outcome.entities == engine.tracked_entities
+    assert outcome.entities < engine.tracked_entities  # merchants and sessions are replayed
     assert all(values == reference[event_id] for event_id, values in served.items())
 
 
@@ -358,3 +359,39 @@ def test_the_fingerprint_follows_the_engines_code() -> None:
     first = recovery.fingerprint()
     assert first == recovery.fingerprint()
     assert len(first) == 64
+
+
+def test_merchants_are_rebuilt_from_the_hour_before_a_save_and_nothing_more(
+    tmp_path: Path,
+) -> None:
+    """ADR 27's addendum: a kind whose windows are all short is replayed, not saved.
+
+    The stream runs past an hour, so the replay has to start mid-stream, at
+    the position the scorer noted an hour before the pass: a replay from the
+    pass's own start would leave merchants missing most of their hour.
+    """
+    graph = EntityGraph.build(seed=9, population=POPULATION)
+    config = GeneratorConfig(
+        seed=9, population=POPULATION, events_per_second=1.5, target_fraud_share=0.05
+    )
+    stream = [r.event.to_json().encode() for r in Generator(config, graph).stream(limit=8_000)]
+    served_once: dict[str, dict[str, float]] = {}
+    whole = a_scorer(a_broker(stream).open(), FeatureEngine(), served_once)
+    while whole.poll(max_records=50):
+        pass
+
+    broker = a_broker(stream)
+    engine = FeatureEngine()
+    scorer = a_scorer(broker.open(), engine, {})
+    for _ in range(6_500 // 50):
+        scorer.poll(max_records=50)
+    a_whole_pass(tmp_path, scorer, engine)
+    with (tmp_path / recovery.SNAPSHOT_NAME).open("rb") as file:
+        header = pickle.load(file)
+    assert header.replayed == {EntityKind.MERCHANT, EntityKind.SESSION}
+    assert header.replay_from is not None
+    assert int(header.replay_from.token) < int(header.after.token) - 2_000
+    outcome, served = resume(Run(broker, tmp_path))
+    wrong = [event_id for event_id, values in served.items() if values != served_once[event_id]]
+    assert served
+    assert not wrong, f"{len(wrong)} of {len(served)} served differently"

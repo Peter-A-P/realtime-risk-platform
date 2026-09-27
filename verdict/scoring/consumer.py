@@ -57,6 +57,7 @@ larger problem and is the online store's to solve (rebuilt by replay, ADR 8).
 from __future__ import annotations
 
 import base64
+import datetime as dt
 import json
 import time
 from collections import deque
@@ -102,6 +103,18 @@ For saving its feature state (ADR 27): a save has to say which records the
 state holds, and the events the engine is still holding back at that moment
 are among the last few read. Ten seconds at the live rate is far more than
 one instant's worth."""
+
+MARK_EVERY: Final = dt.timedelta(seconds=30)
+"""How far apart in event time the scorer notes where the stream stood.
+
+A save leaves out entities whose every window is short and rebuilds them by
+replaying their window's worth of stream (ADR 27's addendum); these marks are
+how it finds the position an hour back. At one every 30 s, three hours of
+marks are 360 entries."""
+
+EARLIEST: Final = dt.datetime.min.replace(tzinfo=dt.UTC)
+"""The mark of a scorer that began at the partition's first record: nothing
+is before it."""
 SCORER_GROUP: Final = "scorer"
 
 Decided = Callable[[TransactionEvent, DecisionEvent, HopSample], None]
@@ -230,6 +243,14 @@ class StreamScorer:
         self.consumed = 0
         self.recent: deque[tuple[Position, str | None]] = deque(maxlen=RECENT_RECORDS)
         self.before_recent: Position | None = None
+        self.marks: deque[tuple[dt.datetime, Position | None]] = deque(
+            [(EARLIEST, None)], maxlen=1_000
+        )
+        """(event time, position): every record the scorer took before the
+        position has an earlier event time. A scorer built here starts from the
+        partition's beginning; the score command replaces this when it does
+        not (a restore, or a group with a checkpoint)."""
+        self._last_seen: tuple[dt.datetime, Position] | None = None
         """The record just before the first one in `recent`: at the start, the
         group's checkpoint, or the record before a restore's replayed tail."""
 
@@ -256,6 +277,10 @@ class StreamScorer:
                 self.before_recent = self.recent[0][0]
             self.recent.append((record.position, self._handle(record)))
         self.consumed += len(records)
+        if self._last_seen is not None:
+            at, position = self._last_seen
+            if at - self.marks[-1][0] >= MARK_EVERY:
+                self.marks.append((at, position))
         if self.history is not None:
             # Before the decisions are flushed, so before the checkpoint. Not
             # inside the commit timing: it is its own cost, and the load test
@@ -287,6 +312,7 @@ class StreamScorer:
         started = time.perf_counter_ns()
         try:
             event = decode_transaction(record.value)
+            self._last_seen = (event.event_time, record.position)
         except UnknownSchemaVersionError as error:
             # No version at all means not JSON, or not a versioned record:
             # garbage, not a producer on a newer schema, and the person reading

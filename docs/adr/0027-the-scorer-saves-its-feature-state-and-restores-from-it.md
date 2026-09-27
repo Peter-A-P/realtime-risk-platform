@@ -140,3 +140,43 @@ in its log and in `verdict_engine_restored`.
   https://kafka.apache.org/documentation/#consumerapi
 - ADR 4 (the engine), ADR 8, ADR 15, ADR 18 (a day
   on each topic), ADR 25.
+
+## Addendum, 2026-09-27: merchants and sessions are replayed, not saved
+
+**Found on the instance.** Peter saw the dashboard's p99 jump to about 80 ms
+for a few minutes several times an hour. Per-minute p99 over three hours:
+median 24.7 ms, and about 210 to 230 ms in the minute after each pass began
+(:04, :19, :34, :49), 40 to 140 ms for a few minutes after. py-spy, sampling
+the scorer through one pass at 500 Hz, found the save's steps near their 2
+ms budget except a few in its first minute that ran 60 to 274 ms. The pass
+file's own sizes named them: of 493,071 entities (2.3 GB pickled), the 12
+largest were merchants, the largest 4.4 MB, and every one of the 252 over 200
+kB was a merchant. A busy merchant's one-hour windows hold an entry per
+transaction as Python objects, and a step cannot split an entity, so every
+decision behind it waited. The test at a tenth of the live size had no such
+merchant.
+
+**Decision.** A kind whose every feature has an exact window no longer than
+an hour (`REPLAY_REACH`) is not saved at all: its state is exactly that
+window's events, which the topic keeps for a day. Merchants (three one-hour
+features) and sessions (two half-hour ones) qualify; cards and devices, with
+day-long bucketed features, do not. The scorer notes where the stream stood
+every 30 s of event time (`StreamScorer.marks`); a pass records the latest
+position more than an hour before the engine's time (`replay_from`) and
+waits if the scorer has not yet seen an hour. A restore reads from there:
+before `after`, only the replayed kinds take each event, then everything as
+before. The file's format moves to 2, so the first scorer on this code
+starts cold once.
+
+**Evidence.** `tests/test_recovery.py`: the existing tests, with merchants and
+sessions now rebuilt by replay, serve exactly what an uninterrupted scorer
+served; a new test runs a stream past an hour so the replay must start
+mid-stream, and fails when the replay starts at the pass's start instead.
+The saved ledger's joining the duplicates set at `after` is not exercised by
+any test stream (it matters only for a record sent again whose original is
+older than the replayed hour); it is the same rule as before.
+
+**Cost.** A restore replays about an hour more of records for the two
+kinds, about 3.6 million at the live rate, which adds roughly a minute and a
+half to each replacement's recovery, measured on the next one.
+

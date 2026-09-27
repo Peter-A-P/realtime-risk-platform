@@ -735,8 +735,14 @@ def score(
                 decider.remember(event_id)
             scorer.recent.extend(restored.recent)
             scorer.before_recent = restored.before_recent
+            scorer.marks.clear()
+            scorer.marks.extend(restored.marks)
         else:
             scorer.before_recent = stream.committed(TRANSACTIONS_TOPIC, group, "0")
+            if scorer.before_recent is not None:
+                # Started mid-partition with nothing restored: the stream before
+                # here is unknown, so a save waits for an hour of it (ADR 27).
+                scorer.marks.clear()
         snapshots = recovery.Snapshotter(
             engine_snapshot,
             scorer,

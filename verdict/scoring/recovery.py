@@ -30,6 +30,17 @@ is its whole history or, for one pruned, history that had all expired.
 `tests/test_recovery.py` holds a restored scorer to the features an
 uninterrupted one serves, crashing it at every point of a pass.
 
+**Kinds whose every window is short are not saved; they are replayed.**
+A merchant's features are all one-hour windows, so its state is exactly its
+last hour of transactions, and the busiest merchants hold tens of thousands
+of them: the first live save found single merchants that took up to 274 ms
+to pickle, every decision behind the step waiting (ADR 27's addendum). So a
+save leaves out every kind whose features all have exact windows of at most
+`REPLAY_REACH` (merchants and sessions), and notes where the stream stood
+that long before the pass began (`replay_from`, from the scorer's marks). A
+restore replays from there: those kinds take every event, and the saved
+kinds skip the records before `after`, which their state already holds.
+
 **It fails towards starting cold, never towards wrong state.** No snapshot, a
 snapshot written by other feature code (`fingerprint`), one cut short, or one
 older than the topic keeps (a day, ADR 18): each means the replay cannot be
@@ -57,7 +68,8 @@ from verdict.events.schema import UnknownSchemaVersionError, decode_transaction
 from verdict.features import aggregators as aggregators_module
 from verdict.features import engine as engine_module
 from verdict.features.engine import FeatureEngine, LateEventError
-from verdict.store.features import EntityKind, entity_id_of
+from verdict.scoring.consumer import EARLIEST, MARK_EVERY
+from verdict.store.features import FEATURE_SET, EntityKind, FeatureSpec, entity_id_of
 from verdict.stream.base import Position, PositionGoneError, Rereadable
 
 if TYPE_CHECKING:  # pragma: no cover - types only
@@ -67,7 +79,7 @@ SNAPSHOT_NAME: Final = "engine.snapshot"
 """The last complete pass, in the snapshot directory. A pass in progress is
 written beside it with `.partial` added and renamed over it when complete."""
 
-FORMAT: Final = 1
+FORMAT: Final = 2
 """The file's own layout. Part of the fingerprint."""
 
 SLICE_SECONDS: Final = 0.002
@@ -84,10 +96,43 @@ EVERY_SECONDS: Final = 900.0
 """How often a pass starts. A restore replays from the start of the last
 complete pass, so at most about this plus one pass's length of records."""
 
+REPLAY_REACH: Final = dt.timedelta(hours=1)
+"""The longest window a kind may have and still be rebuilt by replay rather
+than saved. Merchants' features are all an hour, sessions' half that."""
+
 LEDGER_SAVED: Final = 40_000
 """Decided event ids saved with each pass, so a record sent twice across the
 save is still recognised as a redelivery. The feeds resend at most 30 s after a restart
 (ADR 15), which is 30,000 at the live rate."""
+
+
+def replayed_kinds(
+    specs: tuple[FeatureSpec, ...] = tuple(FEATURE_SET), reach: dt.timedelta = REPLAY_REACH
+) -> frozenset[EntityKind]:
+    """The kinds rebuilt by replaying their windows instead of being saved.
+
+    A kind qualifies when every one of its features has an exact window (no
+    hourly buckets, which keep up to a day) no longer than `reach`: its state
+    is then exactly the events inside that window.
+
+    Args:
+        specs: The features.
+        reach: The longest window replayed.
+
+    Returns:
+        Those kinds.
+    """
+    by_kind: dict[EntityKind, list[FeatureSpec]] = {}
+    for spec in specs:
+        by_kind.setdefault(spec.entity, []).append(spec)
+    return frozenset(
+        kind
+        for kind, kind_specs in by_kind.items()
+        if all(
+            spec.window is not None and spec.resolution is None and spec.window <= reach
+            for spec in kind_specs
+        )
+    )
 
 
 def fingerprint() -> str:
@@ -119,6 +164,11 @@ class Header:
             starts at the partition's beginning.
         ledger: Event ids decided up to `after`, oldest first.
         started_at: Wall-clock time the pass began.
+        replayed: The kinds left out, to be rebuilt by replay.
+        replay_from: Where their replay starts: a record whose event time is
+            more than `REPLAY_REACH` before the engine's at the pass's start,
+            and every record before it earlier still; None for the
+            partition's beginning. Never after `after`.
     """
 
     fingerprint: str
@@ -127,6 +177,8 @@ class Header:
     after: Position | None
     ledger: list[str]
     started_at: dt.datetime
+    replayed: frozenset[EntityKind] = frozenset()
+    replay_from: Position | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,6 +297,7 @@ class Snapshotter:
         self._base = 0
         self._began = 0.0
         self._fingerprint = fingerprint()
+        self._replayed = replayed_kinds(engine.specs)
 
     @property
     def path(self) -> Path:
@@ -304,6 +357,15 @@ class Snapshotter:
                 return  # held-back events older than the scorer remembers: try later
             split = first
         after = recent[split - 1][0] if split else self.scorer.before_recent
+        replay_from = after
+        if self._replayed:
+            reached = self.engine.reached
+            if reached is not None:
+                cutoff = reached - REPLAY_REACH
+                older = [position for at, position in self.scorer.marks if at < cutoff]
+                if not older:
+                    return  # the scorer has not seen an hour of stream yet: try later
+                replay_from = older[-1]
         since = recent[split:]
         handled_since = {event_id for _, event_id in since if event_id is not None}
         ledger = [
@@ -318,6 +380,8 @@ class Snapshotter:
             after=after,
             ledger=ledger,
             started_at=dt.datetime.now(dt.UTC),
+            replayed=self._replayed,
+            replay_from=replay_from,
         )
         self._base = self.scorer.consumed - len(since)
         self._keys = self.engine.entity_keys()
@@ -338,6 +402,8 @@ class Snapshotter:
         while self._next < len(self._keys):
             kind, entity_id = self._keys[self._next]
             self._next += 1
+            if kind in self._replayed:
+                continue
             state = self.engine.entity_state(kind, entity_id)
             if state is not None:
                 entities.append(
@@ -400,6 +466,8 @@ class Restored:
         ledger: Event ids to remember as decided, oldest first.
         recent: (position, event id) for the last records replayed.
         before_recent: The record before the first in `recent`.
+        marks: (event time, position) every `MARK_EVERY` of the replay, for
+            the scorer's next save to find where an hour back is.
         through: The last record replayed: where the group had got.
         entities: Entities restored from the snapshot.
         replayed: Records replayed.
@@ -411,6 +479,7 @@ class Restored:
     ledger: list[str]
     recent: list[tuple[Position, str | None]]
     before_recent: Position | None
+    marks: list[tuple[dt.datetime, Position | None]]
     through: Position | None
     entities: int
     replayed: int
@@ -484,16 +553,32 @@ def restore(
             return Cold("the snapshot is incomplete")
         through = stream.committed(topic, group, partition)
         ledger = list(header.ledger)
-        seen = set(ledger)
+        # Before `after`, only the replayed kinds take an event, and nothing is
+        # a duplicate yet but what this replay has already seen.
+        before = header.replay_from != header.after
+        seen: set[str] = set() if before else set(ledger)
+        keep_only = frozenset(engine.kinds) - header.replayed
         recent: list[tuple[Position, str | None]] = []
-        before_recent = header.after
-        replayed = 0
+        replay_marks: list[tuple[dt.datetime, Position | None]] = (
+            [(EARLIEST, None)] if header.replay_from is None else []
+        )
+        before_recent = header.replay_from
+        replayed = index = 0
         if through is not None:
             try:
-                for index, record in enumerate(
-                    stream.reread(topic, partition, header.after, through)
-                ):
-                    event_id = _replay_one(record.value, index, engine, marks, seen, ledger)
+                for record in stream.reread(topic, partition, header.replay_from, through):
+                    if before:
+                        event_id, at = _replay_short(record.value, engine, keep_only, seen)
+                        if record.position == header.after:
+                            before = False
+                            seen |= set(ledger)
+                    else:
+                        event_id, at = _replay_one(record.value, index, engine, marks, seen, ledger)
+                        index += 1
+                    if at is not None and (
+                        not replay_marks or at - replay_marks[-1][0] >= MARK_EVERY
+                    ):
+                        replay_marks.append((at, record.position))
                     recent.append((record.position, event_id))
                     replayed += 1
                     if len(recent) > 2 * keep_recent:
@@ -513,6 +598,7 @@ def restore(
         ledger=ledger,
         recent=recent,
         before_recent=before_recent,
+        marks=replay_marks,
         through=through if through is not None else header.after,
         entities=trailer.entities,
         replayed=replayed,
@@ -546,18 +632,18 @@ def _replay_one(
     marks: _Watermarks,
     seen: set[str],
     ledger: list[str],
-) -> str | None:
+) -> tuple[str | None, dt.datetime | None]:
     """Take one record again, as the scorer took it the first time.
 
     Returns:
-        The event id, if the record decoded.
+        The event id and time, if the record decoded.
     """
     try:
         event = decode_transaction(value)
     except (UnknownSchemaVersionError, UnicodeDecodeError, ValidationError):
-        return None  # set aside the first time, and again now
+        return None, None  # set aside the first time, and again now
     if event.event_id in seen:
-        return event.event_id  # a duplicate, turned away the first time
+        return event.event_id, event.event_time  # a duplicate, turned away the first time
     skip: set[tuple[EntityKind, str]] = set()
     for kind in engine.kinds:
         entity_id = entity_id_of(event, kind)
@@ -573,7 +659,38 @@ def _replay_one(
     try:
         engine.replay(event, frozenset(skip))
     except LateEventError:
-        return event.event_id  # refused as late the first time too
+        return event.event_id, event.event_time  # refused as late the first time too
     seen.add(event.event_id)
     ledger.append(event.event_id)
-    return event.event_id
+    return event.event_id, event.event_time
+
+
+def _replay_short(
+    value: bytes, engine: FeatureEngine, saved: frozenset[EntityKind], seen: set[str]
+) -> tuple[str | None, dt.datetime | None]:
+    """Take a record from before the pass into the replayed kinds only.
+
+    Args:
+        value: The record's bytes.
+        engine: The engine being rebuilt.
+        saved: The kinds the snapshot holds, which already have this event.
+        seen: Events this replay has taken, for duplicates.
+
+    Returns:
+        The event id and time, if the record decoded.
+    """
+    try:
+        event = decode_transaction(value)
+    except (UnknownSchemaVersionError, UnicodeDecodeError, ValidationError):
+        return None, None
+    if event.event_id in seen:
+        return event.event_id, event.event_time
+    skip = frozenset(
+        (kind, entity_id) for kind in saved if (entity_id := entity_id_of(event, kind)) is not None
+    )
+    try:
+        engine.replay(event, skip)
+    except LateEventError:
+        return event.event_id, event.event_time
+    seen.add(event.event_id)
+    return event.event_id, event.event_time
