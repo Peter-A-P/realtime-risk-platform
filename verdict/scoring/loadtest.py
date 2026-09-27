@@ -61,7 +61,7 @@ from verdict.events.schema import DecisionEvent, TransactionEvent
 from verdict.features.engine import FeatureEngine
 from verdict.scoring.consumer import StreamScorer
 from verdict.scoring.core import Decider, EngineFeatures
-from verdict.scoring.model import FixedModel, StandInModel
+from verdict.scoring.model import FixedModel, Model, StandInModel
 from verdict.scoring.timing import (
     HOPS,
     HopSample,
@@ -107,6 +107,7 @@ class Topics:
     decisions: str
     dead_letter: str
     teardown: Callable[[], None]
+    shadow: str = "shadow"
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,11 +188,16 @@ def memory_backend() -> Backend:
     def topics() -> Topics:
         suffix = uuid.uuid4().hex[:8]
         names = Topics(
-            f"transactions-{suffix}", f"decisions-{suffix}", f"dead-letter-{suffix}", lambda: None
+            f"transactions-{suffix}",
+            f"decisions-{suffix}",
+            f"dead-letter-{suffix}",
+            lambda: None,
+            f"shadow-{suffix}",
         )
         broker.create_topic(names.transactions, 1)
         broker.create_topic(names.decisions, 4)
         broker.create_topic(names.dead_letter, 1)
+        broker.create_topic(names.shadow, 4)
         return names
 
     def send(names: Topics, events: list[TransactionEvent], rate: float) -> Sent:
@@ -227,18 +233,18 @@ def redpanda_backend(bootstrap: str | None = None, *, compression: str = "none")
         admin = RedpandaStream(address)
         suffix = uuid.uuid4().hex[:8]
         transactions, decisions = f"load-transactions-{suffix}", f"load-decisions-{suffix}"
-        dead_letter = f"load-dead-letter-{suffix}"
+        dead_letter, shadow = f"load-dead-letter-{suffix}", f"load-shadow-{suffix}"
         admin.create_topic(transactions, 1)
         admin.create_topic(decisions, 4)
         admin.create_topic(dead_letter, 1)
+        admin.create_topic(shadow, 4)
 
         def teardown() -> None:
-            admin.delete_topic(transactions)
-            admin.delete_topic(decisions)
-            admin.delete_topic(dead_letter)
+            for topic in (transactions, decisions, dead_letter, shadow):
+                admin.delete_topic(topic)
             admin.close()
 
-        return Topics(transactions, decisions, dead_letter, teardown)
+        return Topics(transactions, decisions, dead_letter, teardown, shadow)
 
     def send(names: Topics, events: list[TransactionEvent], rate: float) -> Sent:
         return send_from_a_subprocess(address, names.transactions, len(events), rate)
@@ -367,6 +373,9 @@ def run_once(
     rate: float,
     warmup: int,
     history: Path | None = None,
+    model: Model | None = None,
+    shadow: Model | None = None,
+    shadow_when: Callable[[TransactionEvent, DecisionEvent], bool] | None = None,
 ) -> RunResult:
     """Send events at a rate through the scorer and time every decision.
 
@@ -377,6 +386,9 @@ def run_once(
         warmup: Decisions to leave out of the statistics.
         history: Stage every decision under this directory, as the live
             scorer does (ADR 18), so the run measures that cost too.
+        model: The model that decides; the stand-in if None.
+        shadow: A model scored in shadow, as the live scorer does (ADR 11).
+        shadow_when: Which decisions the shadow scores, if not every one.
 
     Returns:
         The run's measurements.
@@ -403,10 +415,14 @@ def run_once(
     scorer = StreamScorer(
         scorer_stream,
         decider=Decider(
-            features=EngineFeatures(FeatureEngine()), models=FixedModel(StandInModel())
+            features=EngineFeatures(FeatureEngine()),
+            models=FixedModel(model or StandInModel()),
+            shadow=None if shadow is None else FixedModel(shadow),
+            shadow_when=shadow_when,
         ),
         transactions_topic=topics.transactions,
         decisions_topic=topics.decisions,
+        shadow_topic=topics.shadow,
         dead_letter_topic=topics.dead_letter,
         group=f"scorer-{uuid.uuid4().hex[:8]}",
         on_decided=on_decided,

@@ -455,6 +455,15 @@ def loadtest(
     compression: Annotated[
         str, typer.Option(help="The scorer's producer compression on redpanda: none or zstd.")
     ] = "none",
+    model: Annotated[
+        str | None, typer.Option(help="Decide with the shipped model in this role (champion).")
+    ] = None,
+    shadow: Annotated[
+        str | None, typer.Option(help="Score the shipped model in this role in shadow.")
+    ] = None,
+    shadow_kept_only: Annotated[
+        bool, typer.Option(help="Shadow only what history could keep, as live (ADR 11).")
+    ] = False,
 ) -> None:
     """Drive the scorer at a fixed rate and report latency per hop.
 
@@ -472,6 +481,9 @@ def loadtest(
         out: Where to write the JSON report, if anywhere.
         history: Whether to stage decisions, as the live scorer does.
         compression: Producer compression for the scorer's writes.
+        model: The shipped model to decide with, by role; the stand-in if none.
+        shadow: The shipped model to score in shadow, by role.
+        shadow_kept_only: Shadow only the decisions history could keep.
 
     Raises:
         typer.BadParameter: If the stream is not one this build knows.
@@ -491,17 +503,44 @@ def loadtest(
             msg = f"unknown stream {stream!r}; use memory or redpanda"
             raise typer.BadParameter(msg)
 
+    from verdict.scoring.registry import version_of
+
+    known = _known_models()
+    deciding = None if model is None else known[version_of(model)]
+    shadowing = None if shadow is None else known[version_of(shadow)]
+    shadow_when = None
+    if shadow_kept_only:
+        from verdict.history.sampling import SampleRates, could_be_kept
+
+        rates = SampleRates()
+
+        def shadow_when(event: TransactionEvent, decision: DecisionEvent) -> bool:
+            return could_be_kept(event.event_id, decision.action, rates)
+
     sent = load.generate_events(events, rate=rate)
     with tempfile.TemporaryDirectory(prefix="verdict-history-") as staging:
         spool_root = Path(staging) if history else None
         results = [
-            load.run_once(backend, sent, rate=rate, warmup=warmup, history=spool_root)
+            load.run_once(
+                backend,
+                sent,
+                rate=rate,
+                warmup=warmup,
+                history=spool_root,
+                model=deciding,
+                shadow=shadowing,
+                shadow_when=shadow_when,
+            )
             for _ in range(runs)
         ]
     report = {
         "track": "synthetic live, local",
         "stream": backend.name,
-        "model": "stand-in-0 (not trained; see verdict/scoring/model.py)",
+        "model": "stand-in-0 (not trained; see verdict/scoring/model.py)"
+        if deciding is None
+        else deciding.version,
+        "shadow": None if shadowing is None else shadowing.version,
+        "shadow_kept_only": shadow_kept_only,
         "history_staged": history,
         "compression": compression if stream == "redpanda" else None,
         "features": "served by the in-process engine",
