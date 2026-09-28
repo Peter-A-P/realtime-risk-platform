@@ -1,0 +1,1185 @@
+{
+ "budget_ms": 50,
+ "dashboard": "https://risk.peterparker.ca",
+ "drift": {
+  "days": [
+   {
+    "day": 7,
+    "drifted": [],
+    "regime": "baseline",
+    "values": 53383
+   },
+   {
+    "day": 8,
+    "drifted": [],
+    "regime": "baseline",
+    "values": 53380
+   },
+   {
+    "day": 9,
+    "drifted": [],
+    "regime": "baseline",
+    "values": 53447
+   },
+   {
+    "day": 10,
+    "drifted": [],
+    "regime": "baseline",
+    "values": 53423
+   },
+   {
+    "day": 11,
+    "drifted": [],
+    "regime": "baseline",
+    "values": 53257
+   },
+   {
+    "day": 12,
+    "drifted": [],
+    "regime": "baseline",
+    "values": 53371
+   },
+   {
+    "day": 13,
+    "drifted": [],
+    "regime": "baseline",
+    "values": 53488
+   },
+   {
+    "day": 14,
+    "drifted": [
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55395
+   },
+   {
+    "day": 15,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55598
+   },
+   {
+    "day": 16,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55120
+   },
+   {
+    "day": 17,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55659
+   },
+   {
+    "day": 18,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55621
+   },
+   {
+    "day": 19,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h"
+    ],
+    "regime": "card-testing-wave",
+    "values": 54953
+   },
+   {
+    "day": 20,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55944
+   },
+   {
+    "day": 21,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55236
+   },
+   {
+    "day": 22,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55554
+   },
+   {
+    "day": 23,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55549
+   },
+   {
+    "day": 24,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55472
+   },
+   {
+    "day": 25,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55671
+   },
+   {
+    "day": 26,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55328
+   },
+   {
+    "day": 27,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55575
+   },
+   {
+    "day": 28,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55421
+   },
+   {
+    "day": 29,
+    "drifted": [
+     "card_distinct_merchants_24h",
+     "device_distinct_cards_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "card-testing-wave",
+    "values": 55171
+   },
+   {
+    "day": 30,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "card_distinct_merchants_24h",
+     "device_amount_mean_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53713
+   },
+   {
+    "day": 31,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53602
+   },
+   {
+    "day": 32,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53509
+   },
+   {
+    "day": 33,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53520
+   },
+   {
+    "day": 34,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53284
+   },
+   {
+    "day": 35,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53198
+   },
+   {
+    "day": 36,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53528
+   },
+   {
+    "day": 37,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53717
+   },
+   {
+    "day": 38,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53503
+   },
+   {
+    "day": 39,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53154
+   },
+   {
+    "day": 40,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53110
+   },
+   {
+    "day": 41,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53443
+   },
+   {
+    "day": 42,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53416
+   },
+   {
+    "day": 43,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53477
+   },
+   {
+    "day": 44,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_amount_sum_1h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "score"
+    ],
+    "regime": "amount-drift-no-fraud-change",
+    "values": 53781
+   },
+   {
+    "day": 45,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_distinct_merchants_24h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "takeover-season",
+    "values": 54149
+   },
+   {
+    "day": 46,
+    "drifted": [
+     "card_amount_mean_24h",
+     "card_distinct_merchants_24h",
+     "device_amount_mean_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "takeover-season",
+    "values": 54299
+   },
+   {
+    "day": 47,
+    "drifted": [
+     "card_amount_mean_24h",
+     "card_distinct_merchants_24h",
+     "device_amount_mean_1h",
+     "device_distinct_cards_24h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "takeover-season",
+    "values": 54138
+   },
+   {
+    "day": 48,
+    "drifted": [
+     "card_amount_max_24h",
+     "card_amount_mean_24h",
+     "card_distinct_merchants_24h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "takeover-season",
+    "values": 53983
+   },
+   {
+    "day": 49,
+    "drifted": [
+     "card_amount_mean_24h",
+     "card_distinct_merchants_24h",
+     "device_amount_mean_1h",
+     "merchant_amount_mean_1h",
+     "merchant_distinct_cards_1h",
+     "merchant_txn_count_1h",
+     "score"
+    ],
+    "regime": "takeover-season",
+    "values": 53978
+   }
+  ],
+  "first_request_day": 15,
+  "ks_threshold": 0.1,
+  "psi_threshold": 0.25,
+  "quantities": 17,
+  "regimes": [
+   {
+    "name": "baseline",
+    "starts_day": 0
+   },
+   {
+    "name": "card-testing-wave",
+    "starts_day": 14
+   },
+   {
+    "name": "amount-drift-no-fraud-change",
+    "starts_day": 30
+   },
+   {
+    "name": "takeover-season",
+    "starts_day": 45
+   }
+  ]
+ },
+ "dry_run": {
+  "days": 4,
+  "decisions": 267147554,
+  "first_minute": "2026-09-22T16:53:00+00:00",
+  "hours": 72.0,
+  "last_minute": "2026-09-25T16:52:00+00:00",
+  "median_recovery_minutes": 8,
+  "minutes_without_decisions": 33,
+  "other_stops": 0,
+  "p50_ms": {
+   "high": 7.177,
+   "low": 7.068,
+   "value": 7.123
+  },
+  "p95_ms": {
+   "high": 11.401,
+   "low": 9.474,
+   "value": 10.437
+  },
+  "p99_ms": {
+   "high": 22.887,
+   "low": 21.821,
+   "value": 22.354
+  },
+  "reclaims": [
+   {
+    "minutes": 11,
+    "minutes_without_decisions": 4,
+    "noticed_at": "2026-09-22T21:15:53+00:00",
+    "recovered_at": "2026-09-22T21:26:00+00:00"
+   },
+   {
+    "minutes": 10,
+    "minutes_without_decisions": 4,
+    "noticed_at": "2026-09-23T14:11:59+00:00",
+    "recovered_at": "2026-09-23T14:21:00+00:00"
+   },
+   {
+    "minutes": 9,
+    "minutes_without_decisions": 3,
+    "noticed_at": "2026-09-24T04:49:32+00:00",
+    "recovered_at": "2026-09-24T04:58:00+00:00"
+   },
+   {
+    "minutes": 8,
+    "minutes_without_decisions": 3,
+    "noticed_at": "2026-09-25T03:40:50+00:00",
+    "recovered_at": "2026-09-25T03:48:00+00:00"
+   },
+   {
+    "minutes": 8,
+    "minutes_without_decisions": 2,
+    "noticed_at": "2026-09-25T07:12:45+00:00",
+    "recovered_at": "2026-09-25T07:20:00+00:00"
+   },
+   {
+    "minutes": 7,
+    "minutes_without_decisions": 2,
+    "noticed_at": "2026-09-25T08:04:48+00:00",
+    "recovered_at": "2026-09-25T08:11:00+00:00"
+   },
+   {
+    "minutes": 8,
+    "minutes_without_decisions": 3,
+    "noticed_at": "2026-09-25T08:22:12+00:00",
+    "recovered_at": "2026-09-25T08:30:00+00:00"
+   },
+   {
+    "minutes": 9,
+    "minutes_without_decisions": 3,
+    "noticed_at": "2026-09-25T11:21:50+00:00",
+    "recovered_at": "2026-09-25T11:30:00+00:00"
+   },
+   {
+    "minutes": 8,
+    "minutes_without_decisions": 2,
+    "noticed_at": "2026-09-25T12:09:23+00:00",
+    "recovered_at": "2026-09-25T12:17:00+00:00"
+   },
+   {
+    "minutes": 10,
+    "minutes_without_decisions": 4,
+    "noticed_at": "2026-09-25T12:32:20+00:00",
+    "recovered_at": "2026-09-25T12:42:00+00:00"
+   },
+   {
+    "minutes": 8,
+    "minutes_without_decisions": 3,
+    "noticed_at": "2026-09-25T14:35:18+00:00",
+    "recovered_at": "2026-09-25T14:43:00+00:00"
+   }
+  ],
+  "spot_reclaims": 11,
+  "uptime_percent": 99.24
+ },
+ "features": [
+  {
+   "description": "Transactions on this card in the last hour.",
+   "entity": "card",
+   "name": "card_txn_count_1h"
+  },
+  {
+   "description": "Transactions on this card in the last day.",
+   "entity": "card",
+   "name": "card_txn_count_24h"
+  },
+  {
+   "description": "Money moved on this card in the last hour.",
+   "entity": "card",
+   "name": "card_amount_sum_1h"
+  },
+  {
+   "description": "This card's usual ticket over a day. The model compares it with the amount on the event being scored, which is how a takeover's spending becomes unusual for this card rather than unusual in general.",
+   "entity": "card",
+   "name": "card_amount_mean_24h"
+  },
+  {
+   "description": "The largest amount on this card in the last day.",
+   "entity": "card",
+   "name": "card_amount_max_24h"
+  },
+  {
+   "description": "Silence before this transaction. A dormant card used twice in a minute is the shape of a takeover.",
+   "entity": "card",
+   "name": "card_seconds_since_last"
+  },
+  {
+   "description": "How many different merchants this card touched in a day.",
+   "entity": "card",
+   "name": "card_distinct_merchants_24h"
+  },
+  {
+   "description": "Transactions from this device in the last hour.",
+   "entity": "device",
+   "name": "device_txn_count_1h"
+  },
+  {
+   "description": "Cards seen on this device in an hour. This is what a card-testing burst looks like from the outside, and it is invisible in any single transaction.",
+   "entity": "device",
+   "name": "device_distinct_cards_1h"
+  },
+  {
+   "description": "Cards seen on this device in a day.",
+   "entity": "device",
+   "name": "device_distinct_cards_24h"
+  },
+  {
+   "description": "Card testing runs small amounts, so a device with many cards and a low mean is a different thing from a busy shared family device.",
+   "entity": "device",
+   "name": "device_amount_mean_1h"
+  },
+  {
+   "description": "Transactions at this merchant in the last hour.",
+   "entity": "merchant",
+   "name": "merchant_txn_count_1h"
+  },
+  {
+   "description": "Cards seen at this merchant in an hour.",
+   "entity": "merchant",
+   "name": "merchant_distinct_cards_1h"
+  },
+  {
+   "description": "A colluding merchant inflates its tickets, so its own mean moves while nothing about any single transaction looks wrong.",
+   "entity": "merchant",
+   "name": "merchant_amount_mean_1h"
+  },
+  {
+   "description": "Transactions in this session so far.",
+   "entity": "session",
+   "name": "session_txn_count"
+  },
+  {
+   "description": "Money moved in this session so far.",
+   "entity": "session",
+   "name": "session_amount_sum"
+  }
+ ],
+ "fraud_share": {
+  "high": 0.03259,
+  "low": 0.02853,
+  "value": 0.03056
+ },
+ "leak": {
+  "rows_changed": 4,
+  "same_model_inflation": {
+   "high": -1e-06,
+   "low": -4.1e-05,
+   "value": -1.6e-05
+  },
+  "test_rows": 152415
+ },
+ "live": {
+  "days": 60.0,
+  "schedule_sha256": "a2aae9086953c60d2f9a2541a49ac9e3bea669de4894ffeeb5cd963a7eb39d83",
+  "sealed_at": "2026-09-27T13:27:29.484350Z",
+  "secret_sha256": "923e5e2d9130e2676db93a5d83374056b0cbb5d0a589ffebd62feb575f5f3c34",
+  "source_sha256": "7915fa142ead5c7fbd646aaf02a3ebc711c6cda32493e8f2aa1b34f6c1e3692f",
+  "start": "2026-09-28T08:51:00Z"
+ },
+ "load_tests": [
+  {
+   "hops_p99_ms": {
+    "decision": {
+     "high": 0.042,
+     "low": 0.042,
+     "value": 0.042
+    },
+    "features": {
+     "high": 0.192,
+     "low": 0.187,
+     "value": 0.19
+    },
+    "ingest": {
+     "high": 7.8,
+     "low": 7.711,
+     "value": 7.756
+    },
+    "model": {
+     "high": 0.574,
+     "low": 0.539,
+     "value": 0.556
+    },
+    "persist": {
+     "high": 0.021,
+     "low": 0.02,
+     "value": 0.02
+    }
+   },
+   "kept_up": 5,
+   "measured_at": "2026-09-27T21:07:47+00:00",
+   "p50_ms": {
+    "high": 6.197,
+    "low": 6.161,
+    "value": 6.179
+   },
+   "p95_ms": {
+    "high": 7.937,
+    "low": 7.87,
+    "value": 7.903
+   },
+   "p99_ms": {
+    "high": 8.44,
+    "low": 8.34,
+    "value": 8.39
+   },
+   "per_run": [
+    {
+     "early_p50_ms": 6.077,
+     "late_p50_ms": 6.231,
+     "p99_ms": 8.435
+    },
+    {
+     "early_p50_ms": 6.182,
+     "late_p50_ms": 6.168,
+     "p99_ms": 8.363
+    },
+    {
+     "early_p50_ms": 6.219,
+     "late_p50_ms": 6.218,
+     "p99_ms": 8.434
+    },
+    {
+     "early_p50_ms": 6.092,
+     "late_p50_ms": 6.211,
+     "p99_ms": 8.362
+    },
+    {
+     "early_p50_ms": 6.124,
+     "late_p50_ms": 6.205,
+     "p99_ms": 8.357
+    }
+   ],
+   "rate": 1000,
+   "runs": 5
+  },
+  {
+   "hops_p99_ms": {
+    "decision": {
+     "high": 0.039,
+     "low": 0.038,
+     "value": 0.039
+    },
+    "features": {
+     "high": 0.184,
+     "low": 0.179,
+     "value": 0.181
+    },
+    "ingest": {
+     "high": 10.423,
+     "low": 9.953,
+     "value": 10.188
+    },
+    "model": {
+     "high": 1.187,
+     "low": 0.974,
+     "value": 1.08
+    },
+    "persist": {
+     "high": 0.02,
+     "low": 0.02,
+     "value": 0.02
+    }
+   },
+   "kept_up": 5,
+   "measured_at": "2026-09-27T21:12:54+00:00",
+   "p50_ms": {
+    "high": 7.668,
+    "low": 7.49,
+    "value": 7.579
+   },
+   "p95_ms": {
+    "high": 10.416,
+    "low": 10.064,
+    "value": 10.24
+   },
+   "p99_ms": {
+    "high": 11.566,
+    "low": 10.923,
+    "value": 11.245
+   },
+   "per_run": [
+    {
+     "early_p50_ms": 7.433,
+     "late_p50_ms": 7.659,
+     "p99_ms": 11.052
+    },
+    {
+     "early_p50_ms": 7.335,
+     "late_p50_ms": 7.712,
+     "p99_ms": 11.053
+    },
+    {
+     "early_p50_ms": 7.247,
+     "late_p50_ms": 8.481,
+     "p99_ms": 11.642
+    },
+    {
+     "early_p50_ms": 7.416,
+     "late_p50_ms": 7.757,
+     "p99_ms": 11.372
+    },
+    {
+     "early_p50_ms": 7.377,
+     "late_p50_ms": 7.717,
+     "p99_ms": 11.105
+    }
+   ],
+   "rate": 2000,
+   "runs": 5
+  },
+  {
+   "hops_p99_ms": {
+    "decision": {
+     "high": 0.04,
+     "low": 0.036,
+     "value": 0.038
+    },
+    "features": {
+     "high": 0.179,
+     "low": 0.171,
+     "value": 0.175
+    },
+    "ingest": {
+     "high": 25.446,
+     "low": 12.123,
+     "value": 18.784
+    },
+    "model": {
+     "high": 5.068,
+     "low": 1.662,
+     "value": 3.365
+    },
+    "persist": {
+     "high": 0.02,
+     "low": 0.019,
+     "value": 0.02
+    }
+   },
+   "kept_up": 5,
+   "measured_at": "2026-09-27T21:19:42+00:00",
+   "p50_ms": {
+    "high": 11.644,
+    "low": 10.796,
+    "value": 11.22
+   },
+   "p95_ms": {
+    "high": 17.549,
+    "low": 14.605,
+    "value": 16.077
+   },
+   "p99_ms": {
+    "high": 30.263,
+    "low": 13.797,
+    "value": 22.03
+   },
+   "per_run": [
+    {
+     "early_p50_ms": 10.036,
+     "late_p50_ms": 13.582,
+     "p99_ms": 26.451
+    },
+    {
+     "early_p50_ms": 10.804,
+     "late_p50_ms": 12.396,
+     "p99_ms": 18.047
+    },
+    {
+     "early_p50_ms": 10.902,
+     "late_p50_ms": 11.658,
+     "p99_ms": 17.656
+    },
+    {
+     "early_p50_ms": 9.991,
+     "late_p50_ms": 11.013,
+     "p99_ms": 16.46
+    },
+    {
+     "early_p50_ms": 9.976,
+     "late_p50_ms": 11.076,
+     "p99_ms": 31.535
+    }
+   ],
+   "rate": 3000,
+   "runs": 5
+  },
+  {
+   "hops_p99_ms": {
+    "decision": {
+     "high": 0.035,
+     "low": 0.034,
+     "value": 0.034
+    },
+    "features": {
+     "high": 0.168,
+     "low": 0.164,
+     "value": 0.166
+    },
+    "ingest": {
+     "high": 53.835,
+     "low": 8.027,
+     "value": 30.931
+    },
+    "model": {
+     "high": 10.684,
+     "low": 1.389,
+     "value": 6.036
+    },
+    "persist": {
+     "high": 0.018,
+     "low": 0.018,
+     "value": 0.018
+    }
+   },
+   "kept_up": 5,
+   "measured_at": "2026-09-27T21:28:08+00:00",
+   "p50_ms": {
+    "high": 18.096,
+    "low": 17.134,
+    "value": 17.615
+   },
+   "p95_ms": {
+    "high": 24.767,
+    "low": 22.464,
+    "value": 23.615
+   },
+   "p99_ms": {
+    "high": 66.428,
+    "low": 8.22,
+    "value": 37.324
+   },
+   "per_run": [
+    {
+     "early_p50_ms": 16.215,
+     "late_p50_ms": 18.449,
+     "p99_ms": 79.151
+    },
+    {
+     "early_p50_ms": 15.977,
+     "late_p50_ms": 19.706,
+     "p99_ms": 28.925
+    },
+    {
+     "early_p50_ms": 15.404,
+     "late_p50_ms": 18.317,
+     "p99_ms": 26.027
+    },
+    {
+     "early_p50_ms": 15.816,
+     "late_p50_ms": 18.243,
+     "p99_ms": 27.954
+    },
+    {
+     "early_p50_ms": 15.221,
+     "late_p50_ms": 17.939,
+     "p99_ms": 24.561
+    }
+   ],
+   "rate": 4000,
+   "runs": 5
+  }
+ ],
+ "models": {
+  "real": {
+   "challenger": {
+    "high": 0.05139,
+    "low": 0.047268,
+    "value": 0.049249
+   },
+   "champion": {
+    "high": 0.078871,
+    "low": 0.071522,
+    "value": 0.075039
+   },
+   "difference": {
+    "high": -0.023049,
+    "low": -0.028754,
+    "value": -0.025789
+   }
+  },
+  "synthetic": {
+   "challenger": {
+    "high": 0.805038,
+    "low": 0.797805,
+    "value": 0.801199
+   },
+   "champion": {
+    "high": 0.846406,
+    "low": 0.839316,
+    "value": 0.84266
+   },
+   "difference": {
+    "high": -0.039182,
+    "low": -0.043712,
+    "value": -0.041461
+   }
+  }
+ },
+ "queue": {
+  "analysts": 8,
+  "by_expected_loss_dollars": 266.95,
+  "by_score_dollars": 169.5,
+  "days": 13,
+  "difference_dollars": {
+   "high": 150.44,
+   "low": 48.03,
+   "value": 97.46
+  },
+  "queue_fraud_share": 0.408081,
+  "queued": 458446,
+  "recovery_rate": 0.3,
+  "review_cost_dollars": 5.0,
+  "reviews_per_analyst_hour": 12,
+  "reviews_per_day": 2304,
+  "transactions": 23531714
+ },
+ "repository": "https://github.com/Peter-A-P/realtime-risk-platform",
+ "retrain": {
+  "after_labels": {
+   "candidate": {
+    "high": 0.826961,
+    "low": 0.820612,
+    "value": 0.823829
+   },
+   "champion": {
+    "high": 0.264272,
+    "low": 0.258397,
+    "value": 0.261262
+   },
+   "covers_the_drift": true,
+   "difference": {
+    "high": 0.566192,
+    "low": 0.558398,
+    "value": 0.562567
+   }
+  },
+  "at_the_alarm": {
+   "candidate": {
+    "high": 0.265054,
+    "low": 0.260926,
+    "value": 0.263016
+   },
+   "champion": {
+    "high": 0.267501,
+    "low": 0.263269,
+    "value": 0.265388
+   },
+   "covers_the_drift": false,
+   "difference": {
+    "high": -0.001548,
+    "low": -0.003124,
+    "value": -0.002371
+   }
+  }
+ },
+ "rollback_ms": {
+  "high": 9.129223,
+  "low": 6.513177,
+  "value": 7.8212
+ },
+ "rules": {
+  "decline_at": 0.9,
+  "review_amount_dollars": 5000.0,
+  "review_at": 0.5
+ },
+ "sources": [
+  "docs/loadtest-live-1000.json",
+  "docs/loadtest-live-2000.json",
+  "docs/loadtest-live-3000.json",
+  "docs/loadtest-live-4000.json",
+  "docs/dry-run-report.json",
+  "docs/rollback-drill.json",
+  "docs/leak-inflation.json",
+  "docs/drift-report.json",
+  "docs/retrain.json",
+  "docs/retrain-later.json",
+  "docs/queue-eval.json",
+  "docs/champion-synthetic.json",
+  "docs/challenger-synthetic.json",
+  "docs/champion-real.json",
+  "docs/challenger-real.json",
+  "docs/sealed-schedule.json",
+  "docs/week1-measurement.json"
+ ]
+}

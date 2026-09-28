@@ -2210,5 +2210,39 @@ def serve(
     uvicorn.run(create_app(decider), host=host, port=port, log_level="warning")
 
 
+@app.command(name="site-export")
+def site_export(
+    docs: Annotated[Path, typer.Option(help="The committed reports.")] = Path("docs"),
+    out: Annotated[Path, typer.Option(help="The page's data file.")] = Path("site/results.json"),
+) -> None:
+    """Write the demo site's data from the committed reports (ADR 30).
+
+    Args:
+        docs: The directory of committed reports.
+        out: The JSON file the page reads.
+    """
+    from verdict.publish.demo_site import export
+
+    data = export(docs, out)
+    typer.echo(f"wrote {out} from {len(data['sources'])} reports")
+
+
+@app.command(name="site-serve")
+def site_serve(
+    root: Annotated[Path, typer.Option(help="The site directory.")] = Path("site"),
+    port: Annotated[int, typer.Option(help="The local port.")] = 8080,
+) -> None:
+    """Serve the demo site locally with the headers its host sends (ADR 30).
+
+    Args:
+        root: The site directory.
+        port: The local port.
+    """
+    from verdict.publish.demo_site import serve
+
+    typer.echo(f"http://127.0.0.1:{port}/ (the host's headers, content security policy included)")
+    serve(root, port)
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

@@ -590,6 +590,24 @@ push protection on, and a ruleset refusing force pushes and deletion of
 `main`. The site's card is `live` with the dashboard as its demo. Still
 Peter's: the Kaggle forum post.
 
+**The demo site (ADR 30), 2026-09-28.** Peter asked for a designed page to
+the standard of the other demos, with the dashboard linked at its very top.
+`site/` is that page, its data exported from the committed reports by
+`verdict site-export`; it is deployed to the Static Web App
+`fraud-peterparker-ca` (rg-portfolio, free plan) and serves at
+https://polite-river-0588f880f.3.azurestaticapps.net. **Waiting on Peter:**
+the Cloudflare CNAME `fraud` to that hostname, DNS only; then `az
+staticwebapp hostname set` (docs/site.md) and the site's card points its
+demo at the new name.
+
+**Day one's spot reclaims.** AWS reclaimed the instance five times on
+2026-09-28 (11:46, 13:56, 16:20 and 16:26 notices, one replacement lasting
+six minutes), every one with a notice in `/data/interruptions`, and each
+replacement restored the saved feature state (`starts.jsonl`). The dashboard
+shows each as a latency spike of up to an hour of event time and a catch-up
+burst; ADR 25's report counts them in availability, not in latency while
+serving.
+
 **What go-live now waits on**, all in `docs/go-live.md`: (1) Peter's go to
 roll the new image onto the pre-live stack (a `terraform apply` for the
 gzipped user data, then an instance replacement, which is also the gzip's

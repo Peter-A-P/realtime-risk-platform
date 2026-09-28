@@ -6,9 +6,10 @@ production mismatch that quietly breaks most deployed models. The platform aroun
 model is what organisations are actually missing, and this one runs live behind a
 public dashboard.
 
-**Status: live.** The live window began on 2026-09-28 and runs sixty days, with the
-dashboard at [risk.peterparker.ca](https://risk.peterparker.ca), on a fraud schedule sealed
-before it started. The design is
+**Status: live.** The live window began on 2026-09-28 and runs sixty days, on a fraud
+schedule sealed before it started. **[fraud.peterparker.ca](https://fraud.peterparker.ca)**
+explains what the platform does and what has been measured, in charts, and links the live
+dashboard at [risk.peterparker.ca](https://risk.peterparker.ca). The design is
 in [PLAN.md](PLAN.md). The live-window table below fills when the window ends; everything
 else here is measured and says which track it came from.
 
@@ -332,10 +333,11 @@ Every piece, where it lives, and what it guarantees.
 | The live feeds | [verdict/live/feed.py](verdict/live/feed.py) | The generator played in real time: each transaction at its event time, each label a week later, from two runs of one deterministic stream. Each feed saves its place, and a run restored after a spot replacement continues byte for byte, sending at least once and skipping nothing ([ADR 15](docs/adr/0015-spot-and-recovery.md)) |
 | Drift, retraining and promotion, live | [verdict/live/models_job.py](verdict/live/models_job.py) | Each finished day of the live window judged against the window's own first full days ([ADR 29](docs/adr/0029-traffic-follows-the-day-and-drift-is-judged-against-the-live-baseline.md)); a retraining candidate fitted when a request is open and a pull request opened for it; the promotion gate run on a week of shadow scores and its verdict opened as a pull request. It never merges, deploys or moves the champion ([ADR 28](docs/adr/0028-drift-retraining-and-the-gate-run-on-the-live-stack.md)) |
 | Surviving a replacement | [verdict/scoring/recovery.py](verdict/scoring/recovery.py) | The scorer saves its feature state to the data volume a slice at a time between batches, and a replacement restores it and replays only the records after it, instead of serving every card "no history" for a day. A test stops it throughout a save and holds the restored scorer to an uninterrupted one's features ([ADR 27](docs/adr/0027-the-scorer-saves-its-feature-state-and-restores-from-it.md)) |
+| The demo site | [site/](site/), [verdict/publish/demo_site.py](verdict/publish/demo_site.py) | The page at fraud.peterparker.ca: a static page whose every figure is exported from the committed reports, and whose first link is the live dashboard. A test holds it to a fresh export and to a policy that allows nothing off-origin ([ADR 30](docs/adr/0030-a-demo-site-that-gives-the-dashboard-its-context.md), [docs/site.md](docs/site.md)) |
 | The public dashboard | [verdict/observe/dashboard.py](verdict/observe/dashboard.py) | Grafana, anonymous and read-only behind the tunnel, provisioned from code. A test checks every panel's query against the metrics the platform exports |
-| Decisions 1 to 29 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; the latency budget and what the host costs; labels arrive late and nothing reads them early; shadow and promotion; drift thresholds; queue ranking; the live stack's shape; surviving a spot replacement; teardown and repeatability; what a card, device and moment are on the real data; history as a weighted sample; the champion and challenger; day-long windows at hourly resolution; harder synthetic fraud; the queue measured on the queue the platform would hold; drift against the schedule's own regimes; retraining that stops at a pull request; latency while serving and availability as two numbers; alerts by email; saved feature state; drift, retraining and the gate on the live stack; live traffic that follows the day, judged against its own baseline |
+| Decisions 1 to 30 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; the latency budget and what the host costs; labels arrive late and nothing reads them early; shadow and promotion; drift thresholds; queue ranking; the live stack's shape; surviving a spot replacement; teardown and repeatability; what a card, device and moment are on the real data; history as a weighted sample; the champion and challenger; day-long windows at hourly resolution; harder synthetic fraud; the queue measured on the queue the platform would hold; drift against the schedule's own regimes; retraining that stops at a pull request; latency while serving and availability as two numbers; alerts by email; saved feature state; drift, retraining and the gate on the live stack; live traffic that follows the day, judged against its own baseline; a demo site that gives the dashboard its context |
 
-636 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
+648 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
 
 **The leakage test caught a real leak on the day the first features were written**, which
 is what it was written a week earlier for. Two transactions sharing a timestamp saw each
@@ -364,7 +366,7 @@ retraining pull request with the evidence; merging it is the approval. The revie
 ranked by expected loss, and the evaluation shows what that buys per analyst-hour. The
 live stack runs in one AWS region on a spot instance with Redpanda as the stream, the same
 broker the local Docker Compose stack runs, because AWS documents Kinesis's delivery delay
-as larger than the whole latency budget ([ADR 3](docs/adr/0003-stream-choice.md)). Twenty-nine architecture decision records
+as larger than the whole latency budget ([ADR 3](docs/adr/0003-stream-choice.md)). Thirty architecture decision records
 explain every choice with its public sources.
 
 ## Part of a portfolio
