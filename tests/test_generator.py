@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 from collections import Counter
 from dataclasses import replace
 
 import pytest
 
-from verdict.events.generator.driver import Generator, GeneratorConfig
+from verdict.events.generator.driver import (
+    LIVE_DAILY_CYCLE,
+    DailyCycle,
+    Generator,
+    GeneratorConfig,
+    GeneratorRun,
+)
 from verdict.events.generator.entities import EntityGraph, Population
 from verdict.events.generator.regimes import DEV_SCHEDULE, Regime, RegimeSchedule
 from verdict.events.schema import FraudScenario
@@ -173,3 +180,78 @@ def test_the_warm_up_is_what_fixes_the_opening_minutes(graph: EntityGraph) -> No
 def test_an_impossible_configuration_is_refused(kwargs: dict[str, object]) -> None:
     with pytest.raises(ValueError, match=".+"):
         config(**kwargs)
+
+
+# --- the daily cycle -------------------------------------------------------------
+
+
+def _two_days(graph: EntityGraph, cycle: DailyCycle | None) -> list[dt.datetime]:
+    start = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
+    run = Generator(
+        config(events_per_second=1.0, start_time=start, daily_cycle=cycle), graph
+    ).stream()
+    end = start + dt.timedelta(days=2)
+    return [
+        r.event.event_time for r in itertools.takewhile(lambda r: r.event.event_time < end, run)
+    ]
+
+
+def test_the_rate_follows_the_day_and_keeps_its_mean(graph: EntityGraph) -> None:
+    """Busiest about the peak hour, quietest twelve hours away, the nominal rate on average."""
+    times = _two_days(graph, DailyCycle(amplitude=0.25, peak_hour=20.0, wobble=0.0))
+    by_hour = Counter(t.hour for t in times)
+    peak = sum(by_hour[h] for h in (19, 20, 21))
+    trough = sum(by_hour[h] for h in (7, 8, 9))
+    assert 1.45 < peak / trough < 1.9  # 1.25 against 0.75 is 1.67
+    flat = _two_days(graph, None)
+    assert abs(len(times) - len(flat)) / len(flat) < 0.03
+
+
+def test_a_flat_rate_is_the_stream_it_always_was(graph: EntityGraph) -> None:
+    """No cycle, no change: every stream the platform has trained and tested on is kept."""
+    generator = Generator(config(), graph)
+    assert generator.rate_multiplier(0.0) == 1.0
+    assert generator.rate_multiplier(50_000.0) == 1.0
+
+
+def test_the_fraud_share_does_not_move_with_the_hour(graph: EntityGraph) -> None:
+    """Attacks follow the cycle too, so the schedule, not the clock, sets the share."""
+    start = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
+    cycle = DailyCycle(amplitude=0.25, wobble=0.0)
+    records = list(
+        itertools.takewhile(
+            lambda r: r.event.event_time < start + dt.timedelta(days=2),
+            Generator(
+                config(
+                    events_per_second=1.0,
+                    start_time=start,
+                    daily_cycle=cycle,
+                    target_fraud_share=0.05,
+                ),
+                graph,
+            ).stream(),
+        )
+    )
+
+    def share(hours: set[int]) -> float:
+        chosen = [r for r in records if r.event.event_time.hour in hours]
+        return sum(r.truth.is_fraud for r in chosen) / len(chosen)
+
+    assert abs(share({18, 19, 20, 21, 22}) - share({6, 7, 8, 9, 10})) < 0.02
+
+
+def test_a_run_restored_mid_cycle_continues_the_same_stream(graph: EntityGraph) -> None:
+    generator = Generator(config(daily_cycle=LIVE_DAILY_CYCLE), graph)
+    whole = [r.event.to_json() for r in itertools.islice(GeneratorRun(generator), 3_000)]
+    first = GeneratorRun(generator)
+    head = [r.event.to_json() for r in itertools.islice(first, 1_200)]
+    resumed = GeneratorRun.restore(generator, first.snapshot())
+    tail = [r.event.to_json() for r in itertools.islice(resumed, 1_800)]
+    assert head + tail == whole
+
+
+def test_a_cycle_that_could_stop_the_stream_is_refused() -> None:
+    with pytest.raises(ValueError, match="amplitude"):
+        DailyCycle(amplitude=0.95)
+    with pytest.raises(ValueError, match="wobble"):
+        DailyCycle(wobble=0.5)

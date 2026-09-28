@@ -1143,9 +1143,14 @@ def _run_feed(
     if window_start.tzinfo is None:
         typer.echo("--start must carry a time zone, for example 2026-10-01T00:00:00+00:00")
         raise typer.Exit(code=2)
+    from verdict.events.generator.driver import LIVE_DAILY_CYCLE
+
     config = GeneratorConfig(
         events_per_second=rate,
         start_time=window_start.astimezone(dt.UTC),
+        # Traffic rises and falls through the day as card traffic does
+        # (750 to 1,250 a second around 1,000); both feeds play the same stream.
+        daily_cycle=LIVE_DAILY_CYCLE,
         schedule=live_schedule(
             schedule,
             secret=_read_if_present(secret_file, strip=True),
@@ -1608,6 +1613,75 @@ def drift_report(
             f"{', '.join(opened['quantities'])}"
         )
     )
+
+
+@app.command(name="drift-cycle-check")
+def drift_cycle_check(
+    reference: Annotated[Path, typer.Option(help="The drift reference to judge against.")],
+    out: Annotated[Path, typer.Option(help="Where the JSON report goes.")],
+    cycle: Annotated[bool, typer.Option(help="Replay with the live daily cycle, or flat.")] = True,
+    seed: Annotated[int, typer.Option(help="A seed other than the reference's.")] = 20270202,
+    days: Annotated[float, typer.Option(help="Days of stream to replay.")] = 6.0,
+    judge_from_day: Annotated[int, typer.Option(help="The first day judged.")] = 2,
+) -> None:
+    """Judge a fresh synthetic stream against a kept drift reference (ADR 29).
+
+    Replays the champion's scaled training configuration under another seed,
+    with or without the live daily cycle, and reports what the monitors say
+    about each day from `judge_from_day` on. Every day is before the first
+    regime change, so a quantity flagged here is flagged for the traffic's
+    shape, not for fraud.
+
+    Args:
+        reference: The reference, as the models job keeps it.
+        out: Where the JSON report goes.
+        cycle: Whether the stream follows the live daily cycle.
+        seed: The stream's seed.
+        days: Days replayed.
+        judge_from_day: The first day judged.
+    """
+    from dataclasses import replace
+
+    from verdict.drift import live as drift_live
+    from verdict.drift.monitors import DailyReport
+    from verdict.drift.run import _rendered, judge_against
+    from verdict.events.generator.driver import LIVE_DAILY_CYCLE
+    from verdict.models.champion import SYNTHETIC, synthetic_records
+    from verdict.review_queue.evaluate import write_report
+    from verdict.scoring.onnx_model import OnnxModel
+    from verdict.scoring.registry import ARTIFACTS
+
+    kept, meta = drift_live.load_reference(reference)
+    config = replace(SYNTHETIC, seed=seed, daily_cycle=LIVE_DAILY_CYCLE if cycle else None)
+
+    def say(judged: DailyReport) -> None:
+        drifted = ", ".join(sorted(judged.drifted())) or "none"
+        typer.echo(f"{judged.day.isoformat()}: {drifted}", err=True)
+
+    reports = judge_against(
+        synthetic_records(days, config),
+        kept,
+        model=OnnxModel(ARTIFACTS / "champion.onnx"),
+        judge_from=SYNTHETIC.start_time + dt.timedelta(days=judge_from_day),
+        on_day=say,
+    )
+    write_report(
+        {
+            "track": "synthetic, offline replay",
+            "reference": meta,
+            "stream": {
+                "seed": seed,
+                "daily_cycle": None if not cycle else repr(LIVE_DAILY_CYCLE),
+                "days": days,
+                "judged_from_day": judge_from_day,
+            },
+            "days": [_rendered(report) for report in reports],
+            "drifted": {report.day.isoformat(): sorted(report.drifted()) for report in reports},
+        },
+        out,
+    )
+    flagged = sum(1 for report in reports if report.drifted())
+    typer.echo(f"{len(reports)} days judged, {flagged} with a quantity flagged")
 
 
 @app.command(name="queue-eval")

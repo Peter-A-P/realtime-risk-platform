@@ -28,9 +28,11 @@ from roughly two thousand events per second to tens of thousands.
 from __future__ import annotations
 
 import datetime as dt
+import functools
 import hashlib
 import heapq
 import itertools
+import math
 import pickle
 from collections import deque
 from collections.abc import Iterator
@@ -136,6 +138,46 @@ slightly light, which `docs/generator.md` records rather than hides.
 
 
 @dataclass(frozen=True, slots=True)
+class DailyCycle:
+    """How the rate moves through a day, as card traffic does.
+
+    Quiet overnight and busiest in the late afternoon: a smooth cycle around
+    the nominal rate, with an hourly wobble on top so no two days are the
+    same shape. The rate's mean over a day stays the nominal rate, and every
+    stream (legitimate traffic and attacks alike) follows it, so the fraud
+    share is the schedule's whatever the hour. Only the volume moves.
+
+    Attributes:
+        amplitude: How far the cycle swings either side of the nominal rate,
+            as a share of it: 0.25 is 750 to 1,250 around 1,000.
+        peak_hour: The busiest hour of the day, UTC.
+        wobble: The spread of the hourly multiplicative noise.
+    """
+
+    amplitude: float = 0.25
+    peak_hour: float = 20.0
+    wobble: float = 0.04
+
+    def __post_init__(self) -> None:
+        """Check the cycle keeps the rate positive.
+
+        Raises:
+            ValueError: If the amplitude or the wobble is out of range.
+        """
+        if not 0.0 <= self.amplitude < 0.9:
+            msg = f"amplitude must be in [0, 0.9), got {self.amplitude}"
+            raise ValueError(msg)
+        if not 0.0 <= self.wobble <= 0.2:
+            msg = f"wobble must be in [0, 0.2], got {self.wobble}"
+            raise ValueError(msg)
+
+
+LIVE_DAILY_CYCLE: Final = DailyCycle()
+"""The live window's traffic: 750 to 1,250 a second around a mean of 1,000,
+lowest about 08:00 UTC and highest about 20:00 UTC."""
+
+
+@dataclass(frozen=True, slots=True)
 class GeneratorConfig:
     """Everything the generator needs, and nothing it does not.
 
@@ -155,6 +197,9 @@ class GeneratorConfig:
             opens. On by default, because a run without it under-reports
             fraud at the start. Turn it off only to measure the emit loop
             itself.
+        daily_cycle: How the rate moves through the day; None for a flat
+            rate, which every offline replay and the champion's training
+            used. The live feeds run `LIVE_DAILY_CYCLE`.
     """
 
     seed: int = 20270201
@@ -166,6 +211,7 @@ class GeneratorConfig:
     label_delay_days: float = 7.0
     amount_sigma: float = 0.75
     warm_up: bool = True
+    daily_cycle: DailyCycle | None = None
 
     def __post_init__(self) -> None:
         """Check the configuration is usable.
@@ -228,6 +274,7 @@ class Generator:
         self.config = config or GeneratorConfig()
         self.graph = graph or EntityGraph.build(self.config.seed, self.config.population)
         self._label_delay = dt.timedelta(days=self.config.label_delay_days)
+        self._start_epoch = self.config.start_time.timestamp()
 
     def stream(self, limit: int | None = None) -> Iterator[GeneratedRecord]:
         """Yield records in non-decreasing event time.
@@ -294,8 +341,32 @@ class Generator:
                 if planned.at_seconds >= 0.0:
                     counter += 1
                     heapq.heappush(pending, (planned.at_seconds, counter, planned))
-            at += draws.attack_gap(rate)
+            at += draws.attack_gap(rate) / self.rate_multiplier(at)
         return counter, attack_number
+
+    def rate_multiplier(self, elapsed_seconds: float) -> float:
+        """How the rate stands at a moment, against the nominal rate.
+
+        A pure function of the moment and the seed, so a run restored from a
+        snapshot continues exactly the stream it would have made.
+
+        Args:
+            elapsed_seconds: Event time since the window's start.
+
+        Returns:
+            1.0 for a flat rate; otherwise the daily cycle times the wobble.
+        """
+        cycle = self.config.daily_cycle
+        if cycle is None:
+            return 1.0
+        hours = (self._start_epoch + elapsed_seconds) / 3600.0
+        daily = 1.0 + cycle.amplitude * math.cos(2.0 * math.pi * (hours - cycle.peak_hour) / 24.0)
+        hour = math.floor(hours)
+        share = hours - hour
+        noise = (1.0 - share) * _wobble(self.config.seed, hour) + share * _wobble(
+            self.config.seed, hour + 1
+        )
+        return max(0.05, daily * (1.0 + cycle.wobble * noise))
 
     def _attack_rate(self, regime: Regime) -> float:
         """Attacks per second under a regime.
@@ -565,7 +636,8 @@ class GeneratorRun(Iterator[GeneratedRecord]):
             counter=counter,
             attack_number=attack_number,
             pending=pending,
-            next_attack_at=draws.attack_gap(generator._attack_rate(regime)),
+            next_attack_at=draws.attack_gap(generator._attack_rate(regime))
+            / generator.rate_multiplier(0.0),
             ready=deque(),
         )
 
@@ -616,7 +688,9 @@ class GeneratorRun(Iterator[GeneratedRecord]):
         """Build the attacks due before the next legitimate event, then it."""
         generator, state = self.generator, self._state
         schedule = generator.config.schedule
-        next_legit_at = state.elapsed + state.draws.inter_arrival()
+        next_legit_at = state.elapsed + state.draws.inter_arrival() / generator.rate_multiplier(
+            state.elapsed
+        )
 
         while state.next_attack_at <= next_legit_at:
             attack_regime = schedule.at(state.next_attack_at / 86_400.0)
@@ -631,7 +705,9 @@ class GeneratorRun(Iterator[GeneratedRecord]):
             ):
                 state.counter += 1
                 heapq.heappush(state.pending, (planned.at_seconds, state.counter, planned))
-            state.next_attack_at += state.draws.attack_gap(generator._attack_rate(attack_regime))
+            state.next_attack_at += state.draws.attack_gap(
+                generator._attack_rate(attack_regime)
+            ) / generator.rate_multiplier(state.next_attack_at)
 
         while state.pending and state.pending[0][0] <= next_legit_at:
             at_seconds, _, planned = heapq.heappop(state.pending)
@@ -840,3 +916,20 @@ class _Draws:
         value = float(self._exponentials[self._exponential_at])
         self._exponential_at += 1
         return value / rate_per_second
+
+
+@functools.lru_cache(maxsize=256)
+def _wobble(seed: int, hour: int) -> float:
+    """The hourly noise of the daily cycle: a standard normal fixed by seed and hour.
+
+    Args:
+        seed: The generator's seed.
+        hour: Hours since the epoch.
+
+    Returns:
+        The draw.
+    """
+    digest = hashlib.sha256(f"verdict/daily/{seed}/{hour}".encode()).digest()
+    first = (int.from_bytes(digest[:8], "big") + 1) / (2**64 + 1)
+    second = int.from_bytes(digest[8:16], "big") / 2**64
+    return math.sqrt(-2.0 * math.log(first)) * math.cos(2.0 * math.pi * second)

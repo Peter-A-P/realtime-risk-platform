@@ -156,6 +156,56 @@ def drift_reports(
     return reference, reports
 
 
+def judge_against(
+    records: Iterable[Labelled],
+    reference: Reference,
+    *,
+    model: BatchModel,
+    judge_from: dt.datetime,
+    rate: float = SAMPLE_RATE,
+    on_day: Callable[[DailyReport], None] | None = None,
+) -> list[DailyReport]:
+    """Judge every day of a stream from a moment on against a reference built elsewhere.
+
+    `drift_reports` builds its reference from the stream's own first days.
+    This takes one already built, so a different stream (another seed, or
+    the same traffic with a daily cycle, ADR 29) can be held to the
+    champion's own training window. The days before `judge_from` are served
+    and scored, so the windows are full, and not judged.
+
+    Args:
+        records: Transactions with their labels, in event-time order.
+        reference: The fixed reference.
+        model: The champion.
+        judge_from: The first moment judged; give it a day's midnight.
+        rate: Share of transactions kept, by hash draw.
+        on_day: Called with each day's report as it is judged.
+
+    Returns:
+        One report per judged day, in order.
+    """
+    reports: list[DailyReport] = []
+    current = _Window()
+    current_day: dt.date | None = None
+    for record, features, score in serve_and_score(records, model=model):
+        event = record.event
+        if event.event_time < judge_from or draw(event.event_id) >= rate:
+            continue
+        day = event.event_time.date()
+        if current_day is not None and day != current_day:
+            reports.append(daily_report(current_day, reference, current.arrays()))
+            if on_day is not None:
+                on_day(reports[-1])
+            current = _Window()
+        current_day = day
+        current.add(features, score)
+    if current_day is not None and current:
+        reports.append(daily_report(current_day, reference, current.arrays()))
+        if on_day is not None:
+            on_day(reports[-1])
+    return reports
+
+
 def first_trigger(reports: list[DailyReport]) -> tuple[RetrainRequest | None, int]:
     """Walk the days in order and stop at the first retraining request.
 
