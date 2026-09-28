@@ -603,9 +603,13 @@ site's card points its demo there.
 2026-09-28 (11:46, 13:56, 16:20 and 16:26 notices, one replacement lasting
 six minutes), every one with a notice in `/data/interruptions`, and each
 replacement restored the saved feature state (`starts.jsonl`). The dashboard
-shows each as a latency spike of up to an hour of event time and a catch-up
-burst; ADR 25's report counts them in availability, not in latency while
-serving.
+showed each as a latency spike of up to an hour; the real waits were 8 to 13
+minutes of no decisions and a catch-up worked off within six, and the hour
+was the histogram's 300 to 3,600 s bucket being interpolated (ADR 25's
+addendum of 2026-09-28: finer buckets and an exact mean line, committed,
+**waiting on Peter's go** to push the image and point the launch template at
+it, so the next reclaim picks it up without a restart of its own). ADR 25's
+report counts reclaims in availability, not in latency while serving.
 
 **What go-live now waits on**, all in `docs/go-live.md`: (1) Peter's go to
 roll the new image onto the pre-live stack (a `terraform apply` for the

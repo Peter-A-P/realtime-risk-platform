@@ -100,3 +100,25 @@ uptime; the quantile matches Prometheus's `histogram_quantile`.
 - Prometheus, `histogram_quantile`.
   https://prometheus.io/docs/prometheus/latest/querying/functions/#histogram_quantile
 - ADR 14 (the single spot instance), ADR 15 (recovery), ADR 20 (the instance).
+
+## Addendum, 2026-09-28: a catch-up read as an hour
+
+On the live window's first day the dashboard's event-to-decision percentiles
+showed about an hour after each spot replacement. The waits were not an hour.
+The histogram had one bucket from 300 to 3,600 seconds, and
+`histogram_quantile` places a quantile inside its bucket by linear
+interpolation, so every catch-up longer than five minutes read as somewhere
+up to an hour: 3,567 s at the p99 and 1,950 s at the p50 in the minute after
+the 18:16 replacement. The exact mean over the same minute, the histogram's
+sum over its count, was 475 s, falling to 3 s five minutes later; over the
+day's six replacements the worst minute's mean was 722 s. Decisions stopped
+for 8 to 13 minutes each time (the two-minute notice, the replacement's
+launch and boot, and about four minutes restoring the feature state) and the
+backlog was worked off within six minutes of resuming.
+
+The buckets now include 600, 900, 1,200, 1,800 and 7,200 s, so a ten-minute
+catch-up reads as ten minutes, and the dashboard's event-to-decision panel
+draws the exact mean beside the percentiles. The availability report's
+latency while serving leaves reclaim catch-ups out, so its figures were not
+affected; its every-minute p99 was, and is read from the finer buckets from
+the image that carries them.

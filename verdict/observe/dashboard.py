@@ -86,6 +86,11 @@ def _quantile(q: float, metric: str, by: str = "") -> str:
     return f"histogram_quantile({q}, sum by ({group}) (rate({metric}_bucket[5m])))"
 
 
+def _mean(metric: str) -> str:
+    """The exact mean over five minutes: the histogram's sum over its count."""
+    return f"sum(rate({metric}_sum[5m])) / sum(rate({metric}_count[5m]))"
+
+
 def dashboard() -> dict[str, Any]:
     """The dashboard model Grafana loads.
 
@@ -138,13 +143,16 @@ def dashboard() -> dict[str, Any]:
                 (_quantile(0.50, age), "p50"),
                 (_quantile(0.95, age), "p95"),
                 (_quantile(0.99, age), "p99"),
+                (_mean(age), "mean (exact)"),
             ],
             (0, 9, 12, 8),
             unit="s",
             description=(
                 "From a transaction's event time, when the feed sends it, to its "
                 "decision. Five-minute windows. Every minute, including a spot "
-                "replacement's catch-up."
+                "replacement's catch-up. The percentiles are estimated within "
+                "histogram buckets, so a catch-up reads as the top of its bucket; "
+                "the mean is exact."
             ),
         ),
         _panel(

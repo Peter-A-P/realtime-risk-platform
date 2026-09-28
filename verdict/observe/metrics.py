@@ -84,12 +84,21 @@ AGE_BUCKETS: Final[tuple[float, ...]] = (
     60.0,
     120.0,
     300.0,
+    600.0,
+    900.0,
+    1200.0,
+    1800.0,
     3600.0,
+    7200.0,
 )
 """Seconds from event time to decision: the budget's 50 ms in the middle, and
 room above for a feed catching up after an interruption, which is reported,
 not dropped. 60 and 120 s since 2026-09-22: without them a catch-up of a
-few minutes read as five on the dashboard."""
+few minutes read as five on the dashboard. 600 to 1800 and 7200 s since
+2026-09-28: a spot replacement's catch-up is ten minutes or so, and with one
+bucket from 300 to 3600 s the dashboard's percentiles placed it near the top
+of that bucket and showed an hour, where the exact mean (the histogram's sum
+over its count) was under eight minutes at the worst minute."""
 
 BATCH_BUCKETS: Final[tuple[float, ...]] = (1, 2, 5, 10, 20, 50, 100, 200, 500)
 """Records per batch, up to the scorer's own maximum of 500."""
