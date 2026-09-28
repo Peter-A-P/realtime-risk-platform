@@ -202,6 +202,20 @@ def _models(docs: Path) -> dict[str, Any]:
 def _queue(docs: Path) -> dict[str, Any]:
     report = _load(docs, "queue-eval.json")
     caught = report["caught_per_analyst_hour_cents"]
+    capacity = report["capacity"]
+    # The evaluated team works around the clock: its daily reviews are its
+    # analysts' hourly reviews times 24, so its analyst-hours a day are fixed,
+    # and the team's figures are the per-hour difference and its interval
+    # scaled by a constant. A year is 365 such days at the same rate, which
+    # is an extrapolation from the days measured and is labelled as one.
+    hours_a_day = capacity["reviews_per_day"] / capacity["reviews_per_analyst_hour"]
+
+    def team(days: float) -> dict[str, float]:
+        return {
+            key: round(caught[name] / 100 * hours_a_day * days)
+            for key, name in (("value", "difference"), ("low", "low"), ("high", "high"))
+        }
+
     return {
         "days": report["days"],
         "transactions": report["scored_after_cutoff"],
@@ -219,6 +233,10 @@ def _queue(docs: Path) -> dict[str, Any]:
             "low": round(caught["low"] / 100, 2),
             "high": round(caught["high"] / 100, 2),
         },
+        "analyst_hours_a_day": hours_a_day,
+        "team_a_day_dollars": team(1),
+        "team_a_month_dollars": team(365 / 12),
+        "team_a_year_dollars": team(365),
     }
 
 

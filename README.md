@@ -123,6 +123,12 @@ champion was never trained on ([ADR 22](docs/adr/0022-the-queue-is-measured-on-t
 | By expected loss | 266.95 |
 | Difference, mean over days (95% CI) | **97.46 (48.03 to 150.44)** |
 
+For the team the evaluation staffs, eight analysts reviewing around the clock (192
+analyst-hours a day), that is $18,712 more caught a day ($9,222 to $28,885), about
+$569,000 a month, and $6.8 million a year at the same rate ($3.4 million to $10.5 million):
+the per-hour difference and its interval times a fixed number of hours, extrapolated from
+the 13 days measured.
+
 At stated prices: 500 cents an analyst review, 30 percent of a fraud recovered anyway by
 chargeback, eight analysts at twelve reviews an hour, an item worth nothing after four
 hours. Change them and rerun `verdict queue-eval`. The queue here is 41 percent fraud,

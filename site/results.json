@@ -1097,6 +1097,7 @@
   }
  },
  "queue": {
+  "analyst_hours_a_day": 192.0,
   "analysts": 8,
   "by_expected_loss_dollars": 266.95,
   "by_score_dollars": 169.5,
@@ -1112,6 +1113,21 @@
   "review_cost_dollars": 5.0,
   "reviews_per_analyst_hour": 12,
   "reviews_per_day": 2304,
+  "team_a_day_dollars": {
+   "high": 28885,
+   "low": 9222,
+   "value": 18712
+  },
+  "team_a_month_dollars": {
+   "high": 878592,
+   "low": 280503,
+   "value": 569148
+  },
+  "team_a_year_dollars": {
+   "high": 10543109,
+   "low": 3366034,
+   "value": 6829780
+  },
   "transactions": 23531714
  },
  "repository": "https://github.com/Peter-A-P/realtime-risk-platform",

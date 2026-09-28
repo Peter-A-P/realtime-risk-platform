@@ -62,6 +62,14 @@ function dollars(value) {
   return `$${fmt(value, 2)}`;
 }
 
+function millions(value) {
+  return `$${fmt(value / 1e6, 1)} million`;
+}
+
+function wholeDollars(value) {
+  return `$${number.format(Math.round(value))}`;
+}
+
 function strong(text) {
   return el("strong", {}, text);
 }
@@ -131,11 +139,14 @@ function hero(data) {
   ]);
   const kept = data.load_tests.filter((test) => test.kept_up === test.runs);
   const top = kept[kept.length - 1];
-  $("hero-rate").textContent = number.format(top.rate);
+  $("hero-rate").textContent = `${fmt((top.rate * 3600) / 1e6, 1)} million`;
+  $("hero-rate-unit").textContent = `transactions an hour, ${number.format(top.rate)} a second, and it kept up`;
+  $("hero-rate-note").textContent = `four times the live rate, one scorer, every one of ${top.runs} runs. Synthetic track, on the live machine.`;
   const q = data.queue.difference_dollars;
-  $("hero-queue").textContent = `+${dollars(q.value).replace(/\.\d\d$/, "")}`;
+  const year = data.queue.team_a_year_dollars;
+  $("hero-queue").textContent = `+${millions(year.value)}`;
   $("hero-queue-note").textContent =
-    `95% CI ${dollars(q.low)} to ${dollars(q.high)}, ranking the review queue by expected loss instead of score. Synthetic, ${data.queue.days} days.`;
+    `95% CI ${millions(year.low)} to ${millions(year.high)}: ${dollars(q.value)} more per analyst-hour, by ranking the review queue on expected loss. Synthetic, stated prices.`;
   $("hero-drift-note").textContent =
     "three shifts over fifty days of stream, and nothing flagged in the clean week before the first. Synthetic.";
 }
@@ -535,10 +546,23 @@ function queueChart(data) {
   $("queue-chart").append(svg);
   $("queue-caption").textContent = `Synthetic track, ${q.days} days the champion never saw, ${number.format(q.transactions)} transactions scored and ${number.format(q.queued)} sent to review, replayed through the scorer's own engine and rules. Source: docs/queue-eval.json.`;
   const d = q.difference_dollars;
+  const day = q.team_a_day_dollars, month = q.team_a_month_dollars, year = q.team_a_year_dollars;
   fill($("queue-verdict"), [
     strong(`${dollars(d.value)} more caught for every analyst-hour, with a 95 percent interval of ${dollars(d.low)} to ${dollars(d.high)}.`),
-    " Same analysts, same transactions, same hours: only the order changes. The interval is a bootstrap over days, and the comparison is paired, each day ranked both ways.",
+    ` For the team of ${q.analysts}, reviewing around the clock, that is ${wholeDollars(day.value)} a day, and ${millions(year.value)} a year at the same rate. Same analysts, same transactions, same hours: only the order changes. The interval is a bootstrap over days, and the comparison is paired, each day ranked both ways.`,
   ]);
+  const cards = [
+    [dollars(d.value), "more per analyst-hour", `95% CI ${dollars(d.low)} to ${dollars(d.high)}`],
+    [wholeDollars(day.value), `more a day, for ${q.analysts} analysts`, `${wholeDollars(day.low)} to ${wholeDollars(day.high)}; ${fmt(q.analyst_hours_a_day, 0)} analyst-hours`],
+    [`$${fmt(month.value / 1e3, 0)} thousand`, "more a month", `$${fmt(month.low / 1e3, 0)} to $${fmt(month.high / 1e3, 0)} thousand`],
+    [millions(year.value), "more a year", `${millions(year.low)} to ${millions(year.high)}, at the rate of the ${q.days} days measured`],
+  ];
+  const holder = $("queue-headline");
+  for (const [figure, caption, rangeText] of cards) {
+    const card = el("div", { class: "stat up" });
+    card.append(el("span", { class: "figure" }, figure), el("span", { class: "caption" }, caption), el("span", { class: "range" }, rangeText));
+    holder.append(card);
+  }
   fill($("queue-assumption"), [
     strong("The prices are stated, not discovered."),
     ` A review is priced at ${dollars(q.review_cost_dollars)} and ${fmt(q.recovery_rate * 100, 0)} percent of a fraud is assumed recovered by chargeback. Neither changes the order of the queue, only the dollars reported; a test holds the ranking to that. The queue here is ${fmt(q.queue_fraud_share * 100, 0)} percent fraud, richer than a real team's, because the synthetic stream is easier than real fraud.`,

@@ -135,3 +135,15 @@ def test_plain_punctuation(name: str) -> None:
     text = (SITE / name).read_text(encoding="utf-8")
     for character in map(chr, TYPOGRAPHIC):
         assert character not in text, f"{name} has {character!r}"
+
+
+def test_the_teams_totals_are_the_hourly_difference_times_its_hours() -> None:
+    queue = site_data(DOCS)["queue"]
+    hours = queue["reviews_per_day"] / queue["reviews_per_analyst_hour"]
+    assert hours == queue["analysts"] * 24, "the evaluated team works around the clock"
+    hourly = queue["difference_dollars"]
+    for key in ("value", "low", "high"):
+        assert queue["team_a_day_dollars"][key] == pytest.approx(hourly[key] * hours, abs=1)
+        assert queue["team_a_year_dollars"][key] == pytest.approx(
+            hourly[key] * hours * 365, abs=400
+        )
