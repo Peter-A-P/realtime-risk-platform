@@ -1,13 +1,14 @@
 # Real-Time Fraud and Risk Decisioning Platform
 
-Every transaction scored in under 50 milliseconds, at sustained thousands per second,
-before the money moves, and a system that keeps working as fraud patterns shift, without
-the training-versus-production mismatch that quietly breaks most deployed models. The
-platform around the model is what organisations are actually missing, and this one runs
-live where a hiring manager can watch it.
+Scores every transaction in under 50 milliseconds, thousands per second, before the
+money moves, and keeps working as fraud patterns shift, without the training-versus-
+production mismatch that quietly breaks most deployed models. The platform around the
+model is what organisations are actually missing, and this is a working one you can
+watch run: live behind a public dashboard, reproducible from one command.
 
-**Status: live.** The live window began on 2026-09-28 and runs sixty days at
-https://risk.peterparker.ca, on a regime schedule sealed before it started. The design is
+**Status: live.** The live window began on 2026-09-28 and runs sixty days, with the
+dashboard at [risk.peterparker.ca](https://risk.peterparker.ca), on a fraud schedule sealed
+before it started. The design is
 in [PLAN.md](PLAN.md). The live-window table below fills when the window ends; everything
 else here is measured and says which track it came from.
 
