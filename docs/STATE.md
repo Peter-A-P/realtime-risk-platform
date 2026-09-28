@@ -571,6 +571,20 @@ population, not the live one. The reference is now the live window's own
 second and third days; the Sep 29 development-day check is superseded. Days
 4 to 6 of the window are the monitors' check in place.
 
+**THE LIVE WINDOW STARTED 2026-09-28T08:51:00Z (Peter's go).** Sixty days:
+it ends 2026-11-27T08:51Z and the secret is revealed on 2026-11-28.
+`deploy/go-live.sh --image f0ef2d908bb6`, run twice: the first run applied
+the sealed launch template and stopped at the clearing step (the AWS CLI on
+Windows cannot read Git Bash's `/tmp`; fixed the same minute), with nothing
+cleared or replaced; the second applied it again with a new start, cleared
+the dry run's state on `i-0e7fcacab1b92d976`, and replaced it with
+`i-0f1b7ff9339660f51`, whose feeds accepted the secret against the
+commitment and play the sealed schedule. The scorer started cold at
+08:38:57Z, so 2026-09-29 is thin and the drift reference is 2026-09-30 and
+2026-10-01, judged from 2026-10-02 (ADR 29). Still Peter's: the repository
+made public and `v1.0.0` tagged (the build does it on his word), and the
+Kaggle forum post.
+
 **What go-live now waits on**, all in `docs/go-live.md`: (1) Peter's go to
 roll the new image onto the pre-live stack (a `terraform apply` for the
 gzipped user data, then an instance replacement, which is also the gzip's

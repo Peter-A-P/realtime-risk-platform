@@ -71,7 +71,9 @@ rm -rf /data/engine/* /data/feeds/* /data/history/* /data/models/*
 sync
 echo "cleared the dry run's state"
 SCRIPT
-params=$(mktemp)
+# In the deploy directory, not /tmp: on Windows the AWS CLI cannot read Git
+# Bash's /tmp, which stopped the first go-live at this step (2026-09-28).
+params="go-live-params.$$.json"
 python3 -c 'import json,sys; print(json.dumps({"commands": [sys.argv[1]], "executionTimeout": ["600"]}))' \
   "$clear" > "$params" 2>/dev/null \
   || python -c 'import json,sys; print(json.dumps({"commands": [sys.argv[1]], "executionTimeout": ["600"]}))' \
