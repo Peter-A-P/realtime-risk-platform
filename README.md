@@ -3,8 +3,8 @@
 Scores every transaction in under 50 milliseconds, thousands per second, before the
 money moves, and keeps working as fraud patterns shift, without the training-versus-
 production mismatch that quietly breaks most deployed models. The platform around the
-model is what organisations are actually missing, and this is a working one you can
-watch run: live behind a public dashboard, reproducible from one command.
+model is what organisations are actually missing, and this one runs live behind a
+public dashboard.
 
 **Status: live.** The live window began on 2026-09-28 and runs sixty days, with the
 dashboard at [risk.peterparker.ca](https://risk.peterparker.ca), on a fraud schedule sealed
