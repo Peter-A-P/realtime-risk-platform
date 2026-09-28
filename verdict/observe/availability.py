@@ -273,10 +273,24 @@ def quantile(q: float, buckets: Mapping[float, float]) -> float:
 
 
 def _summed(minutes: Iterable[Minute]) -> dict[float, float]:
-    total: dict[float, float] = {}
-    for minute in minutes:
-        for le, count in minute.buckets.items():
-            total[le] = total.get(le, 0.0) + count
+    """The minutes' buckets added up, over every bound any minute has.
+
+    The bounds changed during the live window (ADR 25's addendum of
+    2026-09-28 added five between 300 and 7,200 s). A minute from before
+    has no count at a newer bound, so it is given its count at the nearest
+    bound below: its decisions between the two are counted as over the new
+    bound, which can only overstate a latency, never hide one. Adding the
+    minutes as they are would leave the cumulative counts falling at the
+    new bounds, and the quantiles read from them meaningless.
+    """
+    listed = list(minutes)
+    bounds = sorted({le for minute in listed for le in minute.buckets})
+    total = dict.fromkeys(bounds, 0.0)
+    for minute in listed:
+        for bound in bounds:
+            total[bound] += max(
+                (count for le, count in minute.buckets.items() if le <= bound), default=0.0
+            )
     return total
 
 

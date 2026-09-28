@@ -20,6 +20,7 @@ import pytest
 from verdict.observe.availability import (
     Minute,
     Notice,
+    _summed,
     assemble_minutes,
     caught_up,
     quantile,
@@ -221,3 +222,32 @@ def test_a_minute_prometheus_has_nothing_for_is_kept_as_a_stopped_minute() -> No
     assert minutes[0].buckets == {0.01: 60_000.0, math.inf: 61_000.0}
     assert caught_up(minutes[0])
     assert not caught_up(minutes[1])
+
+
+def test_minutes_from_before_the_buckets_changed_add_up_without_hiding_latency() -> None:
+    before = {0.01: 1_000.0, 0.05: 1_000.0, 300.0: 1_000.0, 3600.0: 1_100.0, math.inf: 1_100.0}
+    after = {
+        0.01: 1_000.0,
+        0.05: 1_000.0,
+        300.0: 1_000.0,
+        600.0: 1_100.0,
+        3600.0: 1_100.0,
+        math.inf: 1_100.0,
+    }
+    minutes = [
+        Minute(at=START, decisions=1_100, sent=1_100, feed_lag=0.01, buckets=before),
+        Minute(
+            at=START + dt.timedelta(minutes=1),
+            decisions=1_100,
+            sent=1_100,
+            feed_lag=0.01,
+            buckets=after,
+        ),
+    ]
+    total = _summed(minutes)
+    counts = [total[bound] for bound in sorted(total)]
+    assert counts == sorted(counts), "cumulative counts must never fall"
+    # The earlier minute's hundred late decisions could have been anywhere
+    # up to an hour, so they are counted over ten minutes, not under.
+    assert total[600.0] == 2_100.0
+    assert total[3600.0] == 2_200.0
