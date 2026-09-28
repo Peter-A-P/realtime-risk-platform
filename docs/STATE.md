@@ -553,12 +553,21 @@ measured. The rollback drill, re-run on the new path: old champion deciding
 7.8 ms (6.5 to 9.1) after the flag, none by the rolled-back model after it,
 with the build machine 17 to 20 percent busy (the 5.8 ms before was idle).
 
+**Overnight, 2026-09-27 to 28.** AWS reclaimed the instance at 22:48Z with
+notice; the replacement restored 342,705 entities from the format-2 save and
+replayed 4,060,412 records (the merchants' hour with it), and has run since.
+Over the seven hours to 06:30Z no minute's p99 was over 50 ms (median 24.1
+ms, worst 49): the save's spikes are gone; a pass takes 314 s. The
+replacement's boot restored the GitHub token to the models job, which was
+withheld again until go-live. Peter gave the go for go-live on 2026-09-28,
+to run once the drift check passes.
+
 **What go-live now waits on**, all in `docs/go-live.md`: (1) Peter's go to
 roll the new image onto the pre-live stack (a `terraform apply` for the
 gzipped user data, then an instance replacement, which is also the gzip's
 first real boot); (2) the models job judging the dry run's clean baseline
 days, 2026-09-29 to 2026-10-04 on the development schedule, and flagging
-nothing (the first is judged about 03:00Z on 2026-09-30); (3) the load test on the instance with the champion, shadow and
+nothing (2026-09-29 alone decides it, judged about 03:00Z on 2026-09-30); (3) the load test on the instance with the champion, shadow and
 history on; (4) Peter's GitHub token in SSM at `/verdict/github-token`;
 (5) Peter's go for `deploy/go-live.sh`.
 

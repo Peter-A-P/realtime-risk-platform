@@ -14,7 +14,7 @@ is step 4 as one command.
 | The `project` cost allocation tag is active | Peter, done 2026-09-22 | `go-live.sh` checks it |
 | Alerts reach Peter | Peter confirmed the subscription, 2026-09-27 | An alert email has arrived |
 | The live stack runs the image to go live on: saved feature state (ADR 27), the shadow challenger (ADR 11), the models job (ADR 28) | build | the dashboard, and `docker ps` on the instance |
-| The drift reference is sound: the models job judges the dry run's clean baseline days (development schedule, 2026-09-29 to 2026-10-04) and flags nothing | build | `/data/models/drift/days/` on the instance; a flag here would mean the reference and the live stream disagree, and go-live waits |
+| The drift reference is sound: the models job judges the dry run's first clean baseline day (development schedule, 2026-09-29, judged about 03:00Z on 2026-09-30) and flags no quantity. A reference that disagreed with the live stream would show on every day and in most quantities, so one day decides it | build | `/data/models/drift/days/` on the instance; a flag here would mean the reference and the live stream disagree, and go-live waits |
 | A restore from saved state has happened on a real reclaim | build, done 2026-09-27 (511,519 entities, 96 s) | the scorer's log |
 | The load test on the live instance, with the champion, the shadow and history on | build | `docs/loadtest-live.json`, and the README's table |
 | The GitHub token for the models job is in SSM at `/verdict/github-token` (fine-grained, this repository only, contents and pull requests read and write, expiring after the window) | Peter | the models job's log says pull requests will be opened |
