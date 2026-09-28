@@ -581,9 +581,14 @@ the dry run's state on `i-0e7fcacab1b92d976`, and replaced it with
 `i-0f1b7ff9339660f51`, whose feeds accepted the secret against the
 commitment and play the sealed schedule. The scorer started cold at
 08:38:57Z, so 2026-09-29 is thin and the drift reference is 2026-09-30 and
-2026-10-01, judged from 2026-10-02 (ADR 29). Still Peter's: the repository
-made public and `v1.0.0` tagged (the build does it on his word), and the
-Kaggle forum post.
+2026-10-01, judged from 2026-10-02 (ADR 29). **The repository went public
+on 2026-09-28** after an audit (every commit Peter's, no secret or private
+note in the history; the author email in commit metadata is public and was
+kept, since rewriting history would break the seal's commit trail), with
+`v1.0.0` tagged and released, topics and homepage set, secret scanning with
+push protection on, and a ruleset refusing force pushes and deletion of
+`main`. The site's card is `live` with the dashboard as its demo. Still
+Peter's: the Kaggle forum post.
 
 **What go-live now waits on**, all in `docs/go-live.md`: (1) Peter's go to
 roll the new image onto the pre-live stack (a `terraform apply` for the
