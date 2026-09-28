@@ -7,13 +7,17 @@ at a time, once the day is over and its hours are sealed. The monitors,
 thresholds and trigger are the same objects the replay used (ADR 12, ADR 23);
 what is new is only where the values come from and where the state lives.
 
-**The reference is rebuilt, not shipped.** It is the champion's training
-window, as the replay's was: the first seven days of the synthetic stream the
-champion was fitted on, served through the engine and scored by the champion,
-with the same hash draw. That is deterministic, so the instance builds it
-once from the code in its image (`build_reference`) and keeps it on the data
-volume, and anyone can rebuild the same arrays. It is tens of megabytes, too
-large to commit.
+**The reference is the live window's own first full days** (ADR 29). It
+was the champion's training window at first, as the replay's was; checked on
+2026-09-28, a baseline stream drawn with any other seed than the one it was
+built from flagged six features every day (PSI up to 0.59), because the seed
+draws the population, and the live stream is another population from the
+champion's scaled one. So the reference is two consecutive days of the live
+window on full features, both inside its first seven days, which the public
+design of the schedule guarantees are the first regime (`MIN_REGIME_DAYS`),
+at baseline levels. Judging starts the day after. After a promotion the
+reference is rebuilt the same way from the two days after the change, since
+the champion's score is one of the quantities.
 
 **A day the scorer spent on thin features is not judged.** A scorer that
 starts with empty feature windows serves counts that are too low until the
@@ -74,6 +78,24 @@ minutes after it closes (ADR 18), and this leaves room for a replacement."""
 
 STARTS_FILE: Final = "starts.jsonl"
 """The scorer's record of its starts, beside its saved state (ADR 27)."""
+
+LIVE_SAMPLE_RATE: Final = 0.0006
+"""Share of a live day judged: about 52,000 transactions at the live rate, the
+sample ADR 23's replays judged a day on (3 percent of a scaled day)."""
+
+REFERENCE_DAY_COUNT: Final = 2
+"""Consecutive days the reference is built from: two, so it holds two days'
+hourly wobble and not one."""
+
+
+MIN_REFERENCE_HOURS: Final = 20
+"""Hours of a day that must hold decisions for it to be a reference day: a day
+the scorer spent mostly stopped is not the stream's baseline."""
+
+
+class ReferenceUnavailableError(RuntimeError):
+    """Raised when no run of full-feature days fits where a reference must come from."""
+
 
 _QUANTITIES: Final = tuple(spec.name for spec in FEATURE_SET)
 _META: Final = "__meta__"
@@ -282,6 +304,99 @@ def day_window(
         name: np.concatenate(parts) if parts else np.empty(0, dtype=np.float64)
         for name, parts in kept.items()
     }
+
+
+def reference_days(
+    paths: HistoryPaths,
+    since: dt.datetime,
+    starts: Iterable[Start],
+    now: dt.datetime,
+    *,
+    within: dt.timedelta | None = None,
+    count: int = REFERENCE_DAY_COUNT,
+) -> list[dt.date] | None:
+    """The days to build the reference from, once they are over and sealed.
+
+    The earliest `count` consecutive whole days from `since` on which the
+    scorer served full features (no cold start within `COLD_REACH`).
+
+    Args:
+        paths: The history root.
+        since: The earliest moment the reference may start from: the
+            window's start, or the champion's last change.
+        starts: The scorer's starts.
+        now: The time.
+        within: If given, the days must end within this long of `since`:
+            the first regime's guaranteed length, at the window's start.
+        count: How many days.
+
+    Returns:
+        The days, or None if they are not all over and sealed yet.
+
+    Raises:
+        ReferenceUnavailableError: If no run of full-feature days fits
+            inside `within`, so no reference can be built there at all.
+    """
+    starts = list(starts)
+    day = first_whole_day(since)
+    while True:
+        chosen = [day + dt.timedelta(days=offset) for offset in range(count)]
+        ends = _midnight(chosen[-1]) + dt.timedelta(days=1)
+        if within is not None and ends > since + within:
+            msg = (
+                f"no {count} consecutive days on full features ended within {within} of "
+                f"{since.isoformat()}; the drift monitors have no reference and judge nothing"
+            )
+            raise ReferenceUnavailableError(msg)
+        if any(cold_during(candidate, starts) for candidate in chosen):
+            day += dt.timedelta(days=1)
+            continue
+        if not all(day_ready(paths, candidate, now) for candidate in chosen):
+            return None
+        if any(sealed_hours(paths, candidate) < MIN_REFERENCE_HOURS for candidate in chosen):
+            day += dt.timedelta(days=1)  # over, and too sparse ever to be a reference
+            continue
+        return chosen
+
+
+def sealed_hours(paths: HistoryPaths, day: dt.date) -> int:
+    """How many of a day's hours have sealed staged decisions.
+
+    Args:
+        paths: The history root.
+        day: The day.
+
+    Returns:
+        The count, 0 to 24.
+    """
+    return sum((paths.staged / f"{_hour_key(day, hour)}.parquet").exists() for hour in range(24))
+
+
+def reference_from_history(
+    paths: HistoryPaths, days: Iterable[dt.date], *, rate: float = 2 * LIVE_SAMPLE_RATE
+) -> Reference:
+    """A reference from days of staged decisions.
+
+    Args:
+        paths: The history root.
+        days: The days.
+        rate: Share of each day kept.
+
+    Returns:
+        The reference.
+
+    Raises:
+        ValueError: If the days hold no decisions.
+    """
+    parts: dict[str, list[FloatArray]] = {}
+    for day in days:
+        for name, values in day_window(paths, day, rate=rate).items():
+            parts.setdefault(name, []).append(values)
+    window = {name: np.concatenate(values) for name, values in parts.items()}
+    if not window or not window[SCORE].size:
+        msg = "the reference days hold no decisions"
+        raise ValueError(msg)
+    return Reference(window)
 
 
 def thin_day(day: dt.date, reference: Reference) -> DailyReport:
@@ -564,7 +679,8 @@ def watch_once(
     starts: list[Start],
     now: dt.datetime,
     answered: bool = False,
-    rate: float = SAMPLE_RATE,
+    rate: float = LIVE_SAMPLE_RATE,
+    judge_from: dt.date | None = None,
 ) -> Pass:
     """Judge every finished day not yet judged, then ask the trigger.
 
@@ -579,6 +695,7 @@ def watch_once(
         answered: Whether the open request's latest candidate beat the
             incumbent, from the retraining job's record.
         rate: Share of each day judged.
+        judge_from: The first day judged, the day after the reference's.
 
     Returns:
         What the pass did.
@@ -586,6 +703,8 @@ def watch_once(
     result = Pass()
     judged = state.judged()
     day = first_whole_day(since)
+    if judge_from is not None and judge_from > day:
+        day = judge_from
     while _midnight(day) + dt.timedelta(days=1) <= now:
         if day not in judged:
             if not day_ready(paths, day, now):

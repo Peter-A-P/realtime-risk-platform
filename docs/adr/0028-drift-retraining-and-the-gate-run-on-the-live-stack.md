@@ -136,3 +136,10 @@ failed passes in four hours; `docs/failure-modes.md` has a section for each.
   https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
 - XGBoost, the `xgboost-cpu` package: https://pypi.org/project/xgboost-cpu/
 - ADR 11, 12, 18, 23, 24, 26, 27.
+
+## Addendum, 2026-09-28: the reference, and the traffic
+
+The reference the job judges against is the live window's own first two
+days on full features, not the champion's training window rebuilt on the
+instance (ADR 29, which has the check that found it); a day is judged on
+about 52,000 transactions. The live feeds follow a daily cycle.

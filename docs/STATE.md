@@ -205,7 +205,7 @@ rights needed.
 
 ## 4. The decisions that are already made
 
-ADRs 1 to 28, in `docs/adr/`. Read them before reopening anything they cover.
+ADRs 1 to 29, in `docs/adr/`. Read them before reopening anything they cover.
 
 | ADR | Decision | Note |
 |---|---|---|
@@ -235,6 +235,7 @@ ADRs 1 to 28, in `docs/adr/`. Read them before reopening anything they cover.
 | 25 | Two live numbers: latency while serving, leaving out only the recovery after a spot reclaim AWS announced (the notice the boot script's watcher writes to `/data/interruptions`, the window ending on throughput, never latency), and availability with every minute counted, each reclaim and each other stop listed | Peter's call, 2026-09-22, after five reclaims in a day. `verdict observe report` computes both from Prometheus (kept 75 days now) and the notices; the dashboard adds a p99-while-caught-up panel and 60 s and 120 s latency buckets |
 | 27 | The scorer saves its engine to `/data/engine` a slice at a time between batches (at most 2 ms a step, 8 ms apart, a pass every 15 minutes, the final `fsync` on a thread of its own), and a replacement restores the last complete pass and replays the records after it before deciding; each slice records how many records after the pass's start it holds and which events were held back, so the replay folds into each entity only what its slice lacked | Decided 2026-09-26 (Peter chose it over a whole day's replay, about 80 minutes a time, or accepting thin features). Held exact by `tests/test_recovery.py`, which stops a scorer throughout passes; six planted faults caught. Fails towards starting cold. Not yet on the instance |
 | 28 | Drift, retraining and the gate run on the live stack as `verdict models-job`: judges each finished day from staged history against the champion's training window rebuilt on the instance; fits a candidate while a request is open (three finalised days, then every three more) and opens a pull request adding it under its own name as the shadow model; runs the gate on a week of shadow scores and opens a pull request with the verdict. Never merges, deploys, moves the pointer or replaces a model file | Decided 2026-09-27 (Peter chose pull requests opened by the job with a repository-scoped token). Days within 25 h of a cold start are not judged; the shadow model is read from history; tables are bounded by a weighted draw. The token goes in SSM at `/verdict/github-token`; without it the job writes pull requests under `/data/models/work/` |
+| 29 | The live feeds follow a daily cycle (750 to 1,250 a second around 1,000, lowest about 08:00 UTC, highest about 20:00 UTC, an hourly wobble); the live drift reference is the window's own second and third full-feature days, inside the guaranteed first regime, judged from the fourth day | Decided 2026-09-28 (Peter asked for the varying rate). The check for the cycle found that a reference from another population of the same generator flags six features every day, the flat control as much as the cycle (`docs/drift-another-seed-*.json`), so the champion's-training-window reference would have opened a false request within days of go-live |
 | 17 | On the real data a card is `card1` to `card6`, `addr1` and the account start day; there is no device or merchant; the clock starts 2017-12-01 | **Accepted by Peter on 2026-09-19**, all three choices as written: taken by the build session on 2026-09-14 with the measurements in the ADR. Numbered 17 because the plan already assigns 8 to 16. It moved the wire schema to version 2 |
 
 ### Plan amendments made in the same commits as the code
@@ -561,6 +562,14 @@ ms, worst 49): the save's spikes are gone; a pass takes 314 s. The
 replacement's boot restored the GitHub token to the models job, which was
 withheld again until go-live. Peter gave the go for go-live on 2026-09-28,
 to run once the drift check passes.
+
+**2026-09-28: the daily cycle, and the drift reference replaced (ADR 29).**
+Peter asked for a varying rate. Checking that the monitors would not read the
+cycle as drift found that the flat control, under another seed, flagged six
+features every day too: the reference described the champion's scaled
+population, not the live one. The reference is now the live window's own
+second and third days; the Sep 29 development-day check is superseded. Days
+4 to 6 of the window are the monitors' check in place.
 
 **What go-live now waits on**, all in `docs/go-live.md`: (1) Peter's go to
 roll the new image onto the pre-live stack (a `terraform apply` for the

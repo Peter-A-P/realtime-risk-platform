@@ -112,3 +112,11 @@ The live dashboard is Grafana (week 7), which reads these numbers directly.
   Society B, 1970. https://doi.org/10.1111/j.2517-6161.1970.tb00821.x
 - Evidently documentation, for the option not taken.
   https://docs.evidentlyai.com/
+
+## Addendum, 2026-09-28: the live window's reference is its own first days
+
+On the live window the fixed reference is no longer the champion's training
+window but the window's own first two days on full features, inside its
+guaranteed first regime (ADR 29): a reference from another population of the
+same generator flagged six features every day. The thresholds are
+unchanged.

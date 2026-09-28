@@ -98,7 +98,8 @@ class Job:
     Attributes:
         paths: The history root.
         state_dir: Where the job keeps its state.
-        reference: The drift monitors' fixed reference.
+        reference: The drift monitors' fixed reference; None while it
+            cannot be built yet, when no day is judged.
         since: The live window's start.
         starts_file: The scorer's record of its starts.
         champion_path: The incumbent champion's ONNX file.
@@ -108,11 +109,13 @@ class Job:
         clock: The time.
         fit: Fits a candidate; the retraining job's `retrain` by default.
         gate: Runs the promotion gate on shadow rows.
+        judge_from: The first day the monitors judge: the day after the
+            reference's days.
     """
 
     paths: HistoryPaths
     state_dir: Path
-    reference: Reference
+    reference: Reference | None
     since: dt.datetime
     starts_file: Path
     champion_path: Path
@@ -121,6 +124,7 @@ class Job:
     clock: Callable[[], dt.datetime] = field(default=lambda: dt.datetime.now(dt.UTC))
     fit: Callable[..., dict[str, Any]] | None = None
     gate: Callable[..., Any] | None = None
+    judge_from: dt.date | None = None
 
     @property
     def drift_state(self) -> drift_live.DriftState:
@@ -148,20 +152,24 @@ def run_pass(job: Job) -> dict[str, Any]:
     answered = open_request is not None and any(
         c["beats_incumbent"] for c in job.models_state.candidates_for(open_request.opened_on)
     )
-    judged = drift_live.watch_once(
-        job.paths,
-        job.drift_state,
-        job.reference,
-        since=job.since,
-        starts=drift_live.read_starts(job.starts_file),
-        now=now,
-        answered=answered,
-    )
-    said["judged"] = [(day.isoformat(), cold) for day, cold in judged.judged]
-    if judged.opened is not None:
-        said["opened"] = judged.opened.opened_on.isoformat()
-    if judged.closed is not None:
-        said["closed"] = str(judged.closed)
+    if job.reference is None:
+        said["judged"] = "no reference yet"
+    else:
+        judged = drift_live.watch_once(
+            job.paths,
+            job.drift_state,
+            job.reference,
+            since=job.since,
+            starts=drift_live.read_starts(job.starts_file),
+            now=now,
+            answered=answered,
+            judge_from=job.judge_from,
+        )
+        said["judged"] = [(day.isoformat(), cold) for day, cold in judged.judged]
+        if judged.opened is not None:
+            said["opened"] = judged.opened.opened_on.isoformat()
+        if judged.closed is not None:
+            said["closed"] = str(judged.closed)
 
     finalised = [day for day in models_live.finalised_days(job.paths) if day >= job.since.date()]
     request = job.drift_state.open_request()

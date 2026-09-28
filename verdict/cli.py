@@ -1778,12 +1778,11 @@ def models_job(
     from prometheus_client import start_http_server
 
     from verdict.drift import live as drift_live
+    from verdict.events.generator.regimes import MIN_REGIME_DAYS
     from verdict.history.compact import HistoryPaths
     from verdict.live.github import GitHub, urllib_transport
     from verdict.live.models_job import Job, JobMetrics, run_pass
-    from verdict.models.champion import SYNTHETIC, synthetic_records
     from verdict.scoring.flags import read_pointer
-    from verdict.scoring.onnx_model import OnnxModel
     from verdict.scoring.registry import path_of
 
     nice = getattr(os, "nice", None)
@@ -1800,31 +1799,51 @@ def models_job(
 
     while True:
         try:
-            champion = read_pointer(flag).champion
+            pointer = read_pointer(flag)
+            champion = pointer.champion
             champion_path = path_of(champion)
+            # The reference is the live window's first two days on full
+            # features, inside the first regime; after a promotion, the two
+            # days after it (ADR 29).
+            changed = (
+                dt.datetime.fromisoformat(pointer.changed_at) if pointer.changed_at else window
+            )
+            promoted = changed > window
+            ref_since = changed if promoted else window
+            paths = HistoryPaths(history)
             reference_path = state / drift_live.REFERENCE_FILE
-            reference = None
+            reference, judge_from = None, None
             if reference_path.exists():
-                reference, meta = drift_live.load_reference(reference_path)
-                if meta.get("champion") != champion:
-                    reference = None
+                kept, meta = drift_live.load_reference(reference_path)
+                if meta.get("champion") == champion and meta.get("since") == ref_since.isoformat():
+                    reference = kept
+                    judge_from = dt.date.fromisoformat(meta["days"][-1]) + dt.timedelta(days=1)
             if reference is None:
-                typer.echo(f"building the drift reference for {champion}; this takes a while")
-                cutoff = SYNTHETIC.start_time + dt.timedelta(days=drift_live.REFERENCE_DAYS)
-                reference = drift_live.build_reference(
-                    synthetic_records(drift_live.REFERENCE_DAYS),
-                    model=OnnxModel(champion_path),
-                    cutoff=cutoff,
+                days = drift_live.reference_days(
+                    paths,
+                    ref_since,
+                    drift_live.read_starts(starts),
+                    dt.datetime.now(dt.UTC),
+                    within=None if promoted else dt.timedelta(days=MIN_REGIME_DAYS),
                 )
-                drift_live.save_reference(
-                    reference,
-                    reference_path,
-                    meta={"champion": champion, "cutoff": cutoff.isoformat()},
-                )
+                if days is not None:
+                    reference = drift_live.reference_from_history(paths, days)
+                    drift_live.save_reference(
+                        reference,
+                        reference_path,
+                        meta={
+                            "champion": champion,
+                            "since": ref_since.isoformat(),
+                            "days": [day.isoformat() for day in days],
+                        },
+                    )
+                    judge_from = days[-1] + dt.timedelta(days=1)
+                    typer.echo(f"drift reference built from {days[0]} and {days[-1]}")
             job = Job(
-                paths=HistoryPaths(history),
+                paths=paths,
                 state_dir=state,
                 reference=reference,
+                judge_from=judge_from,
                 since=window,
                 starts_file=starts,
                 champion_path=champion_path,

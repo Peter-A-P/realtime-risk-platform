@@ -1,0 +1,615 @@
+{
+  "track": "synthetic, offline replay",
+  "reference": {
+    "champion": "champion-8d960d985749",
+    "cutoff": "2027-01-08T00:00:00+00:00"
+  },
+  "stream": {
+    "seed": 20270202,
+    "daily_cycle": null,
+    "days": 6.0,
+    "judged_from_day": 2
+  },
+  "days": [
+    {
+      "day": "2027-01-03",
+      "results": [
+        {
+          "name": "card_amount_max_24h",
+          "values": 53300,
+          "psi": 0.0526,
+          "ks_statistic": 0.0867,
+          "ks_p_value": 1.3295244314648324e-305,
+          "status": "stable"
+        },
+        {
+          "name": "card_amount_mean_24h",
+          "values": 53300,
+          "psi": 0.272,
+          "ks_statistic": 0.1841,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "card_amount_sum_1h",
+          "values": 53300,
+          "psi": 0.0128,
+          "ks_statistic": 0.0373,
+          "ks_p_value": 8.763915211816063e-57,
+          "status": "stable"
+        },
+        {
+          "name": "card_distinct_merchants_24h",
+          "values": 53300,
+          "psi": 0.1182,
+          "ks_statistic": 0.1209,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "card_seconds_since_last",
+          "values": 53300,
+          "psi": 0.0005,
+          "ks_statistic": 0.0058,
+          "ks_p_value": 0.08192280129583908,
+          "status": "stable"
+        },
+        {
+          "name": "card_txn_count_1h",
+          "values": 53300,
+          "psi": 0.0015,
+          "ks_statistic": 0.0105,
+          "ks_p_value": 6.58834688987339e-05,
+          "status": "stable"
+        },
+        {
+          "name": "card_txn_count_24h",
+          "values": 53300,
+          "psi": 0.0371,
+          "ks_statistic": 0.0577,
+          "ks_p_value": 1.611166829437694e-135,
+          "status": "stable"
+        },
+        {
+          "name": "device_amount_mean_1h",
+          "values": 53300,
+          "psi": 0.0931,
+          "ks_statistic": 0.1286,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "device_distinct_cards_1h",
+          "values": 53300,
+          "psi": 0.0029,
+          "ks_statistic": 0.0148,
+          "ks_p_value": 2.369899853989056e-09,
+          "status": "stable"
+        },
+        {
+          "name": "device_distinct_cards_24h",
+          "values": 53300,
+          "psi": 0.0292,
+          "ks_statistic": 0.0476,
+          "ks_p_value": 2.1633483042405755e-92,
+          "status": "stable"
+        },
+        {
+          "name": "device_txn_count_1h",
+          "values": 53300,
+          "psi": 0.0043,
+          "ks_statistic": 0.0199,
+          "ks_p_value": 1.6700553432325276e-16,
+          "status": "stable"
+        },
+        {
+          "name": "merchant_amount_mean_1h",
+          "values": 53300,
+          "psi": 0.4336,
+          "ks_statistic": 0.187,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "merchant_distinct_cards_1h",
+          "values": 53300,
+          "psi": 0.253,
+          "ks_statistic": 0.138,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "merchant_txn_count_1h",
+          "values": 53300,
+          "psi": 0.5183,
+          "ks_statistic": 0.1825,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "score",
+          "values": 53300,
+          "psi": 0.0516,
+          "ks_statistic": 0.0906,
+          "ks_p_value": 0.0,
+          "status": "stable"
+        },
+        {
+          "name": "session_amount_sum",
+          "values": 53300,
+          "psi": 0.0011,
+          "ks_statistic": 0.0074,
+          "ks_p_value": 0.012171902661917245,
+          "status": "stable"
+        },
+        {
+          "name": "session_txn_count",
+          "values": 53300,
+          "psi": 0.0006,
+          "ks_statistic": 0.0025,
+          "ks_p_value": 0.9245621280185503,
+          "status": "stable"
+        }
+      ]
+    },
+    {
+      "day": "2027-01-04",
+      "results": [
+        {
+          "name": "card_amount_max_24h",
+          "values": 53307,
+          "psi": 0.0427,
+          "ks_statistic": 0.0773,
+          "ks_p_value": 4.070508026088846e-243,
+          "status": "stable"
+        },
+        {
+          "name": "card_amount_mean_24h",
+          "values": 53307,
+          "psi": 0.2815,
+          "ks_statistic": 0.1818,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "card_amount_sum_1h",
+          "values": 53307,
+          "psi": 0.011,
+          "ks_statistic": 0.0364,
+          "ks_p_value": 3.407275576185597e-54,
+          "status": "stable"
+        },
+        {
+          "name": "card_distinct_merchants_24h",
+          "values": 53307,
+          "psi": 0.1192,
+          "ks_statistic": 0.1259,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "card_seconds_since_last",
+          "values": 53307,
+          "psi": 0.0005,
+          "ks_statistic": 0.0042,
+          "ks_p_value": 0.3890761060035169,
+          "status": "stable"
+        },
+        {
+          "name": "card_txn_count_1h",
+          "values": 53307,
+          "psi": 0.0011,
+          "ks_statistic": 0.0099,
+          "ks_p_value": 0.00022419797411372787,
+          "status": "stable"
+        },
+        {
+          "name": "card_txn_count_24h",
+          "values": 53307,
+          "psi": 0.0357,
+          "ks_statistic": 0.0599,
+          "ks_p_value": 6.74868555842884e-146,
+          "status": "stable"
+        },
+        {
+          "name": "device_amount_mean_1h",
+          "values": 53307,
+          "psi": 0.0973,
+          "ks_statistic": 0.1307,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "device_distinct_cards_1h",
+          "values": 53307,
+          "psi": 0.0019,
+          "ks_statistic": 0.011,
+          "ks_p_value": 2.5706505775654232e-05,
+          "status": "stable"
+        },
+        {
+          "name": "device_distinct_cards_24h",
+          "values": 53307,
+          "psi": 0.0295,
+          "ks_statistic": 0.0538,
+          "ks_p_value": 6.9190381849208835e-118,
+          "status": "stable"
+        },
+        {
+          "name": "device_txn_count_1h",
+          "values": 53307,
+          "psi": 0.0033,
+          "ks_statistic": 0.0177,
+          "ks_p_value": 3.292361929716315e-13,
+          "status": "stable"
+        },
+        {
+          "name": "merchant_amount_mean_1h",
+          "values": 53307,
+          "psi": 0.4896,
+          "ks_statistic": 0.1885,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "merchant_distinct_cards_1h",
+          "values": 53307,
+          "psi": 0.2359,
+          "ks_statistic": 0.1376,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "merchant_txn_count_1h",
+          "values": 53307,
+          "psi": 0.5704,
+          "ks_statistic": 0.1878,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "score",
+          "values": 53307,
+          "psi": 0.0468,
+          "ks_statistic": 0.086,
+          "ks_p_value": 8.415522815951227e-301,
+          "status": "stable"
+        },
+        {
+          "name": "session_amount_sum",
+          "values": 53307,
+          "psi": 0.0012,
+          "ks_statistic": 0.0066,
+          "ks_p_value": 0.034546554598832845,
+          "status": "stable"
+        },
+        {
+          "name": "session_txn_count",
+          "values": 53307,
+          "psi": 0.0007,
+          "ks_statistic": 0.0027,
+          "ks_p_value": 0.893379146675846,
+          "status": "stable"
+        }
+      ]
+    },
+    {
+      "day": "2027-01-05",
+      "results": [
+        {
+          "name": "card_amount_max_24h",
+          "values": 53454,
+          "psi": 0.0544,
+          "ks_statistic": 0.0801,
+          "ks_p_value": 1.0150257367829646e-261,
+          "status": "stable"
+        },
+        {
+          "name": "card_amount_mean_24h",
+          "values": 53454,
+          "psi": 0.2815,
+          "ks_statistic": 0.1871,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "card_amount_sum_1h",
+          "values": 53454,
+          "psi": 0.0121,
+          "ks_statistic": 0.0368,
+          "ks_p_value": 2.0575735227299122e-55,
+          "status": "stable"
+        },
+        {
+          "name": "card_distinct_merchants_24h",
+          "values": 53454,
+          "psi": 0.1163,
+          "ks_statistic": 0.122,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "card_seconds_since_last",
+          "values": 53454,
+          "psi": 0.0004,
+          "ks_statistic": 0.0041,
+          "ks_p_value": 0.4134259592170471,
+          "status": "stable"
+        },
+        {
+          "name": "card_txn_count_1h",
+          "values": 53454,
+          "psi": 0.0013,
+          "ks_statistic": 0.0102,
+          "ks_p_value": 0.00011273036838429614,
+          "status": "stable"
+        },
+        {
+          "name": "card_txn_count_24h",
+          "values": 53454,
+          "psi": 0.0342,
+          "ks_statistic": 0.0582,
+          "ks_p_value": 2.3601257795736072e-138,
+          "status": "stable"
+        },
+        {
+          "name": "device_amount_mean_1h",
+          "values": 53454,
+          "psi": 0.0983,
+          "ks_statistic": 0.1335,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "device_distinct_cards_1h",
+          "values": 53454,
+          "psi": 0.0018,
+          "ks_statistic": 0.0139,
+          "ks_p_value": 3.0337980410204706e-08,
+          "status": "stable"
+        },
+        {
+          "name": "device_distinct_cards_24h",
+          "values": 53454,
+          "psi": 0.0314,
+          "ks_statistic": 0.0503,
+          "ks_p_value": 3.418889072937245e-103,
+          "status": "stable"
+        },
+        {
+          "name": "device_txn_count_1h",
+          "values": 53454,
+          "psi": 0.0043,
+          "ks_statistic": 0.0187,
+          "ks_p_value": 1.0283543776376961e-14,
+          "status": "stable"
+        },
+        {
+          "name": "merchant_amount_mean_1h",
+          "values": 53454,
+          "psi": 0.4302,
+          "ks_statistic": 0.1763,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "merchant_distinct_cards_1h",
+          "values": 53454,
+          "psi": 0.2404,
+          "ks_statistic": 0.1351,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "merchant_txn_count_1h",
+          "values": 53454,
+          "psi": 0.5865,
+          "ks_statistic": 0.1893,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "score",
+          "values": 53454,
+          "psi": 0.0602,
+          "ks_statistic": 0.0997,
+          "ks_p_value": 0.0,
+          "status": "stable"
+        },
+        {
+          "name": "session_amount_sum",
+          "values": 53454,
+          "psi": 0.0016,
+          "ks_statistic": 0.0072,
+          "ks_p_value": 0.015207580831005537,
+          "status": "stable"
+        },
+        {
+          "name": "session_txn_count",
+          "values": 53454,
+          "psi": 0.0006,
+          "ks_statistic": 0.0022,
+          "ks_p_value": 0.9770490320957791,
+          "status": "stable"
+        }
+      ]
+    },
+    {
+      "day": "2027-01-06",
+      "results": [
+        {
+          "name": "card_amount_max_24h",
+          "values": 53224,
+          "psi": 0.059,
+          "ks_statistic": 0.1006,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "card_amount_mean_24h",
+          "values": 53224,
+          "psi": 0.2703,
+          "ks_statistic": 0.184,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "card_amount_sum_1h",
+          "values": 53224,
+          "psi": 0.0137,
+          "ks_statistic": 0.0383,
+          "ks_p_value": 8.653286969329831e-60,
+          "status": "stable"
+        },
+        {
+          "name": "card_distinct_merchants_24h",
+          "values": 53224,
+          "psi": 0.1267,
+          "ks_statistic": 0.1336,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "card_seconds_since_last",
+          "values": 53224,
+          "psi": 0.0006,
+          "ks_statistic": 0.0043,
+          "ks_p_value": 0.34299744552226397,
+          "status": "stable"
+        },
+        {
+          "name": "card_txn_count_1h",
+          "values": 53224,
+          "psi": 0.0016,
+          "ks_statistic": 0.0119,
+          "ks_p_value": 3.8864842423962685e-06,
+          "status": "stable"
+        },
+        {
+          "name": "card_txn_count_24h",
+          "values": 53224,
+          "psi": 0.0348,
+          "ks_statistic": 0.0592,
+          "ks_p_value": 1.0970572908211289e-142,
+          "status": "stable"
+        },
+        {
+          "name": "device_amount_mean_1h",
+          "values": 53224,
+          "psi": 0.0918,
+          "ks_statistic": 0.1275,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "device_distinct_cards_1h",
+          "values": 53224,
+          "psi": 0.0023,
+          "ks_statistic": 0.0163,
+          "ks_p_value": 3.147189781944348e-11,
+          "status": "stable"
+        },
+        {
+          "name": "device_distinct_cards_24h",
+          "values": 53224,
+          "psi": 0.039,
+          "ks_statistic": 0.0673,
+          "ks_p_value": 7.762254149835057e-184,
+          "status": "stable"
+        },
+        {
+          "name": "device_txn_count_1h",
+          "values": 53224,
+          "psi": 0.0036,
+          "ks_statistic": 0.0197,
+          "ks_p_value": 4.081233429580435e-16,
+          "status": "stable"
+        },
+        {
+          "name": "merchant_amount_mean_1h",
+          "values": 53224,
+          "psi": 0.4644,
+          "ks_statistic": 0.1834,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "merchant_distinct_cards_1h",
+          "values": 53224,
+          "psi": 0.2462,
+          "ks_statistic": 0.1381,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "merchant_txn_count_1h",
+          "values": 53224,
+          "psi": 0.5023,
+          "ks_statistic": 0.1851,
+          "ks_p_value": 0.0,
+          "status": "drifted"
+        },
+        {
+          "name": "score",
+          "values": 53224,
+          "psi": 0.0551,
+          "ks_statistic": 0.0941,
+          "ks_p_value": 0.0,
+          "status": "stable"
+        },
+        {
+          "name": "session_amount_sum",
+          "values": 53224,
+          "psi": 0.0013,
+          "ks_statistic": 0.0084,
+          "ks_p_value": 0.0026506023526513822,
+          "status": "stable"
+        },
+        {
+          "name": "session_txn_count",
+          "values": 53224,
+          "psi": 0.0005,
+          "ks_statistic": 0.0027,
+          "ks_p_value": 0.8813010459779869,
+          "status": "stable"
+        }
+      ]
+    }
+  ],
+  "drifted": {
+    "2027-01-03": [
+      "card_amount_mean_24h",
+      "card_distinct_merchants_24h",
+      "device_amount_mean_1h",
+      "merchant_amount_mean_1h",
+      "merchant_distinct_cards_1h",
+      "merchant_txn_count_1h"
+    ],
+    "2027-01-04": [
+      "card_amount_mean_24h",
+      "card_distinct_merchants_24h",
+      "device_amount_mean_1h",
+      "merchant_amount_mean_1h",
+      "merchant_distinct_cards_1h",
+      "merchant_txn_count_1h"
+    ],
+    "2027-01-05": [
+      "card_amount_mean_24h",
+      "card_distinct_merchants_24h",
+      "device_amount_mean_1h",
+      "merchant_amount_mean_1h",
+      "merchant_distinct_cards_1h",
+      "merchant_txn_count_1h"
+    ],
+    "2027-01-06": [
+      "card_amount_max_24h",
+      "card_amount_mean_24h",
+      "card_distinct_merchants_24h",
+      "device_amount_mean_1h",
+      "merchant_amount_mean_1h",
+      "merchant_distinct_cards_1h",
+      "merchant_txn_count_1h"
+    ]
+  },
+  "note": "Run on the live instance on 2026-09-28: a fresh synthetic stream (another seed, the champion's scaled configuration, days 2 to 5 of a 6-day replay, all before the first regime change) judged against the reference the models job had built from the champion's training window. Both the flat control and the daily-cycle stream flag six features every day: the seed draws the population (each card's and merchant's typical amounts, which merchants are busy), and the reference is one population. ADR 29."
+}

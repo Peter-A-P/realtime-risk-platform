@@ -18,6 +18,7 @@ import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 
 from verdict.drift import live
 from verdict.drift.monitors import SCORE, Reference, Status
@@ -253,3 +254,65 @@ def test_the_reference_is_the_stream_before_the_cutoff_and_nothing_after() -> No
     before = sum(1 for record in records if record.event.event_time < cutoff)
     assert reference.window[SCORE].size == before
     assert set(reference.names) == {*NAMES, SCORE}
+
+
+# --- the reference from the live window (ADR 29) ------------------------------------
+
+
+def test_the_reference_is_the_first_two_days_on_full_features(tmp_path: Path) -> None:
+    paths = HistoryPaths(tmp_path)
+    days = [FIRST + dt.timedelta(days=n) for n in range(4)]
+    for day in days:
+        stage_day(paths, day)
+    week = dt.timedelta(days=7)
+    assert live.reference_days(paths, WINDOW, [], after(days[1]), within=week) == days[:2]
+    assert live.reference_days(paths, WINDOW, [], after(days[0]), within=week) is None
+    # A cold start on the first day moves the reference past its reach.
+    cold = [live.Start(dt.datetime(2026, 10, 2, 12, tzinfo=dt.UTC), restored=False)]
+    assert live.reference_days(paths, WINDOW, cold, after(days[3]), within=week) == days[2:4]
+
+
+def test_no_reference_is_built_outside_the_first_regime(tmp_path: Path) -> None:
+    """The first seven days are the only ones the design promises are one regime."""
+    paths = HistoryPaths(tmp_path)
+    colds = [
+        live.Start(dt.datetime(2026, 10, 1, 16, tzinfo=dt.UTC) + dt.timedelta(days=n), False)
+        for n in range(7)
+    ]
+    with pytest.raises(live.ReferenceUnavailableError, match="no reference"):
+        live.reference_days(
+            paths, WINDOW, colds, after(FIRST, hours=200), within=dt.timedelta(days=7)
+        )
+    # After a promotion there is no deadline: the days after it will do.
+    assert live.reference_days(paths, WINDOW, colds, after(FIRST, hours=200)) is None
+
+
+def test_a_reference_from_history_is_the_same_draw_of_its_days(tmp_path: Path) -> None:
+    paths = HistoryPaths(tmp_path)
+    days = [FIRST, FIRST + dt.timedelta(days=1)]
+    for day in days:
+        stage_day(paths, day, rows=24_000)
+    reference = live.reference_from_history(paths, days, rate=0.05)
+    expected = sum(live.day_window(paths, day, rate=0.05)[SCORE].size for day in days)
+    assert reference.window[SCORE].size == expected
+    assert set(reference.names) == {*NAMES, SCORE}
+    with pytest.raises(ValueError, match="no decisions"):
+        live.reference_from_history(paths, [FIRST + dt.timedelta(days=9)])
+
+
+def test_judging_starts_after_the_reference_days(tmp_path: Path) -> None:
+    paths, state = HistoryPaths(tmp_path / "h"), live.DriftState(tmp_path / "d")
+    days = [FIRST + dt.timedelta(days=n) for n in range(3)]
+    for day in days:
+        stage_day(paths, day)
+    judged = live.watch_once(
+        paths,
+        state,
+        a_reference(),
+        since=WINDOW,
+        starts=[],
+        now=after(days[2]),
+        rate=1.0,
+        judge_from=days[2],
+    ).judged
+    assert judged == [(days[2], False)]

@@ -356,3 +356,18 @@ def test_the_gate_opens_one_pull_request_with_its_verdict(tmp_path: Path) -> Non
     assert not any(path.startswith("verdict/") for path in fake.committed())
     assert "verdict" not in models_job.run_pass(job)
     assert len(fake.pulls) == 1
+
+
+def test_a_pass_with_no_reference_yet_judges_nothing_and_still_runs(tmp_path: Path) -> None:
+    job = models_job.Job(
+        paths=HistoryPaths(tmp_path / "history"),
+        state_dir=tmp_path / "state",
+        reference=None,
+        since=dt.datetime(2026, 10, 2, tzinfo=dt.UTC),
+        starts_file=tmp_path / "starts.jsonl",
+        champion_path=ARTIFACTS / "champion.onnx",
+        shadow_path=None,
+        github=None,
+        clock=lambda: dt.datetime(2026, 10, 3, tzinfo=dt.UTC),
+    )
+    assert models_job.run_pass(job)["judged"] == "no reference yet"
