@@ -595,10 +595,9 @@ the standard of the other demos, with the dashboard linked at its very top.
 `site/` is that page, its data exported from the committed reports by
 `verdict site-export`; it is deployed to the Static Web App
 `fraud-peterparker-ca` (rg-portfolio, free plan) and serves at
-https://polite-river-0588f880f.3.azurestaticapps.net. **Waiting on Peter:**
-the Cloudflare CNAME `fraud` to that hostname, DNS only; then `az
-staticwebapp hostname set` (docs/site.md) and the site's card points its
-demo at the new name.
+https://fraud.peterparker.ca (Peter added the Cloudflare CNAME, DNS only,
+the same day; Azure validated it and issued the certificate), and the
+site's card points its demo there.
 
 **Day one's spot reclaims.** AWS reclaimed the instance five times on
 2026-09-28 (11:46, 13:56, 16:20 and 16:26 notices, one replacement lasting
