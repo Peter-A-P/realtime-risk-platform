@@ -15,19 +15,25 @@ This is a platform, not a fraud model. The model is the least interesting part.
 
 ## Result
 
-The summary table below is still to be filled from what has been measured; the sections
-under it hold those measurements, each naming its track. The live window fills the last table.
+The first table gathers the platform's properties from the committed reports; the sections
+under it say how each was measured. The live window fills the last table when it ends.
 
 **Platform properties (replay and load tests)**
 
-| Decision latency p50 / p95 / p99 ms (95% CI) | Hop breakdown | Online/offline parity | Leak caught (commit, PR-AUC inflation) | Rollback drill (s, 5 runs) | Queue: $ caught per analyst-hour, expected loss vs score (95% CI) |
-|---|---|---|---|---|---|
-| _not yet_ | | | | | |
+| Property | Result (95% CI) | Track | Source |
+|---|---|---|---|
+| Decision latency p50 / p95 / p99, at 1,000 transactions a second | 6.2 (6.2 to 6.2) / 7.9 (7.9 to 7.9) / **8.4 (8.3 to 8.4) ms**, against a 50 ms budget | synthetic, on the live instance, 5 runs | [loadtest-live-1000.json](docs/loadtest-live-1000.json) |
+| Throughput kept up with, one scorer on one partition | **4,000 transactions a second** in all 5 runs, p99 37.3 (8.2 to 66.4) ms; the ceiling is higher and not measured | synthetic, on the live instance | [loadtest-live-4000.json](docs/loadtest-live-4000.json) |
+| Hop breakdown at p99 | stream in 7.76 (7.71 to 7.80), features 0.19 (0.19 to 0.19), model 0.56 (0.54 to 0.57), decision 0.04 (0.04 to 0.04), write 0.02 (0.02 to 0.02) ms | synthetic, on the live instance | [loadtest-live-1000.json](docs/loadtest-live-1000.json) |
+| Online/offline parity | 100%: every value in the online store equals the offline store's after a replay, from one write path | synthetic replay | [tests/test_parity.py](tests/test_parity.py) |
+| Leak caught | commit [40e7ca5](docs/leak-caught.md); same-instant events saw each other. PR-AUC inflation on the same model -0.00002 (-0.00004 to -0.000001): 4 of 152,415 test rows change | real data, offline | [leak-inflation.json](docs/leak-inflation.json) |
+| Rollback drill, flag to the old champion deciding | 7.8 (6.5 to 9.1) ms, 5 runs at 1,000 a second, no decision by the rolled-back model after the flag | synthetic, build machine | [rollback-drill.json](docs/rollback-drill.json) |
+| Review queue by expected loss instead of score | **+$97.46 caught per analyst-hour (48.03 to 150.44)**, $266.95 against $169.50 | synthetic, offline replay, 13 days | [queue-eval.json](docs/queue-eval.json) |
 
 **What has been measured: the synthetic live track**
 
-The event generator only. Nothing here is a platform latency or throughput figure, because
-nothing is being scored yet. Build laptop, Windows 11, Python 3.13.15; five runs of 500,000
+The event generator only, measured before anything was scored, so nothing here is a
+platform latency or throughput figure. Build laptop, Windows 11, Python 3.13.15; five runs of 500,000
 events; 95 percent intervals.
 
 | Measurement | Result | Against |
@@ -230,9 +236,9 @@ costs about 0.1 ms at the median in process and about 1 ms through the broker, a
 the scorer's producer adds nothing measurable; the 99th percentile is not settled, because
 two of ten staged runs through the broker held a stall of about a second
 ([docs/latency-budget.md](docs/latency-budget.md)). The rollback flag, drilled five times at
-1,000 transactions a second: the old champion decided 5.8 ms (5.4 to 6.2) after the flag was
-flipped, and the rolled-back model made no decision after it
-([docs/rollback-drill.json](docs/rollback-drill.json)).
+1,000 transactions a second: the old champion decided 7.8 ms (6.5 to 9.1) after the flag was
+flipped, with the build machine 17 to 20 percent busy (5.8 ms on an idle one), and the
+rolled-back model made no decision after it ([docs/rollback-drill.json](docs/rollback-drill.json)).
 
 **The transport comparison.** The same load into the synchronous HTTP endpoint, with no
 broker on either side: over one connection it decided every transaction but ran at its
@@ -286,10 +292,9 @@ in uptime ([ADR 25](docs/adr/0025-latency-while-serving-and-availability-are-two
 - It runs in one region with at-least-once delivery and idempotent decisions. The
   architecture decision records say what changes at ten times the scale.
 
-## What exists so far
+## What is built
 
-The event stream, the test that judges every feature, and the sixteen features it now
-judges, plus the mapping that puts the real data through all three.
+Every piece, where it lives, and what it guarantees.
 
 | Piece | Where | Note |
 |---|---|---|
@@ -301,7 +306,7 @@ judges, plus the mapping that puts the real data through all three.
 | Replay, in time order | [verdict/events/replay.py](verdict/events/replay.py) | Refuses an out-of-order log rather than sorting it quietly |
 | Real data onto events | [verdict/events/ieee_cis_events.py](verdict/events/ieee_cis_events.py) | A card is issuer, product, billing region and account start day. No device or merchant is invented to fill the schema, which is at version 2 so it can say so |
 | Sampled replay check | [verdict/features/replay_check.py](verdict/features/replay_check.py) | The point-in-time check over a replay too large to check in full, sampling cards rather than rows |
-| The scorer | [verdict/scoring/consumer.py](verdict/scoring/consumer.py) | A stream consumer, not an HTTP service ([ADR 8](docs/adr/0008-consumer-scoring.md)). Duplicates are stopped before the feature engine can count them twice, and transactions are checkpointed only after their decisions are on the stream. The model is a stand-in until the real one is trained, and says so in every decision. A record it cannot decide (not a transaction, a newer schema, late in event time) goes to a dead-letter topic with its bytes untouched, where one such record used to stop it for good ([failure modes](docs/failure-modes.md)) |
+| The scorer | [verdict/scoring/consumer.py](verdict/scoring/consumer.py) | A stream consumer, not an HTTP service ([ADR 8](docs/adr/0008-consumer-scoring.md)). Duplicates are stopped before the feature engine can count them twice, and transactions are checkpointed only after their decisions are on the stream. Every decision names the model that made it. A record it cannot decide (not a transaction, a newer schema, late in event time) goes to a dead-letter topic with its bytes untouched, where one such record used to stop it for good ([failure modes](docs/failure-modes.md)) |
 | The scorer as a service | [verdict/scoring/service.py](verdict/scoring/service.py), [verdict/observe/metrics.py](verdict/observe/metrics.py) | `verdict score` runs the consumer until stopped, and a stop never splits a batch: what was consumed is decided and checkpointed first. It serves Prometheus metrics on localhost: decisions by action and model, each hop, flush and checkpoint per batch, batch size, duplicates, records set aside, and the time of the last decision. It drains the per-batch timings the load test keeps, which in a service running for months would have grown by about a gigabyte a day |
 | One decision core, two transports | [verdict/scoring/core.py](verdict/scoring/core.py), [http_api.py](verdict/scoring/http_api.py) | The stream consumer and the HTTP endpoint share every line of the decision, so comparing them compares transports. HTTP has to refuse what the stream never delivers: a transaction older than one already scored |
 | Rollback flag and shadow | [verdict/scoring/flags.py](verdict/scoring/flags.py) | The champion is read from a pointer on every event, so a rollback takes effect on the next one; a bad pointer is refused and scoring carries on. A challenger scores in shadow on the same features, and a challenger that fails cannot touch a decision |
@@ -309,7 +314,7 @@ judges, plus the mapping that puts the real data through all three.
 | Promotion gate | [verdict/models/promote.py](verdict/models/promote.py) | Non-inferiority on the interval bound, never the point estimate, from a paired bootstrap on the labelled shadow window; labels that had not arrived are not evidence; a challenger that declines everything is refused. It writes the pull request's evidence table and never promotes ([ADR 11](docs/adr/0011-shadow-and-promotion.md)) |
 | Review queue | [verdict/review_queue/ranking.py](verdict/review_queue/ranking.py) | Expected-loss ranking against score ranking at fixed analyst capacity, simulated a day at a time, paired by day ([ADR 13](docs/adr/0013-queue-ranking.md)). No policy can read the label, and a test proves the prices cannot reorder the queue |
 | Drift monitors and trigger | [verdict/drift/](verdict/drift/) | PSI and KS per feature and on the score, against a fixed reference, with the "no history" sentinel binned on its own. Thresholds are published conventions fixed before any drift was seen; a retraining request needs the same quantity drifted two days running ([ADR 12](docs/adr/0012-drift-thresholds-and-approval.md)) |
-| Load test | [verdict/scoring/loadtest.py](verdict/scoring/loadtest.py) | Sends at a fixed rate and times every decision per hop, with intervals across runs. On a broker the load producer runs in its own process, joined to the scorer's timings by event id, because in a thread beside the scorer it was most of what the test measured. Every run says where its producer ran, whether a queue stood, and what its batches held. Its first published numbers wait for a quiet machine |
+| Load test | [verdict/scoring/loadtest.py](verdict/scoring/loadtest.py) | Sends at a fixed rate and times every decision per hop, with intervals across runs. On a broker the load producer runs in its own process, joined to the scorer's timings by event id, because in a thread beside the scorer it was most of what the test measured. Every run says where its producer ran, whether a queue stood, and what its batches held. |
 | HTTP load client | [verdict/scoring/httpload.py](verdict/scoring/httpload.py) | The other half of Rule C candidate 3. Starts the endpoint in its own process, offers transactions at a fixed rate over a stated number of connections, and reads the endpoint's own `Server-Timing` back so the round trip splits into hops and transport. It reports how long a transaction waited for a free connection, and what the endpoint refused |
 | Stream parity | [verdict/stream/parity.py](verdict/stream/parity.py) | ADR 3's check that the interface is a fact: the same replay through each stream, every served feature, every transaction as received and every decision read back compared exactly with a run that uses no stream. Shown failing on a planted one-cent change before it was trusted, and not failing on a stream that delivers everything twice, because the scorer's ledger is what makes that safe |
 | Flush probe | [verdict/stream/probe.py](verdict/stream/probe.py) | A measuring instrument, not the platform: times the scorer's flush on a series of fresh connections, from the host and from inside the broker's network. It is what found the 41 ms the host's port forwarder adds to some connections ([ADR 9](docs/adr/0009-latency-budget.md)) |
@@ -321,15 +326,15 @@ judges, plus the mapping that puts the real data through all three.
 | Sixteen feature definitions | [verdict/store/features.py](verdict/store/features.py) | A feature is a specification, not code: card velocity, device and merchant entity-graph counts, session aggregates. The window is `[t - w, t)`, and an event is never part of its own features |
 | Feature store | [verdict/store/repo.py](verdict/store/repo.py) | Feast, generated from the definitions, push sources rather than materialisation |
 | Local stream stack | [deploy/compose/docker-compose.yml](deploy/compose/docker-compose.yml) | Redpanda, three topics created explicitly, auto-creation off and checked at start-up. Its first run found a start-up flag that Redpanda v24.3 rejects |
-| The live stack | [deploy/terraform/](deploy/terraform/), [deploy/live/compose.yml](deploy/live/compose.yml) | One region, one spot instance, no inbound port: the dashboard leaves through a tunnel and a person arrives through Session Manager ([ADR 14](docs/adr/0014-live-in-one-region.md)). Everything is tagged, and `deploy/down.sh` asks the cloud, not Terraform's state, what is left after a teardown. Not yet running |
+| The live stack | [deploy/terraform/](deploy/terraform/), [deploy/live/compose.yml](deploy/live/compose.yml) | One region, one spot instance, no inbound port: the dashboard leaves through a tunnel and a person arrives through Session Manager ([ADR 14](docs/adr/0014-live-in-one-region.md)). Everything is tagged, and `deploy/down.sh` asks the cloud, not Terraform's state, what is left after a teardown. Running since the live window began |
 | What the platform keeps | [verdict/history/](verdict/history/) | Every decision staged with the features it was served before its transaction is checkpointed; once labels are in, every reviewed or declined row and a published sample of the rest, each weighted so totals come out right ([ADR 18](docs/adr/0018-history-is-a-weighted-sample.md)). On a replay the weighted PR-AUC and decision cost match the full data's, and read without the weights they do not |
 | The live feeds | [verdict/live/feed.py](verdict/live/feed.py) | The generator played in real time: each transaction at its event time, each label a week later, from two runs of one deterministic stream. Each feed saves its place, and a run restored after a spot replacement continues byte for byte, sending at least once and skipping nothing ([ADR 15](docs/adr/0015-spot-and-recovery.md)) |
-| Drift, retraining and promotion, live | [verdict/live/models_job.py](verdict/live/models_job.py) | Each finished day of the live window judged against the champion's training window; a retraining candidate fitted when a request is open and a pull request opened for it; the promotion gate run on a week of shadow scores and its verdict opened as a pull request. It never merges, deploys or moves the champion ([ADR 28](docs/adr/0028-drift-retraining-and-the-gate-run-on-the-live-stack.md)) |
+| Drift, retraining and promotion, live | [verdict/live/models_job.py](verdict/live/models_job.py) | Each finished day of the live window judged against the window's own first full days ([ADR 29](docs/adr/0029-traffic-follows-the-day-and-drift-is-judged-against-the-live-baseline.md)); a retraining candidate fitted when a request is open and a pull request opened for it; the promotion gate run on a week of shadow scores and its verdict opened as a pull request. It never merges, deploys or moves the champion ([ADR 28](docs/adr/0028-drift-retraining-and-the-gate-run-on-the-live-stack.md)) |
 | Surviving a replacement | [verdict/scoring/recovery.py](verdict/scoring/recovery.py) | The scorer saves its feature state to the data volume a slice at a time between batches, and a replacement restores it and replays only the records after it, instead of serving every card "no history" for a day. A test stops it throughout a save and holds the restored scorer to an uninterrupted one's features ([ADR 27](docs/adr/0027-the-scorer-saves-its-feature-state-and-restores-from-it.md)) |
 | The public dashboard | [verdict/observe/dashboard.py](verdict/observe/dashboard.py) | Grafana, anonymous and read-only behind the tunnel, provisioned from code. A test checks every panel's query against the metrics the platform exports |
-| Decisions 1 to 28 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; the latency budget and what the host costs; labels arrive late and nothing reads them early; shadow and promotion; drift thresholds; queue ranking; the live stack's shape; surviving a spot replacement; teardown and repeatability; what a card, device and moment are on the real data; history as a weighted sample; the champion and challenger; day-long windows at hourly resolution; harder synthetic fraud; the queue measured on the queue the platform would hold; drift against the schedule's own regimes; retraining that stops at a pull request; latency while serving and availability as two numbers; alerts by email; saved feature state; drift, retraining and the gate on the live stack |
+| Decisions 1 to 29 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; the latency budget and what the host costs; labels arrive late and nothing reads them early; shadow and promotion; drift thresholds; queue ranking; the live stack's shape; surviving a spot replacement; teardown and repeatability; what a card, device and moment are on the real data; history as a weighted sample; the champion and challenger; day-long windows at hourly resolution; harder synthetic fraud; the queue measured on the queue the platform would hold; drift against the schedule's own regimes; retraining that stops at a pull request; latency while serving and availability as two numbers; alerts by email; saved feature state; drift, retraining and the gate on the live stack; live traffic that follows the day, judged against its own baseline |
 
-623 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
+636 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
 
 **The leakage test caught a real leak on the day the first features were written**, which
 is what it was written a week earlier for. Two transactions sharing a timestamp saw each
@@ -363,9 +368,9 @@ explain every choice with its public sources.
 
 ## Part of a portfolio
 
-One of fifteen projects. This is the systems project: scale, latency
-and operations evidence, where the others are about measurement, causal inference,
-retrieval, fine-tuning and compliance.
+One of fifteen projects at [peterparker.ca](https://peterparker.ca). This is the systems
+project: scale, latency and operations evidence, where the others are about measurement,
+causal inference, retrieval, fine-tuning and compliance.
 
 ## How this was built
 
