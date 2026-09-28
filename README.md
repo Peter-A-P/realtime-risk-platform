@@ -6,17 +6,17 @@ the training-versus-production mismatch that quietly breaks most deployed models
 platform around the model is what organisations are actually missing, and this one runs
 live where a hiring manager can watch it.
 
-**Status: building, and the real data now runs through the pipeline.** The plan is in
-[PLAN.md](PLAN.md): build first, then run live at risk.peterparker.ca. Nothing is scored
-yet, so the
-headline tables below are still empty, and they stay empty until the thing they describe
-has actually run.
+**Status: live.** The live window began on 2026-09-28 and runs sixty days at
+https://risk.peterparker.ca, on a regime schedule sealed before it started. The design is
+in [PLAN.md](PLAN.md). The live-window table below fills when the window ends; everything
+else here is measured and says which track it came from.
 
 This is a platform, not a fraud model. The model is the least interesting part.
 
 ## Result
 
-Not yet measured. The build fills the first table; the live window fills the second.
+The summary table below is still to be filled from what has been measured; the sections
+under it hold those measurements, each naming its track. The live window fills the last table.
 
 **Platform properties (replay and load tests)**
 
@@ -358,7 +358,7 @@ retraining pull request with the evidence; merging it is the approval. The revie
 ranked by expected loss, and the evaluation shows what that buys per analyst-hour. The
 live stack runs in one AWS region on a spot instance with Redpanda as the stream, the same
 broker the local Docker Compose stack runs, because AWS documents Kinesis's delivery delay
-as larger than the whole latency budget ([ADR 3](docs/adr/0003-stream-choice.md)). Sixteen architecture decision records
+as larger than the whole latency budget ([ADR 3](docs/adr/0003-stream-choice.md)). Twenty-nine architecture decision records
 explain every choice with its public sources.
 
 ## Part of a portfolio

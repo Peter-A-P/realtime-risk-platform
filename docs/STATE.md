@@ -755,28 +755,11 @@ docker compose -f deploy/compose/docker-compose.yml down -v
 
 ---
 
-## 10. The other two repositories
+## 10. Outside this repository
 
-| Repository | Path | What it is |
-|---|---|---|
-| This project | `POCs/09-realtime-risk-platform` | `Peter-A-P/realtime-risk-platform`, private until it has a result |
-| The plan | `POCs/ml-portfolio-plan` | Private. `STATUS.md` is the first thing to read on any machine. Update it when this project starts, ships or spends money |
-| The public site | `POCs/peterparker.ca` | Public. `projects.yaml` holds the card and the log |
-
-**The site rule.** Whenever a project's status changes in the plan's
-`STATUS.md`, the same session adds an entry to `log:` in the site's
-`projects.yaml`, sets the card's `status` in the same edit, and pushes; the
-push deploys. Site words: `planned`, `building`, `shipped`, `live`. Those log
-pushes are pre-authorised. Anything else on the site is not. 09 is already
-`building`, so no site change is due until it ships.
-
-Run the site's own tests before pushing it: `.venv/Scripts/python.exe -m
-pytest` in that repository, which checks card layout against the real fonts.
-
-**Noticed and not acted on:** the site build warns that
-`compliant-ai-gateway` is public while `projects.yaml` still says `building`.
-That is project 04's status flip, not this project's, and it needs someone to
-decide what 04 claims.
+Where the other repositories live, and what to update in them when this
+project's status changes, is in the private working notes (`CLAUDE.local.md`,
+gitignored), since this repository is public.
 
 ---
 
