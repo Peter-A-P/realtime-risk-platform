@@ -7,9 +7,12 @@ gate, and an expected-loss review queue. The plan is in [PLAN.md](PLAN.md).
 
 The slot was a Feb to Apr 2027 build with a live window from Apr 5 2027. **The build
 started on 2026-09-12, about twenty weeks early, and on 2026-09-18 the calendar was
-dropped**: go-live is as soon as the plan's full definition of done is met, the live
-window is sixty days, and the live stream is Redpanda on an EC2 instance in the AWS
-account project 04 uses (shared account only, every resource tagged `project=verdict`).
+dropped**: go-live is as soon as the plan's full definition of done is met, and the live
+stream is Redpanda on an EC2 instance in the AWS account project 04 uses (shared account
+only, every resource tagged `project=verdict`). **The first live window (from 2026-09-28,
+spot, 16 GB) failed on its second day; on 2026-09-29 it was stopped, and the window
+restarts for thirty days on an on-demand 32 GB instance, after which Peter decides between
+stopping and moving to OVH (ADR 31).**
 Weeks 1 to 3 are done.
 
 ## Read first
@@ -47,7 +50,8 @@ without updating it is a week whose context lives only in one session's memory.
 - **The leakage test is never weakened to pass.** A failing leakage test means the
   feature is wrong.
 - **The regime schedule is sealed.** `events/generator/regimes.py` is hashed before go-live
-  and not edited until the secret is revealed, the day after the sixty-day live window.
+  and not edited until the secret is revealed, the day after the live window (thirty days
+  from the restart, ADR 31).
 - **Nothing promotes itself.** A model reaches production only by a merged pull request
   that carries the shadow evidence.
 - **Teardown is part of done.** `down.sh` must leave nothing billable; the test asserts it

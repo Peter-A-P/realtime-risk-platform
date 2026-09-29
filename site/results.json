@@ -751,12 +751,12 @@
   "test_rows": 152415
  },
  "live": {
-  "days": 60.0,
+  "days": 30,
   "schedule_sha256": "a2aae9086953c60d2f9a2541a49ac9e3bea669de4894ffeeb5cd963a7eb39d83",
   "sealed_at": "2026-09-27T13:27:29.484350Z",
   "secret_sha256": "923e5e2d9130e2676db93a5d83374056b0cbb5d0a589ffebd62feb575f5f3c34",
   "source_sha256": "7915fa142ead5c7fbd646aaf02a3ebc711c6cda32493e8f2aa1b34f6c1e3692f",
-  "start": "2026-09-28T08:51:00Z"
+  "start": null
  },
  "load_tests": [
   {

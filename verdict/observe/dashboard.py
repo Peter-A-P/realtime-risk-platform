@@ -212,6 +212,17 @@ def dashboard() -> dict[str, Any]:
             description="Redeliveries the ledger turned away, and dead letters by reason.",
         ),
         _panel(
+            "Scorer memory",
+            "timeseries",
+            [("max(verdict_scorer_resident_bytes)", "resident")],
+            (0, 51, 24, 6),
+            unit="bytes",
+            description=(
+                "The scorer's resident memory, on a 32 GB machine (ADR 31). It grows "
+                "for the first day as the day-long windows fill, and should then level off."
+            ),
+        ),
+        _panel(
             "Model deciding",
             "timeseries",
             [("sum by (model_version) (rate(verdict_decisions_total[5m]))", "{{model_version}}")],

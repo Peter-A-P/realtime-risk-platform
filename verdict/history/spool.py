@@ -39,6 +39,8 @@ import pyarrow as pa
 import pyarrow.ipc as ipc
 import pyarrow.parquet as pq
 
+from verdict import durable
+
 HOUR_FORMAT = "%Y-%m-%dT%H"
 
 
@@ -324,7 +326,7 @@ def seal(directory: Path, key: str, schema: pa.Schema) -> bool:
             # sealed, and nothing new arrived): write the schema and nothing
             # else, so the file still exists and reads back as empty.
             writer.write_table(schema.empty_table())
-    temporary.replace(target)
+    durable.settle(temporary, target)
     shutil.rmtree(folder)
     return True
 

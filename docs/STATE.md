@@ -14,6 +14,24 @@ judgement or an open question, it says so.
 
 ## 1. Status in one paragraph
 
+**2026-09-29, read this before anything below (ADR 31).** The first live
+window (from 2026-09-28 08:51Z, spot, 16 GB) failed on its second day and is
+**stopped**: the auto-scaling group is at zero, the data volume
+`vol-0451a27fa0769df99` is kept. Peter decided: restart for **thirty days on
+an on-demand r6i.xlarge (32 GB)**, same sealed schedule, then stop or move to
+OVH. Done and committed: durable state files (`verdict/durable.py`), an alert
+relay that survives unreadable state, swap at swappiness 60, a boot that
+clears the last window's state when the window start changes (go-live no
+longer clears over SSM), on-demand 32 GB Terraform, a scorer memory metric
+and panel, the site and README saying restarting. **Waiting on Peter:** the
+go to push the image and run `deploy/go-live.sh` (which applies Terraform and
+starts the new window), and raising the account's monthly budget alarm, which
+on-demand at about CA$275 a month exceeds. Still open: why the scorer's
+memory grew from about 9 GB on day one to 13 to 15 GB on day two. The
+leftover rebuild container and files from the failed window's feed recovery
+went with the instance; `/data/feeds/rebuild/` on the volume is cleared by
+the new window's boot.
+
 Weeks 1 to 3 of a nine-week build are done, and the real-data track now runs
 through the pipeline. The event stream, the synthetic generator with a sealed
 regime schedule, the point-in-time leakage test, sixteen features computed by

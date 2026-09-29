@@ -84,6 +84,25 @@ chown 101:101 /data/redpanda
 chown 10001:10001 /data/history /data/feeds /data/flags /data/grafana /data/alerts /data/alerts/outbox /data/engine /data/models
 chown 65534:65534 /data/prometheus
 
+# A new window starts clean (ADR 31). The window's start is written to the
+# volume the first time a boot runs it; a boot for any other start clears
+# what the last window left, so nothing from it reaches the new window's
+# features, history or record: the broker's data (topics and groups), the
+# scorer's saved state and starts, the feeds' places, history, the models
+# job, and which alerts were told. Prometheus, the champion pointer and the
+# spot notices are kept. This replaces the clearing go-live.sh did over SSM
+# on a running instance, which needs no instance to be up.
+MARK=/data/window-start
+if [ "$(cat "$MARK" 2>/dev/null)" != "${window_start}" ]; then
+  echo "window ${window_start} is new to this volume: clearing the last window's state"
+  rm -rf /data/redpanda/* /data/engine/* /data/feeds/* /data/history/* /data/models/*
+  rm -f /data/alerts/told.json
+  printf '%s\n' "${window_start}" > "$MARK.tmp"
+  sync
+  mv "$MARK.tmp" "$MARK"
+  sync
+fi
+
 # Spot notices, kept on the data volume so they outlive the instance they
 # name. The live report leaves a reclaim's recovery out of the latency
 # figure only with AWS's own notice as the evidence (ADR 25), so every boot

@@ -41,6 +41,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
+from verdict import durable
 from verdict.events.schema import Action
 from verdict.history import spool
 from verdict.history.records import LABEL_SCHEMA, history_schema, staged_schema
@@ -460,14 +461,10 @@ def finalise_day(
             )
             if table is not None:
                 writer.write_table(table)
-    temporary.replace(target)
+    durable.settle(temporary, target)
     with target.open("rb") as kept_file:
         manifest.sha256 = hashlib.file_digest(kept_file, "sha256").hexdigest()
-    manifest_temporary = manifest_path.with_suffix(".json.tmp")
-    manifest_temporary.write_text(
-        json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    manifest_temporary.replace(manifest_path)
+    durable.write_text(manifest_path, json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n")
     _delete_sources(paths, day, delay)
     return manifest
 

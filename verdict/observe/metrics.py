@@ -42,7 +42,9 @@ appears on the scrape.
 
 from __future__ import annotations
 
+import os
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
@@ -105,6 +107,21 @@ BATCH_BUCKETS: Final[tuple[float, ...]] = (1, 2, 5, 10, 20, 50, 100, 200, 500)
 
 SCORER_HOPS: Final[tuple[str, ...]] = ("features", "model", "decision", "persist")
 """The hops the scorer can time itself. `ingest` needs the send time, which it does not have."""
+
+
+def resident_bytes() -> float:
+    """This process's resident memory, where /proc says; 0 where there is none.
+
+    Returns:
+        Bytes.
+    """
+    try:
+        pages = int(Path("/proc/self/statm").read_text(encoding="ascii").split()[1])
+    except (OSError, ValueError, IndexError):
+        return 0.0
+    # /proc exists only on Linux, which has sysconf; elsewhere this returned above.
+    page_size: int = getattr(os, "sysconf", lambda name: 4096)("SC_PAGE_SIZE")
+    return float(pages * page_size)
 
 
 class ScorerMetrics:
@@ -182,6 +199,12 @@ class ScorerMetrics:
             "Size of the last complete save of the feature state.",
             registry=self.registry,
         )
+        self.resident = Gauge(
+            "verdict_scorer_resident_bytes",
+            "The scorer's resident memory, read from /proc when it is scraped (ADR 31).",
+            registry=self.registry,
+        )
+        self.resident.set_function(resident_bytes)
         self.restored = Gauge(
             "verdict_engine_restored",
             "1 if this scorer started from saved feature state, 0 if from empty windows.",

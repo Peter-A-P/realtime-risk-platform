@@ -339,3 +339,34 @@ def test_a_teardown_may_leave_only_the_free_parameters_meant_to_outlive_it() -> 
     allowed = set(re.findall(r":parameter(/verdict/[a-z-]+)\$", down))
     assert allowed == {"/verdict/cloudflare-tunnel-token", "/verdict/schedule-secret"}
     assert "resourcegroupstaggingapi get-resources" in down
+
+
+def test_a_new_window_clears_the_last_ones_state_at_boot_and_keeps_the_rest() -> None:
+    """ADR 31: go-live no longer clears a running instance over SSM."""
+    boot = (TERRAFORM / "boot.sh.tftpl").read_text(encoding="utf-8")
+    clearing = boot[boot.index("MARK=/data/window-start") : boot.index("# Spot notices")]
+    assert '!= "${window_start}"' in clearing
+    for cleared in ("redpanda", "engine", "feeds", "history", "models"):
+        assert f"/data/{cleared}/*" in clearing, cleared
+    assert "/data/alerts/told.json" in clearing
+    for kept in ("prometheus", "flags", "interruptions", "grafana"):
+        assert f"/data/{kept}" not in clearing, kept
+    # The mark is written only after the clearing, and durably.
+    assert clearing.index("rm -rf") < clearing.index('mv "$MARK.tmp" "$MARK"')
+    # And it runs before any service starts.
+    assert boot.index("MARK=/data/window-start") < boot.index("docker compose")
+
+
+def test_the_machine_has_swap_for_a_restores_peak() -> None:
+    boot = (TERRAFORM / "boot.sh.tftpl").read_text(encoding="utf-8")
+    assert "mkswap /swapfile" in boot
+    assert "vm.swappiness=60" in boot
+
+
+def test_the_live_instance_runs_on_demand_with_32_gb() -> None:
+    variables = (TERRAFORM / "variables.tf").read_text(encoding="utf-8")
+    block = variables[variables.index('variable "on_demand"') :]
+    assert "default     = true" in block[: block.index("}")]
+    types = variables[variables.index('variable "instance_types"') :]
+    listed = re.findall(r'"(r\d[a-z]*\.xlarge)"', types[: types.index("}\n")])
+    assert listed, "no 32 GB instance types listed"

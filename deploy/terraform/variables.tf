@@ -16,19 +16,20 @@ variable "availability_zone" {
   default     = "ca-central-1d"
 }
 
+variable "on_demand" {
+  description = "Run the one instance on demand, which AWS does not reclaim, rather than on spot (ADR 31). True from 2026-09-29."
+  type        = bool
+  default     = true
+}
+
 variable "instance_types" {
-  description = "Spot candidates, all x86 with 4 vCPU and 16 GB (ADR 20: the engine holds about 6 GB at the live rate; its 2026-09-21 amendment: two vCPUs are one core, too few for scorer, broker and feed), in order of preference. More than one so a shortage of one type is not an outage."
+  description = "Candidates in order of preference, all x86 with 4 vCPU and 32 GB (ADR 31: the scorer outgrew 16 GB once a day of features had built up; ADR 20's 2026-09-21 amendment: two vCPUs are too few for scorer, broker and feed). On demand the group takes the first it can launch."
   type        = list(string)
-  # Eight pools, not three (ADR 20, second amendment): on 2026-09-22 the
-  # group chose m6i.xlarge in ca-central-1d every time and it was reclaimed
-  # five times in eleven hours. All x86; the d variants' local disks are
-  # unused. Ordered by AWS's Spot Instance Advisor interruption band for
-  # ca-central-1 on 2026-09-28, least interrupted first (ADR 20, third
-  # amendment): the group's strategy honours this order after capacity.
-  default = [
-    "m6a.xlarge", "m5a.xlarge", "m7i.xlarge", "m6i.xlarge",
-    "m5.xlarge", "m5d.xlarge", "m6id.xlarge", "m6in.xlarge",
-  ]
+  # 32 GB, not 16 (ADR 31): on the live window's second day the scorer held
+  # 13 GB or more before a restore and about 15 GB after, with 2 GB more for
+  # the broker, feeds and dashboard, on a 16 GB machine. The spot lists of
+  # ADR 20's second and third amendments are in the git history.
+  default = ["r6i.xlarge", "r7i.xlarge", "r5.xlarge"]
 }
 
 variable "data_volume_gb" {

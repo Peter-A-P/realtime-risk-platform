@@ -13,6 +13,14 @@ on it moves into the live window. **The live window is sixty days** from go-live
 sealed schedule is revealed and the stack torn down the day after it ends; wherever this
 plan says "Apr 5 to Jun 30" or "Jul 1", read "the sixty-day window" and "the day after
 it". **The live stream is Redpanda on the instance, not Kinesis** (ADR 3, amended).
+
+**Amended 2026-09-29, Peter's decisions (ADR 31).** The first window, opened 2026-09-28 on
+a 16 GB spot instance, failed on its second day: thirteen spot reclaims in 28 hours, a
+restore that outgrew the machine, and two state files left empty by a hard stop. It is
+stopped and reported as it happened. **The window restarts for thirty days, on demand, on
+a 32 GB instance**, on the same sealed schedule, which is revealed the day after the
+thirty days end; wherever this plan says sixty days, read thirty. At day thirty Peter
+decides between stopping and moving the stack to OVH for several months.
 **The AWS account is the one project 04 already uses**, shared as an account only: 09's
 Terraform, `up.sh` and `down.sh` live in this repository, every resource carries the tag
 `project=verdict`, and the budget and the teardown check are scoped to that tag. 04's code

@@ -28,6 +28,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from verdict import durable
+
 DASHBOARD: Final = "https://risk.peterparker.ca"
 RUNBOOK: Final = "docs/failure-modes.md in the repository"
 REMIND_EVERY: Final = dt.timedelta(hours=6)
@@ -109,15 +111,22 @@ class Relay:
         self._sequence = 0
 
     def _told(self) -> dict[str, str]:
+        # State that cannot be read is treated as none: the worst it costs is
+        # an alert told twice, where refusing to start would tell nothing at
+        # all. On 2026-09-29 a hard stop left this file empty and the relay
+        # crash-looped on it (ADR 27's addendum of that day).
         if not self.state.exists():
             return {}
-        told: dict[str, str] = json.loads(self.state.read_text(encoding="utf-8"))
-        return told
+        try:
+            loaded = json.loads(self.state.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return {}
+        if not isinstance(loaded, dict):
+            return {}
+        return {str(key): str(value) for key, value in loaded.items()}
 
     def _save(self, told: Mapping[str, str]) -> None:
-        temporary = self.state.with_suffix(".tmp")
-        temporary.write_text(json.dumps(told, indent=2, sort_keys=True), encoding="utf-8")
-        temporary.replace(self.state)
+        durable.write_text(self.state, json.dumps(told, indent=2, sort_keys=True))
 
     def _write(self, subject: str, lines: Iterable[str]) -> None:
         """One message, as the input `aws sns publish --cli-input-json` takes."""
@@ -125,11 +134,9 @@ class Relay:
         self._sequence += 1
         stamp = self.now().strftime("%Y%m%dT%H%M%S")
         target = self.outbox / f"{stamp}-{self._sequence:04d}.json"
-        temporary = target.with_suffix(".tmp")
         # SNS caps an email subject at 100 characters.
         body = {"Subject": subject[:100], "Message": "\n".join(lines) + "\n"}
-        temporary.write_text(json.dumps(body), encoding="utf-8")
-        temporary.replace(target)
+        durable.write_text(target, json.dumps(body))
 
     def poll(self) -> list[str]:
         """Read Prometheus once and write whatever needs telling.

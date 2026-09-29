@@ -1,7 +1,8 @@
 # Go-live checklist
 
 The live window starts when every line of `PLAN.md` section 10 that can be
-met before it is met, and runs sixty days (`CLAUDE.md`). This is the list,
+met before it is met, and runs thirty days (ADR 31; the first window, of
+2026-09-28, was stopped on its second day). This is the list,
 in order, with who does each step and how it is checked. `deploy/go-live.sh`
 is step 4 as one command.
 
@@ -45,7 +46,7 @@ notices.
 | Item | Who |
 |---|---|
 | Decisions flowing at the live rate; the feed's log names the sealed schedule | build |
-| `docs/STATE.md`: the window's start, its end sixty days later, the reveal the day after | build |
+| `docs/STATE.md`: the window's start, its end thirty days later, the reveal the day after | build |
 | The repository made public, `v1.0.0` tagged | build, on Peter's word |
 | The Kaggle forum post (competition rule 8.B) | Peter |
 
@@ -58,7 +59,7 @@ run at any time for the numbers so far.
 
 ## 7. After the window
 
-`verdict observe report` over the sixty days, committed and tagged `v1.1.0`;
+`verdict observe report` over the thirty days, committed and tagged `v1.1.0`;
 the cost per million events from the bill; the secret revealed and
 `verdict schedule verify` run in public; `deploy/down.sh` and its output
 committed (ADR 16); the GitHub token deleted and revoked.

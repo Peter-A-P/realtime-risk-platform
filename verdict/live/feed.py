@@ -41,6 +41,7 @@ from typing import Final
 
 from prometheus_client import CollectorRegistry, Counter, Gauge
 
+from verdict import durable
 from verdict.events.generator.driver import (
     GeneratedRecord,
     Generator,
@@ -158,9 +159,7 @@ class SnapshotStore:
         Args:
             snapshot: What `GeneratorRun.snapshot` returned.
         """
-        temporary = self.path.with_suffix(".tmp")
-        temporary.write_bytes(snapshot)
-        temporary.replace(self.path)
+        durable.write_bytes(self.path, snapshot)
 
 
 class FeedMetrics:

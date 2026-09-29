@@ -6,8 +6,12 @@ production mismatch that quietly breaks most deployed models. The platform aroun
 model is what organisations are actually missing, and this one runs live behind a
 public dashboard.
 
-**Status: live.** The live window began on 2026-09-28 and runs sixty days, on a fraud
-schedule sealed before it started. **[fraud.peterparker.ca](https://fraud.peterparker.ca)**
+**Status: restarting.** The first live window began on 2026-09-28 and failed on its
+second day: its spot instance was reclaimed thirteen times in 28 hours, and the last
+replacement's restore outgrew the machine and a hard stop left two state files empty
+([ADR 31](docs/adr/0031-a-thirty-day-window-on-demand-with-32-gb.md)). It restarts for
+thirty days on an on-demand machine with 32 GB, on the same fraud schedule, sealed before
+the first window started. **[fraud.peterparker.ca](https://fraud.peterparker.ca)**
 explains what the platform does and what has been measured, in charts, and links the live
 dashboard at [risk.peterparker.ca](https://risk.peterparker.ca). The design is
 in [PLAN.md](PLAN.md). The live-window table below fills when the window ends; everything

@@ -46,6 +46,7 @@ from typing import Any, Final, cast
 import numpy as np
 import pyarrow.parquet as pq
 
+from verdict import durable
 from verdict.drift.monitors import (
     SCORE,
     DailyReport,
@@ -155,7 +156,7 @@ def save_reference(reference: Reference, path: Path, *, meta: dict[str, object])
     arrays: dict[str, Any] = {name: reference.window[name] for name in reference.names}
     arrays[_META] = np.asarray(json.dumps(meta, sort_keys=True, default=str))
     np.savez_compressed(partial, **arrays)
-    partial.replace(path)
+    durable.settle(partial, path)
 
 
 def load_reference(path: Path) -> tuple[Reference, dict[str, Any]]:
@@ -633,10 +634,7 @@ class DriftState:
 
 
 def _write_json(path: Path, item: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    partial = path.with_suffix(".partial")
-    partial.write_text(json.dumps(item, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    partial.replace(path)
+    durable.write_text(path, json.dumps(item, indent=2, sort_keys=True) + "\n")
 
 
 # --- one pass -------------------------------------------------------------------

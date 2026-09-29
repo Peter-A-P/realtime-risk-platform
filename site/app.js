@@ -108,6 +108,15 @@ function humanFeature(name, features) {
 /* ---------------------------------------------------------------- the live strip */
 
 function liveStrip(data) {
+  $("dashboard-link").href = data.dashboard;
+  if (!data.live.start) {
+    $("live-strip").classList.add("ended");
+    $("live-text").textContent =
+      "Restarting: the first live window failed on its second day, and a thirty-day window on a larger, on-demand machine starts shortly. Why is in the repository (ADR 31).";
+    document.querySelector(".cta-note").textContent =
+      "The dashboard is back when the new window starts. Everything below was measured before it.";
+    return;
+  }
   const start = new Date(data.live.start);
   const days = data.live.days;
   const end = new Date(start.getTime() + days * 86400000);

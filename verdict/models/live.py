@@ -46,6 +46,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
+from verdict import durable
 from verdict.history.compact import HistoryPaths
 from verdict.models.dataset import training_schema
 from verdict.models.promote import ShadowRow
@@ -280,10 +281,7 @@ class ModelsState:
         """
         record = self.read()
         record[kind].append(item)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        partial = self.path.with_suffix(".partial")
-        partial.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        partial.replace(self.path)
+        durable.write_text(self.path, json.dumps(record, indent=2, sort_keys=True) + "\n")
 
     def candidates_for(self, opened_on: dt.date) -> list[dict[str, Any]]:
         """Candidates already fitted for a request.

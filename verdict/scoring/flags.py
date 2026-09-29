@@ -35,6 +35,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from verdict import durable
 from verdict.scoring.model import Model
 
 
@@ -116,6 +117,7 @@ def _write_atomically(path: Path, text: str) -> None:
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
+    durable.sync_directory(path.parent)
 
 
 def set_champion(path: Path, version: str, known: Mapping[str, Model]) -> Pointer:

@@ -27,8 +27,14 @@ from verdict.store.features import FEATURE_SET
 
 REPOSITORY: Final = "https://github.com/Peter-A-P/realtime-risk-platform"
 
-LIVE_WINDOW_START: Final = "2026-09-28T08:51:00Z"
-"""When the live window began, as `deploy/go-live.sh` chose it (docs/STATE.md)."""
+LIVE_WINDOW_START: Final[str | None] = None
+"""When the live window began, as `deploy/go-live.sh` chose it (docs/STATE.md);
+None while it is restarting (ADR 31). The first window began 2026-09-28T08:51Z
+and was stopped on its second day."""
+
+LIVE_WINDOW_DAYS: Final = 30
+"""The window's length (ADR 31). The sealed schedule was derived for sixty days,
+of which the window runs the first thirty."""
 
 LOAD_RATES: Final[tuple[int, ...]] = (1000, 2000, 3000, 4000)
 
@@ -260,7 +266,7 @@ def site_data(docs: Path) -> dict[str, Any]:
         "dashboard": DASHBOARD,
         "live": {
             "start": LIVE_WINDOW_START,
-            "days": sealed["window_days"],
+            "days": LIVE_WINDOW_DAYS,
             "schedule_sha256": sealed["schedule_sha256"],
             "secret_sha256": sealed["secret_sha256"],
             "source_sha256": sealed["source_sha256"],

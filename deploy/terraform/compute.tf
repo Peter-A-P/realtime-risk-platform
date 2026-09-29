@@ -101,13 +101,14 @@ resource "aws_autoscaling_group" "instance" {
 
   mixed_instances_policy {
     instances_distribution {
-      on_demand_base_capacity                  = 0
-      on_demand_percentage_above_base_capacity = 0
-      # Capacity first, then the list's order, and price not at all (ADR 20,
-      # third amendment): the pools least likely to be interrupted, where
-      # price-capacity-optimized kept choosing ones reclaimed several times
-      # a day.
-      spot_allocation_strategy = "capacity-optimized-prioritized"
+      # On demand from 2026-09-29 (ADR 31): spot in ca-central-1d was
+      # reclaimed thirteen times in the live window's first 28 hours. On
+      # demand, the list's order decides; on spot, capacity first and then
+      # the order (ADR 20, third amendment).
+      on_demand_base_capacity                  = var.on_demand ? 1 : 0
+      on_demand_percentage_above_base_capacity = var.on_demand ? 100 : 0
+      on_demand_allocation_strategy            = "prioritized"
+      spot_allocation_strategy                 = "capacity-optimized-prioritized"
     }
 
     launch_template {

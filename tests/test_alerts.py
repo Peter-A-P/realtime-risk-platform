@@ -439,3 +439,12 @@ def test_every_run_is_counted_by_how_it_ended(tmp_path: Path) -> None:
     run_forever(["compact"], metrics, every_seconds=0, stop=stop, run=run)
     assert _metric(metrics, "verdict_history_compact_runs_total", outcome="ok") == 2
     assert _metric(metrics, "verdict_history_compact_runs_total", outcome="failed") == 2
+
+
+def test_a_relay_whose_state_was_left_empty_starts_and_tells(tmp_path: Path) -> None:
+    """2026-09-29: a hard stop left told.json empty and the relay crash-looped."""
+    prometheus, clock = FakePrometheus(), Clock()
+    (tmp_path / "told.json").write_text("", encoding="utf-8")
+    prometheus.fire("ScorerStopped")
+    assert _relay(tmp_path, prometheus, clock).poll() == ["verdict: ScorerStopped firing"]
+    assert json.loads((tmp_path / "told.json").read_text(encoding="utf-8"))

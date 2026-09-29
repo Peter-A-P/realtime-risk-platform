@@ -899,3 +899,7 @@ tbody tr.reference { background: var(--accent-soft); }
 
 /* A readout pair here can be a sentence, so it wraps rather than widening the page. */
 .readout .pair { white-space: normal; display: inline-block; max-width: 100%; }
+
+/* A window that has not started, or has ended: no pulse, and the warning colour. */
+.live-strip.ended { border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); background: color-mix(in srgb, var(--warn) 7%, var(--paper-soft)); }
+.live-strip.ended .pulse { background: var(--warn); animation: none; box-shadow: none; }

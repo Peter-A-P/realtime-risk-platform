@@ -64,6 +64,7 @@ from typing import IO, TYPE_CHECKING, Final
 
 from pydantic import ValidationError
 
+from verdict import durable
 from verdict.events.schema import UnknownSchemaVersionError, decode_transaction
 from verdict.features import aggregators as aggregators_module
 from verdict.features import engine as engine_module
@@ -446,6 +447,7 @@ class Snapshotter:
             file.close()
             size = self.partial.stat().st_size
             self.partial.replace(self.path)
+            durable.sync_directory(self.path.parent)
             self.passes += 1
             if self.on_saved is not None:
                 self.on_saved(SavedPass(entities=saved, seconds=self.clock() - began, bytes=size))
