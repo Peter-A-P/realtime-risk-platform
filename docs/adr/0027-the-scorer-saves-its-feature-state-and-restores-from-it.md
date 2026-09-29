@@ -180,3 +180,24 @@ older than the replayed hour); it is the same rule as before.
 kinds, about 3.6 million at the live rate, which adds roughly a minute and a
 half to each replacement's recovery, measured on the next one.
 
+
+## Addendum, 2026-09-29: a restore that outgrew the machine, and swap
+
+Four spot reclaims between 11:50 and 12:40 UTC kept interrupting the scorer's
+saves, so the last complete one was from 11:36 and the replacement at 12:42
+had more than two hours of records to replay where it usually has about one.
+The restore holds more than the running scorer does (about 9 GB running, on
+a 16 GB machine shared with the broker and the feeds), and this one reached
+the machine's memory: the kernel reclaimed page cache until nothing could
+run, the tunnel and SSM with it, the OOM killer ended the scorer at 12:47 and
+12:50, and Docker restarted it into the same restore. Decisions stopped from
+12:40 until the fix below was applied and the frozen instance replaced.
+
+The boot script now makes an 8 GB swap file on the root volume, which grows
+from 16 to 32 GB to hold it, with `vm.swappiness` at 10 so steady running
+never pages and only a restore's peak spills. That keeps a long restore
+slow rather than fatal. What makes a restore larger than the state it
+restores, and how it grows with the replayed stretch, is still to be
+measured; that is the fix that makes the swap unnecessary. Peter decided the
+same day to stay on spot and accept the reclaims rather than move to
+on-demand.

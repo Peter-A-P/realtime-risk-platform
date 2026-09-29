@@ -616,7 +616,16 @@ overnight (00:34 and 01:34 UTC on 2026-09-29), and the 01:34 catch-up read
 amendment): `capacity-optimized-prioritized`, m6a.xlarge first, the list in
 the Spot Instance Advisor's interruption order; the same apply took the
 2026-09-28 Amazon Linux 2023 release (2023.12.20260928.0) into the launch
-template, so the next boot is also the first on that image. ADR 25's
+template, so the next boot is also the first on that image.
+
+**2026-09-29 outage from 12:40 UTC.** Four reclaims in 50 minutes (11:50,
+11:58, 12:08, 12:40; m6in, m5d, m7i, m6in, so the new allocation strategy
+cannot help when the zone itself is short), and the replacement's restore
+ran out of memory in a loop that froze the machine (ADR 27, addendum of
+2026-09-29). Fixed on Peter's go: 8 GB swap at boot, root volume 32 GB,
+frozen instance replaced. **Peter's decision: stay on spot and accept the
+reclaims** (on-demand at about CA$3.30 a day was offered and declined).
+Still open: measure why a restore peaks above the running scorer's memory. ADR 25's
 report counts reclaims in availability, not in latency while serving.
 
 **What go-live now waits on**, all in `docs/go-live.md`: (1) Peter's go to

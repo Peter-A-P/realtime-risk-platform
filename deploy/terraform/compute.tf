@@ -25,12 +25,13 @@ resource "aws_launch_template" "instance" {
   }
 
   # The root volume is disposable: everything that must survive is on the
-  # data volume.
+  # data volume. 32 GB, not 16, since 2026-09-29: it also holds the 8 GB
+  # swap file the boot script makes (ADR 27, addendum of that day).
   block_device_mappings {
     device_name = "/dev/xvda"
 
     ebs {
-      volume_size           = 16
+      volume_size           = 32
       volume_type           = "gp3"
       encrypted             = true
       delete_on_termination = true

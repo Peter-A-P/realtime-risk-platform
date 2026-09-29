@@ -16,6 +16,21 @@ IMDS_TOKEN=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token \
 INSTANCE_ID=$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" \
   http://169.254.169.254/latest/meta-data/instance-id)
 
+# Swap, 8 GB on the root volume, kept for emergencies (ADR 27, addendum of
+# 2026-09-29). Restoring the feature state holds more than the scorer does
+# once running, and with no swap a restore that reached the machine's memory
+# froze it: the kernel reclaimed page cache until nothing could run, the
+# tunnel and SSM with it, before the OOM killer ended the scorer to be
+# restarted into the same restore. Low swappiness, so steady running never
+# pages; only a restore's peak spills.
+if ! swapon --show | grep -q /swapfile; then
+  fallocate -l 8G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+fi
+sysctl -w vm.swappiness=10
+
 # Docker from the distribution, Compose as a pinned, checksummed plugin.
 dnf install -y docker
 systemctl enable --now docker
