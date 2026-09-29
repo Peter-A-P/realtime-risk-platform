@@ -21,11 +21,13 @@ variable "instance_types" {
   type        = list(string)
   # Eight pools, not three (ADR 20, second amendment): on 2026-09-22 the
   # group chose m6i.xlarge in ca-central-1d every time and it was reclaimed
-  # five times in eleven hours. More pools give price-capacity-optimized
-  # somewhere else to go. All x86; the d variants' local disks are unused.
+  # five times in eleven hours. All x86; the d variants' local disks are
+  # unused. Ordered by AWS's Spot Instance Advisor interruption band for
+  # ca-central-1 on 2026-09-28, least interrupted first (ADR 20, third
+  # amendment): the group's strategy honours this order after capacity.
   default = [
-    "m7i.xlarge", "m6i.xlarge", "m5.xlarge", "m6a.xlarge",
-    "m5a.xlarge", "m6in.xlarge", "m6id.xlarge", "m5d.xlarge",
+    "m6a.xlarge", "m5a.xlarge", "m7i.xlarge", "m6i.xlarge",
+    "m5.xlarge", "m5d.xlarge", "m6id.xlarge", "m6in.xlarge",
   ]
 }
 

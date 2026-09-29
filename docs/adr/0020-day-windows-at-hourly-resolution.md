@@ -120,3 +120,29 @@ volume lives in one (ADR 14).
   https://docs.python.org/3/library/array.html
 - `sys.intern`. https://docs.python.org/3/library/sys.html#sys.intern
 - Amazon EC2 R7i instances. https://aws.amazon.com/ec2/instance-types/r7i/
+
+## Third amendment, 2026-09-29: the least interrupted pool, not the cheapest
+
+On the live window's first day the group was reclaimed six times, and twice
+more overnight, each time costing 8 to 13 minutes without decisions (ADR 25's
+addendum of 2026-09-28). `price-capacity-optimized` weighs price, and it kept
+choosing pools that AWS's Spot Instance Advisor puts in its most interrupted
+band for `ca-central-1` (over 20 percent a month): m6in.xlarge, the dearest
+of the eight in `ca-central-1d` that evening at US$0.102 an hour, and
+m6id.xlarge. The strategy is now `capacity-optimized-prioritized`, which
+chooses by spare capacity and then by the list's order and not by price, and
+the list is ordered by the advisor's band, least interrupted first: m6a.xlarge
+(5 to 10 percent), m5a.xlarge (10 to 15), m7i.xlarge and m6i.xlarge (15 to 20),
+then m5.xlarge, m5d.xlarge, m6id.xlarge and m6in.xlarge (over 20).
+
+Cost, decided by Peter on this basis: the most the group can now pay is the
+dearest of the eight, which is what it was paying; m6a.xlarge was US$0.085,
+and the cheapest, m5.xlarge, US$0.063, so over the remaining 59 days the change
+costs at most about CA$75 against the cheapest pool and nothing against the
+evening's actual price. The advisor's bands are region-wide and a month old,
+so this lowers the odds of a reclaim rather than removing them; the live
+report counts every reclaim either way.
+
+Sources: Amazon EC2 Auto Scaling, allocation strategies,
+https://docs.aws.amazon.com/autoscaling/ec2/userguide/allocation-strategies.html;
+Spot Instance Advisor, https://aws.amazon.com/ec2/spot/instance-advisor/.

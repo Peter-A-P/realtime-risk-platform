@@ -609,7 +609,14 @@ was the histogram's 300 to 3,600 s bucket being interpolated (ADR 25's
 addendum of 2026-09-28: finer buckets and an exact mean line; image
 `2fc45422aad8` pushed and launch template version 18 applied on Peter's go
 the same evening, the plan checked to change only the image tag, so the next
-reclaim boots it without a restart of its own). ADR 25's
+reclaim boots it without a restart of its own). It did: two more reclaims
+overnight (00:34 and 01:34 UTC on 2026-09-29), and the 01:34 catch-up read
+595 s at its p99 on the new buckets against an exact mean of 305 s.
+**Spot strategy changed 2026-09-29 on Peter's go** (ADR 20, third
+amendment): `capacity-optimized-prioritized`, m6a.xlarge first, the list in
+the Spot Instance Advisor's interruption order; the same apply took the
+2026-09-28 Amazon Linux 2023 release (2023.12.20260928.0) into the launch
+template, so the next boot is also the first on that image. ADR 25's
 report counts reclaims in availability, not in latency while serving.
 
 **What go-live now waits on**, all in `docs/go-live.md`: (1) Peter's go to

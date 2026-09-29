@@ -102,7 +102,11 @@ resource "aws_autoscaling_group" "instance" {
     instances_distribution {
       on_demand_base_capacity                  = 0
       on_demand_percentage_above_base_capacity = 0
-      spot_allocation_strategy                 = "price-capacity-optimized"
+      # Capacity first, then the list's order, and price not at all (ADR 20,
+      # third amendment): the pools least likely to be interrupted, where
+      # price-capacity-optimized kept choosing ones reclaimed several times
+      # a day.
+      spot_allocation_strategy = "capacity-optimized-prioritized"
     }
 
     launch_template {
