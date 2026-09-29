@@ -23,10 +23,11 @@ OVH. Done and committed: durable state files (`verdict/durable.py`), an alert
 relay that survives unreadable state, swap at swappiness 60, a boot that
 clears the last window's state when the window start changes (go-live no
 longer clears over SSM), on-demand 32 GB Terraform, a scorer memory metric
-and panel, the site and README saying restarting. **Waiting on Peter:** the
-go to push the image and run `deploy/go-live.sh` (which applies Terraform and
-starts the new window), and raising the account's monthly budget alarm, which
-on-demand at about CA$275 a month exceeds. Still open: why the scorer's
+and panel, the site and README saying restarting. **The new window started
+2026-09-29T19:11:00Z and ends 2026-10-29T19:11Z**, on the same sealed
+schedule, image `f697afd2c9c6`, on-demand r6i.xlarge `i-0830d73c9158ee910`;
+the feed accepted the seal with 0 records sent. Peter raised the budget alarm
+the same day. Still open: why the scorer's
 memory grew from about 9 GB on day one to 13 to 15 GB on day two. The
 leftover rebuild container and files from the failed window's feed recovery
 went with the instance; `/data/feeds/rebuild/` on the volume is cleared by

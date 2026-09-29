@@ -27,10 +27,10 @@ from verdict.store.features import FEATURE_SET
 
 REPOSITORY: Final = "https://github.com/Peter-A-P/realtime-risk-platform"
 
-LIVE_WINDOW_START: Final[str | None] = None
+LIVE_WINDOW_START: Final[str | None] = "2026-09-29T19:11:00Z"
 """When the live window began, as `deploy/go-live.sh` chose it (docs/STATE.md);
-None while it is restarting (ADR 31). The first window began 2026-09-28T08:51Z
-and was stopped on its second day."""
+None while one is being restarted (ADR 31). The first window began
+2026-09-28T08:51Z and was stopped on its second day."""
 
 LIVE_WINDOW_DAYS: Final = 30
 """The window's length (ADR 31). The sealed schedule was derived for sixty days,
