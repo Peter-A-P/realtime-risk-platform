@@ -194,9 +194,12 @@ run, the tunnel and SSM with it, the OOM killer ended the scorer at 12:47 and
 12:40 until the fix below was applied and the frozen instance replaced.
 
 The boot script now makes an 8 GB swap file on the root volume, which grows
-from 16 to 32 GB to hold it, with `vm.swappiness` at 10 so steady running
-never pages and only a restore's peak spills. That keeps a long restore
-slow rather than fatal. What makes a restore larger than the state it
+from 16 to 32 GB to hold it. That keeps a long restore slow rather than
+fatal. `vm.swappiness` was set to 10 at first, so that steady running would
+never page; on the first boot with it the kernel held a restore at 78 MB
+available with 7 MB swapped, reclaiming cache instead, which is the road to
+the same freeze. At the default of 60 it swapped 0.8 GB within half a minute
+and the machine stayed responsive, so the boot script sets 60. What makes a restore larger than the state it
 restores, and how it grows with the replayed stretch, is still to be
 measured; that is the fix that makes the swap unnecessary. Peter decided the
 same day to stay on spot and accept the reclaims rather than move to

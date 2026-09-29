@@ -21,15 +21,15 @@ INSTANCE_ID=$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" \
 # once running, and with no swap a restore that reached the machine's memory
 # froze it: the kernel reclaimed page cache until nothing could run, the
 # tunnel and SSM with it, before the OOM killer ended the scorer to be
-# restarted into the same restore. Low swappiness, so steady running never
-# pages; only a restore's peak spills.
+# restarted into the same restore. The default swappiness: at 10 the kernel
+# left a restore at 78 MB available and 7 MB swapped rather than page it.
 if ! swapon --show | grep -q /swapfile; then
   fallocate -l 8G /swapfile
   chmod 600 /swapfile
   mkswap /swapfile
   swapon /swapfile
 fi
-sysctl -w vm.swappiness=10
+sysctl -w vm.swappiness=60
 
 # Docker from the distribution, Compose as a pinned, checksummed plugin.
 dnf install -y docker
