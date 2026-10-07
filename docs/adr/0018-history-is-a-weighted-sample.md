@@ -206,9 +206,22 @@ The live window's first day (2026-09-29, from 19:11Z) became finalisable at
 2026-10-07T06:00Z, the first finalise ever run on the live stack. The run
 that started then had not ended four hours later: no run of the compactor
 finished after 06:00Z, `DayNotFinalised` fired at 07:01Z and
-`HistoryUnsealed` at 09:16Z. Why it did not end is not known from outside
-the instance; it was not failing, since no failed run was counted. Two
-properties of the compactor turned one slow run into two problems:
+`HistoryUnsealed` at 09:16Z. It was not failing, since no failed run was
+counted, and not hung: on the instance it had run 5 h at 99% CPU with 1.7 GB
+resident, in 7.2 million reads of about 400 bytes.
+
+**The cause.** A day becomes ready at `final_after`, and the last label
+hours its last staged hour reads are the hour before that moment and the
+hour that starts at it: neither is sealed yet, so both are read from the
+collector's IPC files, in its small batches. `_labels_for` calls
+`pc.is_in(..., value_set=wanted)` per batch, and Arrow builds the hash set
+of `wanted` (about a million ids for a live hour) on every call. Measured at
+a tenth of a live hour (280,000 staged rows, the last two label hours in
+batches of ten): 76.4 s, against 0.8 s for the same day once those hours
+are sealed, the same 54,911 rows kept. The cost grows with the rows read
+times the ids wanted, so a live day ran for hours. `docs/finalise-footprint.json`
+could not see it: it measured sealed label hours only. Two properties of
+the compactor then turned one slow run into two problems:
 
 - **Sealing ran in the same process, before finalising**, and the parent
   started the next run only when the last ended. Nothing was sealed while
@@ -232,6 +245,15 @@ Decided:
    hour. The cost: a day is ready about seventy minutes after its labels are
    all in rather than at once, because the last label hour it reads starts
    at that moment. `as_of` is unchanged, so the rows kept are the same.
+   **This is also what removes the cause**: finalising now reads only
+   sealed hours, which Parquet yields in batches of tens of thousands.
+5. **Labels are matched in chunks** of `LABEL_MATCH_ROWS` (100,000) rather
+   than per batch, so an unsealed hour costs no more than a sealed one and
+   the cause is gone from `_labels_for` itself, for any caller. The same
+   day at a tenth of a live hour, its last two label hours unsealed in
+   batches of ten: 1.8 s, against 76.4 s before; the same rows kept.
+   `tests/test_history.py` counts the matching calls on a day written a
+   label per batch: at most 24 here, against 3,734 before.
 3. **Every run has a time limit** (`--seal-timeout`, 30 minutes;
    `--finalise-timeout`, two hours), several times what a healthy run needs.
    A run past it is killed and counted as `outcome="timeout"`; the loop goes

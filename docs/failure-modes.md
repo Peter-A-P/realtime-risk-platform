@@ -226,6 +226,43 @@ topic keeps) starts cold and says why. Not yet seen on the instance: the
 first replacement after the roll is the check, in the scorer's log and the
 `verdict_engine_restored` metric.
 
+## The first live finalise ran for hours (ADR 18, second addendum)
+
+**What was done to it:** nothing; the first live day, 2026-09-29, became
+ready to finalise at 2026-10-07T06:00Z.
+
+**What it did:** the finalise run that started then did not end, and
+sealing, in the same process, stopped with it. `DayNotFinalised` fired at
+07:01Z and `HistoryUnsealed` at 09:16Z; the scorer decided throughout. On
+the instance at about 11:00Z the run was 5 h 7 min old, state `R` at 99%
+CPU, 1.7 GB resident, with 16 GB of memory available and 153 MB of swap
+used: not memory, and not the disk. Its 7.2 million reads averaged about
+400 bytes, which is the label collector's small IPC batches: the last two
+label hours the day reads (05:00Z and 06:00Z) were still unsealed, and
+`_labels_for` rebuilds its hash set of about a million wanted ids for every
+batch. The data volume was down to 23 GB free, losing about 1.3 GB an hour.
+
+**What was done:** the run was killed (`kill`, safe: the kept file is
+written to a temporary name and nothing is deleted before the manifest).
+The next run sealed four staged hours and stalled the same way, and was
+killed too; the one after sealed the two label hours and finalised the day
+by 11:38Z: 21,711,277 staged rows, 3,633,308 kept, 0 unlabelled, 0
+duplicates, the weighted estimate within 0.3% of the rows staged.
+
+**What was changed:** ADR 18's second addendum. Labels are matched in
+chunks of 100,000 rows rather than per batch, a day is finalised only once
+every hour it reads is sealed, and sealing and finalising run as separate
+loops, each with a time limit and an alert. Until that is on the instance,
+each day stalls the same way at 06:00Z, and one kill after about 07:15Z
+clears it.
+
+**The test:** the same day, the last two label hours unsealed in batches of
+ten, at a tenth of a live hour: 76.4 s to finalise before the change, 1.8 s
+after it, 0.7 s once sealed, the same rows kept each time; the gate holds
+the day back until a seal run has taken those hours.
+`tests/test_history.py` covers the gate and counts the matching calls on a
+day written a label per batch (3,734 before, at most 24 after).
+
 ## Alerts, and what to do about each (ADR 26)
 
 Prometheus on the instance evaluates the rules in `deploy/live/compose.yml`;
@@ -237,8 +274,10 @@ compose command is the boot script's: `docker compose -f
 /opt/verdict/compose.yml --env-file /etc/verdict/stack.env --env-file
 /etc/verdict/tunnel.env`.
 
-None of these has fired on the live stack yet. When one does, what it
-showed and what was done go into a section above, like every other failure.
+The first to fire on the live stack were `DayNotFinalised` and
+`HistoryUnsealed`, on 2026-10-07 (the section just above has what they
+showed). When another fires, what it showed and what was done go
+into a section above, like every other failure.
 
 ### LabelCollectorBehind
 

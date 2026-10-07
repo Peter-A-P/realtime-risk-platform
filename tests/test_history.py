@@ -21,10 +21,11 @@ import json
 from collections.abc import Iterable
 from dataclasses import asdict
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import pyarrow as pa
+import pyarrow.compute as pc
 import pytest
 
 from verdict.events.schema import (
@@ -447,6 +448,62 @@ def test_finalising_never_reads_an_hour_whole(
     monkeypatch.setattr(spool, "read_hours", refuse)
     manifest = finalise_day(paths, DAY, as_of=final_after(DAY), rates=TEST_RATES)
     assert manifest.candidates > 0
+
+
+def _a_day_with_labels_one_per_batch(paths: HistoryPaths, n: int) -> None:
+    """A day whose labels are written a row per batch and left unsealed.
+
+    The shape of the label hours a day reads when it becomes ready: the
+    collector's small batches, not yet sealed into Parquet.
+    """
+    rules = DecisionRules()
+    staged = spool.SpoolWriter(paths.staged, staged_schema())
+    labels = spool.SpoolWriter(paths.labels, LABEL_SCHEMA)
+    for i in range(n):
+        at = DAY_START + dt.timedelta(seconds=86_399 * i / n)
+        event = an_event(i, card=f"card-{i % 97}").model_copy(update={"event_time": at})
+        action, _ = rules.decide(0.5, event)
+        staged.append(at, staged_row(event, FEATURES, _decision(event, action, 0.5), None))
+        labels.append(at + DELAY, _label(i, at + DELAY, fraud=i % 19 == 0))
+        labels.flush()
+    staged.close()
+    labels.close()
+
+
+def test_small_label_batches_are_matched_in_chunks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unsealed label hour costs no more matching calls than a sealed one.
+
+    Arrow builds the set of wanted ids on every `pc.is_in` call, and on
+    2026-10-07 matching the collector's batches one at a time ran the live
+    window's first finalise for over five hours. Gathered to
+    `LABEL_MATCH_ROWS`, a staged hour makes one call per label hour it reads
+    here, and keeps the same rows as the day sealed.
+    """
+    unsealed, sealed = HistoryPaths(tmp_path / "unsealed"), HistoryPaths(tmp_path / "sealed")
+    _a_day_with_labels_one_per_batch(unsealed, 480)
+    _a_day_with_labels_one_per_batch(sealed, 480)
+    seal_closed(sealed, DAY_START + dt.timedelta(days=9))
+    assert any((unsealed.labels / key).is_dir() for key in spool.hours(unsealed.labels))
+
+    calls = 0
+    is_in = pc.is_in
+
+    def counting(*args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        return is_in(*args, **kwargs)
+
+    monkeypatch.setattr(pc, "is_in", counting)
+    as_of = final_after(DAY)
+    a = finalise_day(unsealed, DAY, as_of=as_of, rates=TEST_RATES)
+    # Each staged hour reads at most nine label hours, each of 20 rows here.
+    assert calls <= 24
+    assert a.unlabelled == 0
+    b = finalise_day(sealed, DAY, as_of=as_of, rates=TEST_RATES)
+    assert asdict(a) | {"sha256": ""} == asdict(b) | {"sha256": ""}
+    assert read_kept(unsealed, [DAY]).equals(read_kept(sealed, [DAY]))
 
 
 def test_a_label_that_arrived_after_finalising_does_not_count(tmp_path: Path) -> None:

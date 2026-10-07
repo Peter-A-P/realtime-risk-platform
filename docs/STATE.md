@@ -21,13 +21,21 @@ sealing ran in the same process, nothing was sealed either.
 `DayNotFinalised` fired at 07:01Z and `HistoryUnsealed` at 09:16Z; the
 scorer kept deciding throughout (10.1 GB, flat). Seen from the dashboard's
 Prometheus: the run counter stopped at 2,121 ok and 0 failed at about
-06:00Z. **Why the run did not end is still open**: it needs the instance
-(`docker top verdict-compactor`, `ps` state, `free -m`, `vmstat`, `df -h
-/data`, the compactor's log, `dmesg`), and the host exports no memory or
-disk metrics. Fixed in the code, not yet on the instance: sealing and
-finalising are separate loops, a day is finalised only once every hour it
-reads is sealed, each run has a time limit, and two new alerts
-(`CompactionTimedOut`, `CompactionStuck`). Getting it there is an image roll
+06:00Z. **The cause, found on the instance the same day**: the run was not
+hung but working, 5 h at 99% CPU, 1.7 GB resident, in 7.2 million reads
+of about 400 bytes. The last label hours a day reads are the hours being
+written when it becomes ready, still unsealed and in the collector's small
+batches, and `_labels_for` rebuilds its hash set of the wanted ids for
+every batch (`docs/failure-modes.md` has the measurement). The run was
+killed twice so the next could seal those hours, and 2026-09-29 was
+finalised at 11:38Z, 0 rows unlabelled. Fixed in the code, not yet on the
+instance: labels are matched in chunks of 100,000 rows, and a day is
+finalised only once every hour it reads is sealed, each of which removes
+the cause on its own; sealing and finalising are separate loops, each run has a
+time limit, and two new alerts (`CompactionTimedOut`, `CompactionStuck`).
+Until the roll, every day stalls the same way at 06:00Z; killing the
+finalise run once after about 07:15Z, when the last label hour is sealed,
+lets the next run finish. Getting it there is an image roll
 plus the compose file over SSM, as at ADR 26's roll; the scorer restarts
 from its saved feature state (ADR 27).
 
