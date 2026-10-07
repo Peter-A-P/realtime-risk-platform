@@ -61,6 +61,17 @@ keeps up in seconds, and costs six hours of extra retention.
 SETTLE: Final = dt.timedelta(minutes=10)
 """How long after an hour ends before it is sealed, if no writer holds it."""
 
+LABEL_MATCH_ROWS: Final = 100_000
+"""Label rows gathered before they are matched against the ids wanted.
+
+Arrow builds the hash set of the wanted ids on every `pc.is_in` call: about
+a million ids for a live hour. A sealed hour yields batches of tens of
+thousands, but an unsealed one yields the collector's batches of a few rows,
+and matching those one at a time ran the live window's first finalise for
+over five hours (2026-10-07, ADR 18's second addendum). Gathering this many
+first bounds the calls by the rows read, whatever the batches, and holds a
+few megabytes of labels at a time."""
+
 
 class NotYetFinalError(ValueError):
     """Raised on finalising a day whose labels may not all have arrived."""
@@ -237,7 +248,9 @@ def _labels_for(
     Only the matching labels are ever held: an hour of labels is about 3.6
     million rows at the live rate, and this reads up to eight such hours for
     each staged hour, so reading each whole (as this did until 2026-09-22)
-    held an hour of labels at a time for nothing.
+    held an hour of labels at a time for nothing. Batches are gathered to
+    `LABEL_MATCH_ROWS` before matching, so an unsealed hour's small batches
+    cost no more than a sealed hour's large ones.
 
     Args:
         paths: The history directories.
@@ -253,15 +266,29 @@ def _labels_for(
     arrived = pa.scalar(as_of, LABEL_SCHEMA.field("label_time").type)
     first, last = spool.hour_key(since), spool.hour_key(until)
     keys = [k for k in spool.hours(paths.labels) if first <= k <= last]
-    found: list[pa.RecordBatch] = []
+    found: list[pa.Table] = []
+    gathered: list[pa.RecordBatch] = []
+    rows = 0
+
+    def match() -> None:
+        chunk = pa.Table.from_batches(gathered, schema=LABEL_SCHEMA).combine_chunks()
+        mask = pc.and_(
+            pc.is_in(chunk["event_id"], value_set=wanted),
+            pc.less_equal(chunk["label_time"], arrived),
+        )
+        found.append(chunk.filter(mask))
+        gathered.clear()
+
     for key in keys:
         for batch in spool.iter_hour(paths.labels, key, LABEL_SCHEMA):
-            mask = pc.and_(
-                pc.is_in(batch["event_id"], value_set=wanted),
-                pc.less_equal(batch["label_time"], arrived),
-            )
-            found.append(batch.filter(mask).cast(LABEL_SCHEMA))
-    labels = pa.Table.from_batches(found, schema=LABEL_SCHEMA)
+            gathered.append(batch.cast(LABEL_SCHEMA))
+            rows += batch.num_rows
+            if rows >= LABEL_MATCH_ROWS:
+                match()
+                rows = 0
+    if gathered:
+        match()
+    labels = pa.concat_tables(found) if found else LABEL_SCHEMA.empty_table()
     frame = labels.to_pandas().drop_duplicates("event_id", keep="first")
     return pa.Table.from_pandas(frame, schema=LABEL_SCHEMA, preserve_index=False)
 
@@ -477,8 +504,66 @@ def _delete_sources(paths: HistoryPaths, day: dt.date, delay: dt.timedelta) -> N
     spool.delete_hours(paths.labels, old)
 
 
+def hours_read(
+    day: dt.date, *, delay: dt.timedelta = LABEL_DELAY, grace: dt.timedelta = GRACE
+) -> tuple[list[str], list[str]]:
+    """The staged hours and the label hours finalising a day reads.
+
+    The label hours are every hour `_finalise_hour` reads for any of the
+    day's staged hours: from an hour before the delay lands the day's first
+    labels to the grace past the hour after it lands its last.
+
+    Args:
+        day: The day.
+        delay: The label delay.
+        grace: The grace past it.
+
+    Returns:
+        The staged hour keys and the label hour keys, each in order.
+    """
+    start = dt.datetime.combine(day, dt.time(), tzinfo=dt.UTC)
+    first = start + delay - dt.timedelta(hours=1)
+    last = start + dt.timedelta(hours=23) + delay + dt.timedelta(hours=1) + grace
+    labels: list[str] = []
+    at = first
+    while at <= last:
+        labels.append(spool.hour_key(at))
+        at += dt.timedelta(hours=1)
+    return day_hours(day), labels
+
+
+def is_sealed_for(paths: HistoryPaths, day: dt.date) -> bool:
+    """Whether every hour finalising a day reads is sealed, or absent.
+
+    Sealing runs in a process of its own beside finalising (2026-10-07,
+    ADR 18's second addendum). A seal settles the hour's Parquet file and
+    then deletes its folder, so a reader that looked for the file before it
+    existed and for the folder after it was gone would see neither and miss
+    the hour's rows; for labels that would finalise the day with labels it
+    never saw, for good. Finalising only once nothing it reads is still a
+    folder means the two never touch the same hour.
+
+    Args:
+        paths: The history directories.
+        day: The day.
+
+    Returns:
+        True if no hour the day reads is waiting to be sealed.
+    """
+    staged, labels = hours_read(day)
+    return not any((paths.staged / key).is_dir() for key in staged) and not any(
+        (paths.labels / key).is_dir() for key in labels
+    )
+
+
 def finalisable(paths: HistoryPaths, now: dt.datetime) -> Iterator[dt.date]:
     """Days with staged rows that may now be finalised, oldest first.
+
+    A day may be finalised once its labels have all had time to arrive and
+    every hour it reads has been sealed (`is_sealed_for`). The last label
+    hour it reads is the one that starts at `final_after`, so in a healthy
+    run a day becomes finalisable about seventy minutes after that: the hour
+    ends, and the seal run after the next takes it.
 
     Args:
         paths: The history directories.
@@ -489,7 +574,11 @@ def finalisable(paths: HistoryPaths, now: dt.datetime) -> Iterator[dt.date]:
     """
     days = sorted({spool.hour_start(key).date() for key in spool.hours(paths.staged)})
     for day in days:
-        if final_after(day) <= now and not paths.manifest_file(day).exists():
+        if (
+            final_after(day) <= now
+            and not paths.manifest_file(day).exists()
+            and is_sealed_for(paths, day)
+        ):
             yield day
 
 

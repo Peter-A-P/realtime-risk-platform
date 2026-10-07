@@ -200,6 +200,73 @@ the rates are sealed. `tests/test_history.py` shows a day finalised to the
 same rows sealed or unsealed, in one batch or many, with duplicates split
 across batches, and fails if finalising reads any hour whole.
 
+## Addendum, 2026-10-07: sealing and finalising run apart, each with a limit
+
+The live window's first day (2026-09-29, from 19:11Z) became finalisable at
+2026-10-07T06:00Z, the first finalise ever run on the live stack. The run
+that started then had not ended four hours later: no run of the compactor
+finished after 06:00Z, `DayNotFinalised` fired at 07:01Z and
+`HistoryUnsealed` at 09:16Z. It was not failing, since no failed run was
+counted, and not hung: on the instance it had run 5 h at 99% CPU with 1.7 GB
+resident, in 7.2 million reads of about 400 bytes.
+
+**The cause.** A day becomes ready at `final_after`, and the last label
+hours its last staged hour reads are the hour before that moment and the
+hour that starts at it: neither is sealed yet, so both are read from the
+collector's IPC files, in its small batches. `_labels_for` calls
+`pc.is_in(..., value_set=wanted)` per batch, and Arrow builds the hash set
+of `wanted` (about a million ids for a live hour) on every call. Measured at
+a tenth of a live hour (280,000 staged rows, the last two label hours in
+batches of ten): 76.4 s, against 0.8 s for the same day once those hours
+are sealed, the same 54,911 rows kept. The cost grows with the rows read
+times the ids wanted, so a live day ran for hours. `docs/finalise-footprint.json`
+could not see it: it measured sealed label hours only. Two properties of
+the compactor then turned one slow run into two problems:
+
+- **Sealing ran in the same process, before finalising**, and the parent
+  started the next run only when the last ended. Nothing was sealed while
+  the finalise ran, at about a gigabyte an hour of unsealed staged rows.
+- **A run had no time limit**, and a run that never ends is never counted
+  as failed, so `CompactionFailing` could not fire. The alerts that did fire
+  named the symptoms, not the run.
+
+Decided:
+
+1. **Two loops, side by side, one per step.** `verdict history compactor`
+   runs `history compact --no-finalise` and `history compact --no-seal`,
+   each still a process per run, every five minutes after the last of the
+   same step ended.
+2. **A day is finalisable only once every hour it reads is sealed**
+   (`compact.is_sealed_for`, over `compact.hours_read`). A seal settles the
+   hour's Parquet file and then deletes its folder; a reader that looked for
+   the file before it existed and for the folder after it was gone would
+   miss the hour, and for labels that would finalise a day short of labels
+   for good. With this rule the two steps never read and write the same
+   hour. The cost: a day is ready about seventy minutes after its labels are
+   all in rather than at once, because the last label hour it reads starts
+   at that moment. `as_of` is unchanged, so the rows kept are the same.
+   **This is also what removes the cause**: finalising now reads only
+   sealed hours, which Parquet yields in batches of tens of thousands.
+5. **Labels are matched in chunks** of `LABEL_MATCH_ROWS` (100,000) rather
+   than per batch, so an unsealed hour costs no more than a sealed one and
+   the cause is gone from `_labels_for` itself, for any caller. The same
+   day at a tenth of a live hour, its last two label hours unsealed in
+   batches of ten: 1.8 s, against 76.4 s before; the same rows kept.
+   `tests/test_history.py` counts the matching calls on a day written a
+   label per batch: at most 24 here, against 3,734 before.
+3. **Every run has a time limit** (`--seal-timeout`, 30 minutes;
+   `--finalise-timeout`, two hours), several times what a healthy run needs.
+   A run past it is killed and counted as `outcome="timeout"`; the loop goes
+   on. `CompactionTimedOut` tells of one for three hours.
+4. **The run in hand is timed** (`verdict_history_compact_run_seconds`,
+   with the limit published beside it). A process blocked in the kernel
+   cannot be killed until the kernel lets it go, so a kill can fail;
+   `CompactionStuck` fires fifteen minutes past the limit.
+
+The run counter gained a `step` label, so `CompactionFailing` now says which
+step is failing. `tests/test_alerts.py` runs each new rule through
+`promtool` and shows a finalise that never ends while seal runs go on.
+
 ## Sources
 
 - Horvitz and Thompson (1952), "A generalization of sampling without

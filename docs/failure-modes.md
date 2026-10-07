@@ -226,6 +226,43 @@ topic keeps) starts cold and says why. Not yet seen on the instance: the
 first replacement after the roll is the check, in the scorer's log and the
 `verdict_engine_restored` metric.
 
+## The first live finalise ran for hours (ADR 18, second addendum)
+
+**What was done to it:** nothing; the first live day, 2026-09-29, became
+ready to finalise at 2026-10-07T06:00Z.
+
+**What it did:** the finalise run that started then did not end, and
+sealing, in the same process, stopped with it. `DayNotFinalised` fired at
+07:01Z and `HistoryUnsealed` at 09:16Z; the scorer decided throughout. On
+the instance at about 11:00Z the run was 5 h 7 min old, state `R` at 99%
+CPU, 1.7 GB resident, with 16 GB of memory available and 153 MB of swap
+used: not memory, and not the disk. Its 7.2 million reads averaged about
+400 bytes, which is the label collector's small IPC batches: the last two
+label hours the day reads (05:00Z and 06:00Z) were still unsealed, and
+`_labels_for` rebuilds its hash set of about a million wanted ids for every
+batch. The data volume was down to 23 GB free, losing about 1.3 GB an hour.
+
+**What was done:** the run was killed (`kill`, safe: the kept file is
+written to a temporary name and nothing is deleted before the manifest).
+The next run sealed four staged hours and stalled the same way, and was
+killed too; the one after sealed the two label hours and finalised the day
+by 11:38Z: 21,711,277 staged rows, 3,633,308 kept, 0 unlabelled, 0
+duplicates, the weighted estimate within 0.3% of the rows staged.
+
+**What was changed:** ADR 18's second addendum. Labels are matched in
+chunks of 100,000 rows rather than per batch, a day is finalised only once
+every hour it reads is sealed, and sealing and finalising run as separate
+loops, each with a time limit and an alert. Until that is on the instance,
+each day stalls the same way at 06:00Z, and one kill after about 07:15Z
+clears it.
+
+**The test:** the same day, the last two label hours unsealed in batches of
+ten, at a tenth of a live hour: 76.4 s to finalise before the change, 1.8 s
+after it, 0.7 s once sealed, the same rows kept each time; the gate holds
+the day back until a seal run has taken those hours.
+`tests/test_history.py` covers the gate and counts the matching calls on a
+day written a label per batch (3,734 before, at most 24 after).
+
 ## Alerts, and what to do about each (ADR 26)
 
 Prometheus on the instance evaluates the rules in `deploy/live/compose.yml`;
@@ -237,8 +274,10 @@ compose command is the boot script's: `docker compose -f
 /opt/verdict/compose.yml --env-file /etc/verdict/stack.env --env-file
 /etc/verdict/tunnel.env`.
 
-None of these has fired on the live stack yet. When one does, what it
-showed and what was done go into a section above, like every other failure.
+The first to fire on the live stack were `DayNotFinalised` and
+`HistoryUnsealed`, on 2026-10-07 (the section just above has what they
+showed). When another fires, what it showed and what was done go
+into a section above, like every other failure.
 
 ### LabelCollectorBehind
 
@@ -254,8 +293,12 @@ day's manifest reports as unlabelled; it does not stop the platform.
 ### HistoryUnsealed
 
 An hour of staged decisions or labels ended more than three hours ago and is
-still unsealed. Either compaction runs are failing (`CompactionFailing` will
-usually be firing too) or the compactor is not running. Unsealed staged rows
+still unsealed. Either seal runs are failing (`CompactionFailing` will
+usually be firing too, with `step="seal"`), timing out (`CompactionTimedOut`),
+stuck (`CompactionStuck`), or the compactor is not running. Sealing has had
+its own loop since 2026-10-07, so a slow finalise no longer holds it back;
+before that, the live window's first finalise stopped sealing for hours
+(ADR 18's second addendum). Unsealed staged rows
 take about a gigabyte an hour of the data volume against about a tenth of
 that sealed. Look at `docker logs --tail 100 verdict-compactor` and the
 kernel's log, `dmesg | grep -i oom`; the compactor was killed for memory
@@ -263,18 +306,69 @@ once, on 2026-09-22 (`docs/STATE.md`).
 
 ### DayNotFinalised
 
-A day has had all its labels for over an hour and is not final. Finalising a
-day at the live rate takes minutes, so this is a finalising run failing each
-time it tries. Every day waiting keeps eight days of staged rows on the
-volume longer. The compactor's log has the error; `verdict history
-footprint` is the instrument if memory is the suspect (ADR 18's addendum).
+A day has been ready to finalise for over an hour and is not final: its
+labels have all had time to arrive and every hour it reads is sealed (it
+becomes ready about seventy minutes after the labels are in, when the last
+label hour it reads is sealed). Finalising a day at the live rate was
+estimated at minutes, so this is a finalising run failing each time it
+tries, or one that has not ended. Every day waiting keeps eight days of
+staged rows on the volume longer.
+
+- `CompactionFailing` with `step="finalise"`: the run exits with an error.
+  The compactor's log has it.
+- `CompactionTimedOut` with `step="finalise"`: the run went past its limit
+  (`--finalise-timeout`, two hours) and was stopped. The next run starts
+  over, so a day too slow to finalise will time out every time.
+- Neither: the run in hand is still going.
+  `verdict_history_compact_run_seconds{step="finalise"}` on the dashboard's
+  Prometheus says for how long.
+
+`verdict history footprint` is the instrument if memory is the suspect (ADR
+18's addendum). On the instance, `docker top verdict-compactor` and
+`ps -o pid,stat,etime,rss,cmd -p <pid>` show the run: state `D` is blocked on
+the disk, `R` working; `free -m` and `vmstat 5 3` show whether it is in swap
+(the `si` and `so` columns).
 
 ### CompactionFailing
 
-Three or more compaction runs exited with an error in half an hour. The
-compactor starts a new process every five minutes, so it will keep trying;
-what matters is why. `docker logs --tail 200 verdict-compactor`, and exit
-code 137 in it means the kernel killed the run.
+Three or more compaction runs of one step (`step` in the email: `seal` or
+`finalise`) exited with an error in half an hour. The compactor starts a
+new process for each step five minutes after the last one ended, so it
+will keep trying; what matters is why. A run that does not end is not
+counted here: see `CompactionTimedOut` and `CompactionStuck`.
+`docker logs --tail 200 verdict-compactor`, and exit code 137 in it means
+the kernel killed the run.
+
+### CompactionTimedOut
+
+A compaction run (`step` in the email) went past its time limit and was
+killed; the email is about the last three hours. Limits are set on the
+compactor's command in `deploy/live/compose.yml`: 30 minutes for a seal run,
+which seals at most four hours, and two hours for a finalise run. A healthy
+run takes a fraction of either. Added after 2026-10-07, when the live
+window's first finalise ran for over four hours with no limit, and sealing,
+then in the same process, stopped with it.
+
+The loop goes on after a timeout, so one timeout followed by clean runs is a
+slow moment. Repeated timeouts on `finalise` mean one day cannot be
+finalised inside the limit: `DayNotFinalised` will be firing. Find out why
+before raising the limit: `free -m` and `vmstat 5 3` (swapping), `df -h
+/data`, and the run's own log in `docker logs verdict-compactor`. A finalise
+that has to read a backlog of label hours, or a day much busier than the
+measured one, is slower in proportion; one reading swap is slower by
+orders of magnitude.
+
+### CompactionStuck
+
+A compaction run has gone fifteen minutes past its time limit and has not
+ended, so killing it did not work: it is blocked in the kernel, almost
+always waiting on the disk. Nothing the compactor does will move it, and a
+stuck seal run means nothing is being sealed. On the instance: `docker top
+verdict-compactor`, then `ps -o pid,stat,etime,wchan:32,cmd -p <pid>`
+(state `D` and what it waits on), `dmesg | tail -50` for I/O errors, and
+`df -h /data`. `docker restart verdict-compactor` once the cause is clear;
+if the process stays in `D` through that, the instance needs replacing,
+which the volume survives.
 
 ### ScorerStopped
 

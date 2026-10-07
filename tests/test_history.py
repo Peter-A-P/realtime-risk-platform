@@ -18,13 +18,14 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from pathlib import Path
 from typing import cast
 
 import numpy as np
 import pyarrow as pa
+import pyarrow.compute as pc
 import pytest
 
 from verdict.events.schema import (
@@ -43,6 +44,8 @@ from verdict.history.compact import (
     final_after,
     finalisable,
     finalise_day,
+    hours_read,
+    is_sealed_for,
     read_kept,
     seal_closed,
 )
@@ -251,8 +254,67 @@ def test_a_day_is_not_final_until_its_labels_could_all_have_arrived(tmp_path: Pa
     early = final_after(DAY) - dt.timedelta(seconds=1)
     with pytest.raises(NotYetFinalError):
         finalise_day(paths, DAY, as_of=early, rates=TEST_RATES)
+    seal_closed(paths, final_after(DAY) + dt.timedelta(days=1))
     assert list(finalisable(paths, early)) == []
     assert list(finalisable(paths, final_after(DAY))) == [DAY]
+
+
+def test_a_day_is_not_finalisable_while_an_hour_it_reads_is_unsealed(tmp_path: Path) -> None:
+    """Sealing runs beside finalising (2026-10-07), so finalising waits for it.
+
+    A seal settles an hour's file and then deletes its folder; a reader
+    caught between the two would miss the hour's rows. So no hour the day
+    reads may still be a folder, the last label hour included, which starts
+    at the very moment the day's labels are all in.
+    """
+    paths = HistoryPaths(tmp_path)
+    _a_day(paths, 200)
+    ready = final_after(DAY)
+    late = spool.SpoolWriter(paths.labels, LABEL_SCHEMA)
+    late.append(ready, _label(10_000, ready, fraud=False))
+    late.close()
+    staged_hours, label_hours = hours_read(DAY)
+    assert spool.hour_key(ready) == label_hours[-1]
+    assert staged_hours == [spool.hour_key(DAY_START + dt.timedelta(hours=h)) for h in range(24)]
+
+    assert not is_sealed_for(paths, DAY)
+    assert list(finalisable(paths, ready)) == []
+    # Everything but the last label hour sealed: still not ready.
+    seal_closed(paths, ready)
+    assert (paths.labels / label_hours[-1]).is_dir()
+    assert list(finalisable(paths, ready)) == []
+    seal_closed(paths, ready + dt.timedelta(hours=2))
+    assert is_sealed_for(paths, DAY)
+    assert list(finalisable(paths, ready + dt.timedelta(hours=2))) == [DAY]
+
+
+def test_the_hours_a_day_reads_are_the_hours_finalising_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`hours_read` is what the sealing gate checks, so it must not miss one."""
+    paths = HistoryPaths(tmp_path)
+    _a_day(paths, 500)
+    staged_hours, label_hours = hours_read(DAY)
+    # Label hours on both sides of the range, which finalising must not read.
+    edges = spool.SpoolWriter(paths.labels, LABEL_SCHEMA)
+    for at in (
+        spool.hour_start(label_hours[0]) - dt.timedelta(hours=1),
+        spool.hour_start(label_hours[-1]) + dt.timedelta(hours=1),
+    ):
+        edges.append(at, _label(20_000 + at.hour, at, fraud=False))
+    edges.close()
+    read: dict[str, set[str]] = {"staged": set(), "labels": set()}
+    original = spool.iter_hour
+
+    def recording(directory: Path, key: str, *args: object, **kwargs: object) -> object:
+        read[directory.name].add(key)
+        return original(directory, key, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(spool, "iter_hour", recording)
+    finalise_day(paths, DAY, as_of=final_after(DAY) + dt.timedelta(hours=2), rates=TEST_RATES)
+    assert read["staged"] <= set(staged_hours)
+    assert read["labels"]
+    assert read["labels"] <= set(label_hours)
 
 
 def test_every_reviewed_or_declined_row_is_kept_at_weight_one(tmp_path: Path) -> None:
@@ -386,6 +448,62 @@ def test_finalising_never_reads_an_hour_whole(
     monkeypatch.setattr(spool, "read_hours", refuse)
     manifest = finalise_day(paths, DAY, as_of=final_after(DAY), rates=TEST_RATES)
     assert manifest.candidates > 0
+
+
+def _a_day_with_labels_one_per_batch(paths: HistoryPaths, n: int) -> None:
+    """A day whose labels are written a row per batch and left unsealed.
+
+    The shape of the label hours a day reads when it becomes ready: the
+    collector's small batches, not yet sealed into Parquet.
+    """
+    rules = DecisionRules()
+    staged = spool.SpoolWriter(paths.staged, staged_schema())
+    labels = spool.SpoolWriter(paths.labels, LABEL_SCHEMA)
+    for i in range(n):
+        at = DAY_START + dt.timedelta(seconds=86_399 * i / n)
+        event = an_event(i, card=f"card-{i % 97}").model_copy(update={"event_time": at})
+        action, _ = rules.decide(0.5, event)
+        staged.append(at, staged_row(event, FEATURES, _decision(event, action, 0.5), None))
+        labels.append(at + DELAY, _label(i, at + DELAY, fraud=i % 19 == 0))
+        labels.flush()
+    staged.close()
+    labels.close()
+
+
+def test_small_label_batches_are_matched_in_chunks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unsealed label hour costs no more matching calls than a sealed one.
+
+    Arrow builds the set of wanted ids on every `pc.is_in` call, and on
+    2026-10-07 matching the collector's batches one at a time ran the live
+    window's first finalise for over five hours. Gathered to
+    `LABEL_MATCH_ROWS`, a staged hour makes one call per label hour it reads
+    here, and keeps the same rows as the day sealed.
+    """
+    unsealed, sealed = HistoryPaths(tmp_path / "unsealed"), HistoryPaths(tmp_path / "sealed")
+    _a_day_with_labels_one_per_batch(unsealed, 480)
+    _a_day_with_labels_one_per_batch(sealed, 480)
+    seal_closed(sealed, DAY_START + dt.timedelta(days=9))
+    assert any((unsealed.labels / key).is_dir() for key in spool.hours(unsealed.labels))
+
+    calls = 0
+    is_in: Callable[..., object] = pc.is_in
+
+    def counting(*args: object, **kwargs: object) -> object:
+        nonlocal calls
+        calls += 1
+        return is_in(*args, **kwargs)
+
+    monkeypatch.setattr(pc, "is_in", counting)
+    as_of = final_after(DAY)
+    a = finalise_day(unsealed, DAY, as_of=as_of, rates=TEST_RATES)
+    # Each staged hour reads at most nine label hours, each of 20 rows here.
+    assert calls <= 24
+    assert a.unlabelled == 0
+    b = finalise_day(sealed, DAY, as_of=as_of, rates=TEST_RATES)
+    assert asdict(a) | {"sha256": ""} == asdict(b) | {"sha256": ""}
+    assert read_kept(unsealed, [DAY]).equals(read_kept(sealed, [DAY]))
 
 
 def test_a_label_that_arrived_after_finalising_does_not_count(tmp_path: Path) -> None:
