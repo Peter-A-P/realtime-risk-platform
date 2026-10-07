@@ -201,7 +201,10 @@ services:
   # that spot reclaims had left sealed twelve hours in one process, holding
   # each whole, and was killed by the kernel at 9.3 GB (docs/STATE.md).
   # Each run is still its own process; the parent outlives them and reports
-  # how they ended and how far behind the spools are (ADR 26).
+  # how they ended and how far behind the spools are (ADR 26). Since
+  # 2026-10-07 sealing and finalising are two loops side by side, and every
+  # run is stopped at its time limit, after the live window's first finalise
+  # ran for hours and held sealing back with it (ADR 18's second addendum).
   compactor:
     image: ${VERDICT_IMAGE:?the boot script writes it to /etc/verdict/stack.env}
     container_name: verdict-compactor
@@ -210,6 +213,8 @@ services:
       - compactor
       - --root=/data/history
       - --every=300
+      - --seal-timeout=1800
+      - --finalise-timeout=7200
       - --metrics-host=0.0.0.0
       - --metrics-port=9112
     volumes:
@@ -384,15 +389,32 @@ configs:
               for: 15m
               annotations:
                 summary: An hour of history ended over three hours ago and is still unsealed.
+            # A day is ready once its labels are all in and its hours sealed;
+            # a live day finalises in well under an hour.
             - alert: DayNotFinalised
               expr: max(verdict_history_finalisable_days) > 0
               for: 1h
               annotations:
-                summary: A day has had all its labels for over an hour and is not final.
+                summary: A day has been ready to finalise for over an hour and is not final.
             - alert: CompactionFailing
               expr: increase(verdict_history_compact_runs_total{outcome="failed"}[30m]) >= 3
               annotations:
                 summary: Three or more compaction runs failed in half an hour.
+            # A run that never ends is never counted as failed (2026-10-07):
+            # each run has a time limit, and one stopped at it is news for
+            # three hours, whichever step it was.
+            - alert: CompactionTimedOut
+              expr: increase(verdict_history_compact_runs_total{outcome="timeout"}[3h]) > 0
+              annotations:
+                summary: A compaction run went past its time limit and was stopped.
+            # Killed at its limit and still not gone: blocked in the kernel,
+            # which only the host can see into.
+            - alert: CompactionStuck
+              expr: >-
+                verdict_history_compact_run_seconds
+                > verdict_history_compact_run_limit_seconds + 900
+              annotations:
+                summary: A compaction run is over its time limit and has not ended.
             - alert: ScorerStopped
               expr: time() - verdict_last_decision_timestamp_seconds > 900
               for: 5m

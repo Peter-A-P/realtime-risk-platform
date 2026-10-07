@@ -14,6 +14,23 @@ judgement or an open question, it says so.
 
 ## 1. Status in one paragraph
 
+**2026-10-07, the window's first finalise did not end (ADR 18's second
+addendum).** The first live day (2026-09-29) became finalisable at 06:00Z;
+the run that started then was still going four hours later, and since
+sealing ran in the same process, nothing was sealed either.
+`DayNotFinalised` fired at 07:01Z and `HistoryUnsealed` at 09:16Z; the
+scorer kept deciding throughout (10.1 GB, flat). Seen from the dashboard's
+Prometheus: the run counter stopped at 2,121 ok and 0 failed at about
+06:00Z. **Why the run did not end is still open**: it needs the instance
+(`docker top verdict-compactor`, `ps` state, `free -m`, `vmstat`, `df -h
+/data`, the compactor's log, `dmesg`), and the host exports no memory or
+disk metrics. Fixed in the code, not yet on the instance: sealing and
+finalising are separate loops, a day is finalised only once every hour it
+reads is sealed, each run has a time limit, and two new alerts
+(`CompactionTimedOut`, `CompactionStuck`). Getting it there is an image roll
+plus the compose file over SSM, as at ADR 26's roll; the scorer restarts
+from its saved feature state (ADR 27).
+
 **2026-09-29, read this before anything below (ADR 31).** The first live
 window (from 2026-09-28 08:51Z, spot, 16 GB) failed on its second day and is
 **stopped**: the auto-scaling group is at zero, the data volume

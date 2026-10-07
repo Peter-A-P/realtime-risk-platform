@@ -43,6 +43,8 @@ from verdict.history.compact import (
     final_after,
     finalisable,
     finalise_day,
+    hours_read,
+    is_sealed_for,
     read_kept,
     seal_closed,
 )
@@ -251,8 +253,67 @@ def test_a_day_is_not_final_until_its_labels_could_all_have_arrived(tmp_path: Pa
     early = final_after(DAY) - dt.timedelta(seconds=1)
     with pytest.raises(NotYetFinalError):
         finalise_day(paths, DAY, as_of=early, rates=TEST_RATES)
+    seal_closed(paths, final_after(DAY) + dt.timedelta(days=1))
     assert list(finalisable(paths, early)) == []
     assert list(finalisable(paths, final_after(DAY))) == [DAY]
+
+
+def test_a_day_is_not_finalisable_while_an_hour_it_reads_is_unsealed(tmp_path: Path) -> None:
+    """Sealing runs beside finalising (2026-10-07), so finalising waits for it.
+
+    A seal settles an hour's file and then deletes its folder; a reader
+    caught between the two would miss the hour's rows. So no hour the day
+    reads may still be a folder, the last label hour included, which starts
+    at the very moment the day's labels are all in.
+    """
+    paths = HistoryPaths(tmp_path)
+    _a_day(paths, 200)
+    ready = final_after(DAY)
+    late = spool.SpoolWriter(paths.labels, LABEL_SCHEMA)
+    late.append(ready, _label(10_000, ready, fraud=False))
+    late.close()
+    staged_hours, label_hours = hours_read(DAY)
+    assert spool.hour_key(ready) == label_hours[-1]
+    assert staged_hours == [spool.hour_key(DAY_START + dt.timedelta(hours=h)) for h in range(24)]
+
+    assert not is_sealed_for(paths, DAY)
+    assert list(finalisable(paths, ready)) == []
+    # Everything but the last label hour sealed: still not ready.
+    seal_closed(paths, ready)
+    assert (paths.labels / label_hours[-1]).is_dir()
+    assert list(finalisable(paths, ready)) == []
+    seal_closed(paths, ready + dt.timedelta(hours=2))
+    assert is_sealed_for(paths, DAY)
+    assert list(finalisable(paths, ready + dt.timedelta(hours=2))) == [DAY]
+
+
+def test_the_hours_a_day_reads_are_the_hours_finalising_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`hours_read` is what the sealing gate checks, so it must not miss one."""
+    paths = HistoryPaths(tmp_path)
+    _a_day(paths, 500)
+    staged_hours, label_hours = hours_read(DAY)
+    # Label hours on both sides of the range, which finalising must not read.
+    edges = spool.SpoolWriter(paths.labels, LABEL_SCHEMA)
+    for at in (
+        spool.hour_start(label_hours[0]) - dt.timedelta(hours=1),
+        spool.hour_start(label_hours[-1]) + dt.timedelta(hours=1),
+    ):
+        edges.append(at, _label(20_000 + at.hour, at, fraud=False))
+    edges.close()
+    read: dict[str, set[str]] = {"staged": set(), "labels": set()}
+    original = spool.iter_hour
+
+    def recording(directory: Path, key: str, *args: object, **kwargs: object) -> object:
+        read[directory.name].add(key)
+        return original(directory, key, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(spool, "iter_hour", recording)
+    finalise_day(paths, DAY, as_of=final_after(DAY) + dt.timedelta(hours=2), rates=TEST_RATES)
+    assert read["staged"] <= set(staged_hours)
+    assert read["labels"]
+    assert read["labels"] <= set(label_hours)
 
 
 def test_every_reviewed_or_declined_row_is_kept_at_weight_one(tmp_path: Path) -> None:

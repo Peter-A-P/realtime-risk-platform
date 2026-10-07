@@ -23,7 +23,9 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import threading
+import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -34,7 +36,15 @@ import yaml
 from verdict.events.schema import LabelEvent
 from verdict.history import spool
 from verdict.history.compact import HistoryPaths, final_after
-from verdict.history.compactor import CompactorMetrics, run_forever, unsealed_age
+from verdict.history.compactor import (
+    CompactorMetrics,
+    Outcome,
+    Step,
+    compact_command,
+    run_forever,
+    run_with_limit,
+    unsealed_age,
+)
 from verdict.history.labels import CollectorMetrics
 from verdict.history.records import LABEL_SCHEMA, label_row
 from verdict.live.feed import Feed, FeedMetrics
@@ -166,7 +176,54 @@ tests:
         alertname: DayNotFinalised
         exp_alerts:
           - exp_annotations:
-              summary: A day has had all its labels for over an hour and is not final.
+              summary: A day has been ready to finalise for over an hour and is not final.
+  # One finalise stopped at its limit at 01:00 is told, and stops being news
+  # three hours on; ok runs and the seal step never are.
+  - interval: 1m
+    input_series:
+      - series: 'verdict_history_compact_runs_total{step="finalise", outcome="timeout"}'
+        values: '0x60 1x300'
+      - series: 'verdict_history_compact_runs_total{step="seal", outcome="ok"}'
+        values: '0+1x360'
+    alert_rule_test:
+      - eval_time: 59m
+        alertname: CompactionTimedOut
+        exp_alerts: []
+      - eval_time: 90m
+        alertname: CompactionTimedOut
+        exp_alerts:
+          - exp_labels:
+              step: finalise
+              outcome: timeout
+            exp_annotations:
+              summary: A compaction run went past its time limit and was stopped.
+      - eval_time: 4h30m
+        alertname: CompactionTimedOut
+        exp_alerts: []
+  # A finalise with a two-hour limit: at its limit it is being stopped, not
+  # stuck; a quarter of an hour past it, it is stuck. 2026-10-07's run, which
+  # had no limit, would have been told at 02:15 instead of never.
+  - interval: 1m
+    input_series:
+      - series: 'verdict_history_compact_run_seconds{step="finalise"}'
+        values: '0+60x300'
+      - series: 'verdict_history_compact_run_limit_seconds{step="finalise"}'
+        values: '7200x300'
+      - series: 'verdict_history_compact_run_seconds{step="seal"}'
+        values: '0x300'
+      - series: 'verdict_history_compact_run_limit_seconds{step="seal"}'
+        values: '1800x300'
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: CompactionStuck
+        exp_alerts: []
+      - eval_time: 2h16m
+        alertname: CompactionStuck
+        exp_alerts:
+          - exp_labels:
+              step: finalise
+            exp_annotations:
+              summary: A compaction run is over its time limit and has not ended.
   # Saved at 10 minutes and never again: quiet for the first hour, not after.
   # Before the first save the gauge is zero, which the 45 minutes rides out.
   - interval: 1m
@@ -230,11 +287,27 @@ tests:
 """
 
 
-@pytest.mark.skipif(shutil.which("docker") is None, reason="needs Docker for promtool")
+@pytest.mark.skipif(
+    shutil.which("docker") is None and shutil.which("promtool") is None,
+    reason="needs promtool, or Docker to run it",
+)
 def test_the_rules_fire_when_they_should_and_not_before(tmp_path: Path) -> None:
     content = _compose()["configs"]["alert-rules"]["content"].replace("$$", "$")
     (tmp_path / "rules.yml").write_text(content, encoding="utf-8")
     (tmp_path / "tests.yml").write_text(_RULE_TESTS, encoding="utf-8")
+    local = shutil.which("promtool")
+    if local is not None:
+        # The same tester, installed: what a runner without Docker uses.
+        found = subprocess.run(
+            [local, "test", "rules", "tests.yml"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+        assert found.returncode == 0, found.stdout + found.stderr
+        return
     # promtool runs as the image's own user, nobody; pytest makes its
     # directories readable by their owner only, which on a Linux runner is
     # someone else, so the directory and files are opened up to be read.
@@ -419,26 +492,132 @@ def test_the_spool_metrics_are_read_when_scraped(tmp_path: Path) -> None:
     assert _metric(metrics, "verdict_history_unsealed_age_seconds", spool="staged") == 0.0
     assert _metric(metrics, "verdict_history_finalisable_days") == 0.0
     day = T0.date() - dt.timedelta(days=9)
-    (paths.staged / f"{day.isoformat()}T05").mkdir(parents=True)
+    hour = paths.staged / f"{day.isoformat()}T05"
+    hour.mkdir(parents=True)
     clock.at = final_after(day) + dt.timedelta(minutes=1)
-    assert _metric(metrics, "verdict_history_finalisable_days") == 1.0
+    # Its labels are all in, but an hour it reads is not sealed yet.
+    assert _metric(metrics, "verdict_history_finalisable_days") == 0.0
     assert _metric(metrics, "verdict_history_unsealed_age_seconds", spool="staged") > 0
+    hour.rmdir()
+    (paths.staged / f"{day.isoformat()}T05.parquet").touch()
+    assert _metric(metrics, "verdict_history_finalisable_days") == 1.0
+    assert _metric(metrics, "verdict_history_unsealed_age_seconds", spool="staged") == 0.0
 
 
-def test_every_run_is_counted_by_how_it_ended(tmp_path: Path) -> None:
+def _runs(metrics: CompactorMetrics, step: Step, outcome: Outcome) -> float:
+    return _metric(
+        metrics, "verdict_history_compact_runs_total", step=step.value, outcome=outcome.value
+    )
+
+
+def test_every_run_is_counted_by_its_step_and_how_it_ended(tmp_path: Path) -> None:
     metrics = CompactorMetrics(HistoryPaths(tmp_path))
     stop = threading.Event()
-    codes = iter([0, 137, 0, 1])
+    codes = iter([0, 137, None, 0, 1])
+    limits: list[float] = []
 
-    def run(argv: Sequence[str]) -> int:
+    def run(argv: Sequence[str], timeout_seconds: float) -> int | None:
+        limits.append(timeout_seconds)
         code = next(codes)
         if code == 1:
             stop.set()
         return code
 
-    run_forever(["compact"], metrics, every_seconds=0, stop=stop, run=run)
-    assert _metric(metrics, "verdict_history_compact_runs_total", outcome="ok") == 2
-    assert _metric(metrics, "verdict_history_compact_runs_total", outcome="failed") == 2
+    run_forever(
+        Step.FINALISE,
+        ["compact"],
+        metrics,
+        every_seconds=0,
+        timeout_seconds=60,
+        stop=stop,
+        run=run,
+    )
+    assert limits == [60] * 5
+    assert _runs(metrics, Step.FINALISE, Outcome.OK) == 2
+    assert _runs(metrics, Step.FINALISE, Outcome.FAILED) == 2
+    assert _runs(metrics, Step.FINALISE, Outcome.TIMEOUT) == 1
+    # The other step's series exist from the start, at zero, so a first
+    # timeout is an increase Prometheus can see.
+    for outcome in Outcome:
+        assert _runs(metrics, Step.SEAL, outcome) == 0
+
+
+def test_the_run_in_hand_is_timed_and_its_limit_published(tmp_path: Path) -> None:
+    """A run that cannot be stopped still shows, as a run older than its limit."""
+    now = [100.0]
+    metrics = CompactorMetrics(
+        HistoryPaths(tmp_path),
+        limits={Step.SEAL: 30.0, Step.FINALISE: 600.0},
+        clock=lambda: now[0],
+    )
+    seconds = "verdict_history_compact_run_seconds"
+    assert _metric(metrics, seconds, step="finalise") == 0.0
+    assert _metric(metrics, "verdict_history_compact_run_limit_seconds", step="seal") == 30.0
+    assert _metric(metrics, "verdict_history_compact_run_limit_seconds", step="finalise") == 600.0
+    metrics.started(Step.FINALISE)
+    now[0] = 400.0
+    assert _metric(metrics, seconds, step="finalise") == 300.0
+    now[0] = 900.0
+    assert _metric(metrics, seconds, step="finalise") == 800.0
+    assert _metric(metrics, seconds, step="seal") == 0.0
+    metrics.ended(Step.FINALISE, Outcome.TIMEOUT)
+    assert _metric(metrics, seconds, step="finalise") == 0.0
+
+
+def test_a_run_past_its_limit_is_stopped() -> None:
+    sleeper = [sys.executable, "-c", "import time; time.sleep(30)"]
+    started = time.monotonic()
+    assert run_with_limit(sleeper, 0.5) is None
+    assert time.monotonic() - started < 10
+    assert run_with_limit([sys.executable, "-c", "raise SystemExit(3)"], 30) == 3
+
+
+def test_sealing_and_finalising_are_separate_runs(tmp_path: Path) -> None:
+    seal = compact_command(tmp_path, 4, Step.SEAL)
+    finalise = compact_command(tmp_path, 4, Step.FINALISE)
+    assert seal[-1] == "--no-finalise"
+    assert finalise[-1] == "--no-seal"
+    assert seal[:-1] == finalise[:-1]
+
+
+def test_a_stuck_finalise_does_not_hold_sealing_back(tmp_path: Path) -> None:
+    """2026-10-07: one finalise ran for hours and no hour was sealed meanwhile."""
+    metrics = CompactorMetrics(HistoryPaths(tmp_path))
+    stop = threading.Event()
+    release = threading.Event()
+    sealed = threading.Event()
+    seal_runs = 0
+
+    def finalise(argv: Sequence[str], timeout_seconds: float) -> int | None:
+        release.wait(10)
+        return 0
+
+    def seal(argv: Sequence[str], timeout_seconds: float) -> int | None:
+        nonlocal seal_runs
+        seal_runs += 1
+        if seal_runs == 3:
+            sealed.set()
+        return 0
+
+    loops = [
+        threading.Thread(
+            target=run_forever,
+            args=(step, [step.value], metrics),
+            kwargs={"every_seconds": 0, "timeout_seconds": 60, "stop": stop, "run": run},
+        )
+        for step, run in ((Step.FINALISE, finalise), (Step.SEAL, seal))
+    ]
+    for loop in loops:
+        loop.start()
+    try:
+        assert sealed.wait(5), "sealing waited on the finalise"
+        assert _runs(metrics, Step.FINALISE, Outcome.OK) == 0
+    finally:
+        stop.set()
+        release.set()
+        for loop in loops:
+            loop.join(10)
+    assert _runs(metrics, Step.FINALISE, Outcome.OK) == 1
 
 
 def test_a_relay_whose_state_was_left_empty_starts_and_tells(tmp_path: Path) -> None:

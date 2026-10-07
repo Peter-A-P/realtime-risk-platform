@@ -986,15 +986,23 @@ def history_compact(
             "dry run's first night)."
         ),
     ] = 4,
+    seal: Annotated[bool, typer.Option(help="Seal finished hours.")] = True,
+    finalise: Annotated[
+        bool, typer.Option(help="Finalise every day that is ready, after any sealing.")
+    ] = True,
 ) -> None:
     """Seal finished hours and finalise every day whose labels are all in.
 
     Run often; sealing is cheap once there is no backlog. Prints each day's
-    manifest as it is finalised.
+    manifest as it is finalised. The compactor runs the two steps as
+    separate processes (`--no-finalise`, `--no-seal`), so a slow finalise
+    never holds sealing back (ADR 18's second addendum); by hand, both run.
 
     Args:
         root: The history root.
         seal_limit: The most hours to seal in this run.
+        seal: Whether to seal.
+        finalise: Whether to finalise.
     """
     from dataclasses import asdict
 
@@ -1002,20 +1010,28 @@ def history_compact(
 
     paths = HistoryPaths(root)
     now = dt.datetime.now(dt.UTC)
-    for name in seal_closed(paths, now, limit=seal_limit):
-        typer.echo(f"sealed {name}")
-    for day in finalisable(paths, now):
-        manifest = finalise_day(paths, day, as_of=now)
-        typer.echo(json.dumps(asdict(manifest), sort_keys=True))
+    if seal:
+        for name in seal_closed(paths, now, limit=seal_limit):
+            typer.echo(f"sealed {name}")
+    if finalise:
+        for day in finalisable(paths, now):
+            manifest = finalise_day(paths, day, as_of=now)
+            typer.echo(json.dumps(asdict(manifest), sort_keys=True))
 
 
 @history_app.command("compactor")
 def history_compactor(
     root: Annotated[Path, typer.Option(help="The history root.")],
     every: Annotated[
-        float, typer.Option(help="Seconds between the end of one run and the next.")
+        float, typer.Option(help="Seconds between the end of one run of a step and the next.")
     ] = 300.0,
     seal_limit: Annotated[int, typer.Option(help="The most hours one run seals.")] = 4,
+    seal_timeout: Annotated[
+        float, typer.Option(help="Seconds a seal run may take before it is stopped.")
+    ] = 1800.0,
+    finalise_timeout: Annotated[
+        float, typer.Option(help="Seconds a finalise run may take before it is stopped.")
+    ] = 7200.0,
     metrics_port: Annotated[
         int, typer.Option(help="Serve Prometheus metrics on this port; 0 for none.")
     ] = 0,
@@ -1023,17 +1039,22 @@ def history_compactor(
         "127.0.0.1"
     ),
 ) -> None:
-    """Run `history compact` every few minutes, each in its own process, and report.
+    """Seal and finalise every few minutes, each run in its own process, and report.
 
-    A run that exits gives its memory back before the next; this parent
-    outlives the runs, counts how each ended, and reports how old the oldest
-    unsealed hour is and how many days wait to be finalised
-    (`verdict/history/compactor.py`).
+    Sealing and finalising are two loops side by side, so a finalise that is
+    slow or stuck never holds sealing back, and each run has a time limit
+    after which it is stopped and counted (ADR 18's second addendum). A run
+    that exits gives its memory back before the next; this parent outlives
+    the runs, counts how each ended, and reports how long the current one
+    has taken, how old the oldest unsealed hour is and how many days wait
+    to be finalised (`verdict/history/compactor.py`).
 
     Args:
         root: The history root.
-        every: The wait between runs.
+        every: The wait between runs of a step.
         seal_limit: The most hours one run seals.
+        seal_timeout: The time limit of a seal run.
+        finalise_timeout: The time limit of a finalise run.
         metrics_port: Where to serve metrics, or 0 for nowhere.
         metrics_host: The interface metrics listen on.
     """
@@ -1043,9 +1064,10 @@ def history_compactor(
     from prometheus_client import start_http_server
 
     from verdict.history.compact import HistoryPaths
-    from verdict.history.compactor import CompactorMetrics, compact_command, run_forever
+    from verdict.history.compactor import CompactorMetrics, Step, compact_command, run_forever
 
-    metrics = CompactorMetrics(HistoryPaths(root))
+    limits = {Step.SEAL: seal_timeout, Step.FINALISE: finalise_timeout}
+    metrics = CompactorMetrics(HistoryPaths(root), limits=limits)
     if metrics_port:
         start_http_server(metrics_port, addr=metrics_host, registry=metrics.registry)
     stop = threading.Event()
@@ -1056,7 +1078,24 @@ def history_compactor(
 
     signal.signal(signal.SIGINT, ask_to_stop)
     signal.signal(signal.SIGTERM, ask_to_stop)
-    run_forever(compact_command(root, seal_limit), metrics, every_seconds=every, stop=stop)
+    loops = [
+        threading.Thread(
+            target=run_forever,
+            args=(step, compact_command(root, seal_limit, step), metrics),
+            kwargs={"every_seconds": every, "timeout_seconds": limit, "stop": stop},
+            name=f"compactor-{step.value}",
+            daemon=True,
+        )
+        for step, limit in limits.items()
+    ]
+    for loop in loops:
+        loop.start()
+    # Signals reach only the main thread, so it waits here, interruptibly,
+    # rather than in a join; each loop stops after the run it has in hand.
+    while not stop.wait(1.0):
+        pass
+    for loop in loops:
+        loop.join()
 
 
 @history_app.command("footprint")
