@@ -18,10 +18,10 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import numpy as np
 import pyarrow as pa
@@ -488,9 +488,9 @@ def test_small_label_batches_are_matched_in_chunks(
     assert any((unsealed.labels / key).is_dir() for key in spool.hours(unsealed.labels))
 
     calls = 0
-    is_in = pc.is_in
+    is_in: Callable[..., object] = pc.is_in
 
-    def counting(*args: Any, **kwargs: Any) -> Any:
+    def counting(*args: object, **kwargs: object) -> object:
         nonlocal calls
         calls += 1
         return is_in(*args, **kwargs)
