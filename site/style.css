@@ -164,7 +164,7 @@ strong { font-weight: 600; }
 
 /* ---------------------------------------------------------------- hero */
 
-.hero { padding: 3.25rem 0 2.25rem; border-bottom: 1px solid var(--line); }
+.hero { padding: 2rem 0 2.25rem; border-bottom: 1px solid var(--line); }
 
 .eyebrow {
   text-transform: uppercase;
