@@ -14,6 +14,28 @@ judgement or an open question, it says so.
 
 ## 1. Status in one paragraph
 
+**2026-10-08, the compactor fix is on the instance, and the data volume is
+200 GB.** 2026-09-30 stalled at 06:00Z the same way; the run was killed at
+09:19Z, image `c11c306feca4` (the merge of pull request 1) was pushed from a
+clean clone and rolled onto **the compactor only**, with Prometheus
+recreated for the new rules (`docker compose up -d` did not recreate it on a
+change of rule content alone; `--force-recreate prometheus` did). The
+scorer, feeds and broker were not restarted and still run `f697afd2c9c6`;
+they take the new image at their next restart. The previous compose file
+and `stack.env` are kept beside the new ones as `*.f697afd.20261008T*`.
+The seal loop cleared the backlog at once, and the finalise loop took
+2026-09-30 from 09:41Z, after its last label hours were sealed, to 10:09Z:
+88,142,402 staged rows, 0 unlabelled, 0 duplicates, the weighted estimate
+within 0.05%. **The kept sample is 1.33 GB a live day**, not the few
+hundred megabytes ADR 18 sized for, because 19.8% of transactions were
+reviewed or declined that day (15.7% on 2026-09-29) against the 4% it
+assumed. With 24 GB free and 22 days
+left to finalise, the volume would have filled about 2026-10-26, three days
+before the window ends. Peter's decision: grow it to 200 GB. Done online
+with `aws ec2 modify-volume` and `xfs_growfs /data`: 74 GB free after.
+`data_volume_gb` is 200 in `variables.tf`, so a plan from the build machine
+should show no change; if it shows a replacement, do not apply it.
+
 **2026-10-07, the window's first finalise did not end (ADR 18's second
 addendum).** The first live day (2026-09-29) became finalisable at 06:00Z;
 the run that started then was still going four hours later, and since
@@ -28,16 +50,14 @@ written when it becomes ready, still unsealed and in the collector's small
 batches, and `_labels_for` rebuilds its hash set of the wanted ids for
 every batch (`docs/failure-modes.md` has the measurement). The run was
 killed twice so the next could seal those hours, and 2026-09-29 was
-finalised at 11:38Z, 0 rows unlabelled. Fixed in the code, not yet on the
-instance: labels are matched in chunks of 100,000 rows, and a day is
+finalised at 11:38Z, 0 rows unlabelled. Fixed in the code, and on the instance
+since 2026-10-08 (above): labels are matched in chunks of 100,000 rows, and a day is
 finalised only once every hour it reads is sealed, each of which removes
 the cause on its own; sealing and finalising are separate loops, each run has a
 time limit, and two new alerts (`CompactionTimedOut`, `CompactionStuck`).
-Until the roll, every day stalls the same way at 06:00Z; killing the
+Before the roll, killing the
 finalise run once after about 07:15Z, when the last label hour is sealed,
-lets the next run finish. Getting it there is an image roll
-plus the compose file over SSM, as at ADR 26's roll; the scorer restarts
-from its saved feature state (ADR 27).
+let the next run finish.
 
 **2026-09-29, read this before anything below (ADR 31).** The first live
 window (from 2026-09-28 08:51Z, spot, 16 GB) failed on its second day and is
@@ -102,7 +122,7 @@ every decision with its features before it checkpoints; a collector spools
 labels; an hourly compactor seals hours and, once a day's labels are all in,
 keeps every reviewed or declined row and a tenth of approved frauds and a
 hundredth of approved legitimate rows, each with its weight. The promotion
-gate reads the weight. The data volume is 150 GB. **Peter also asked that
+gate reads the weight. The data volume is 150 GB, grown to 200 GB on 2026-10-08. **Peter also asked that
 CPU-heavy work (training, load tests) wait for his green light**: another
 project uses the machine. Section 11 has the list and the estimate.
 

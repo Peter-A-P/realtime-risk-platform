@@ -267,6 +267,20 @@ The run counter gained a `step` label, so `CompactionFailing` now says which
 step is failing. `tests/test_alerts.py` runs each new rule through
 `promtool` and shows a finalise that never ends while seal runs go on.
 
+## Addendum, 2026-10-08: the kept sample is four times the size, and the volume is 200 GB
+
+The first full live day, 2026-09-30, kept 18,307,376 rows in 1.33 GB:
+17,448,849 reviewed or declined, every one kept at rate 1, out of 88,142,402
+staged. That is 19.8% acted (15.7% on the partial 2026-09-29), against the 4% this ADR and
+`docs/finalise-footprint.json` assumed, and the acted stratum is most of
+what is kept. Staged hours level at eight days once a day is finalised
+daily, so the kept sample is what grows: about 1.33 GB a day, 29 GB for the
+days still to be finalised in the window, against 24 GB free. Grown online
+to 200 GB (`aws ec2 modify-volume`, `xfs_growfs`), about CA$4 for the rest
+of the window; `data_volume_gb` says 200. The rates are unchanged: the
+acted stratum is kept whole by design, and sampling it would weaken the
+evidence the promotion gate reads.
+
 ## Sources
 
 - Horvitz and Thompson (1952), "A generalization of sampling without
