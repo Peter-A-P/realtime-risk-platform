@@ -87,6 +87,7 @@ body {
   font-family: var(--sans);
   font-size: 1rem;
   line-height: 1.72;
+  overflow-x: clip;
   border-top: 3px solid var(--accent);
   font-feature-settings: "cv11", "ss01";
 }
@@ -164,7 +165,34 @@ strong { font-weight: 600; }
 
 /* ---------------------------------------------------------------- hero */
 
-.hero { padding: 2rem 0 2.25rem; border-bottom: 1px solid var(--line); }
+.hero { position: relative; padding: 2rem 0 2.25rem; border-bottom: 1px solid var(--line); }
+
+
+/* The first screen as on gate.peterparker.ca: a wash of the accent behind it, full width,
+   fading into the page, and figure cards with a coloured rule across the top. */
+.hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  margin-left: -50vw;
+  background:
+    radial-gradient(60rem 22rem at 85% 0%, color-mix(in srgb, var(--alt) 14%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--accent-soft), var(--paper) 85%);
+}
+
+.hero h1 .hl { color: var(--accent); }
+.hero .eyebrow { color: var(--accent-ink); }
+.hero .point { border-top: 3px solid var(--accent); box-shadow: var(--shadow); }
+.hero .point.good { border-top-color: var(--good); }
+.hero .point.violet { border-top-color: var(--alt); }
+.hero .point .point-figure { color: var(--accent-ink); }
+.hero .point.good .point-figure { color: var(--good); }
+.hero .point.violet .point-figure { color: var(--alt); }
+.hero .point .point-figure.down { color: var(--warn); }
 
 .eyebrow {
   text-transform: uppercase;
