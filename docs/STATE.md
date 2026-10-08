@@ -14,6 +14,27 @@ judgement or an open question, it says so.
 
 ## 1. Status in one paragraph
 
+**2026-10-08, reviewed after the compactor work, and two things open.**
+(1) The launch template still carries image `f697afd2c9c6` and the compose
+file from go-live, without the compactor fix, its time limits or the new
+alerts: a replacement instance would boot the old compactor. A plan that
+changes only the launch template (image, the compose it carries, the latest
+Amazon Linux) is ready; the build identity may not apply it, so it waits on
+Peter. (2) **The champion acts on far more of the live stream than it was
+measured to**: over the first week it declined 9.0% of transactions and
+sent 7.9% to review (83.1% approved), where the offline replay sent 1.9% to
+review against a fraud share of about 3% (README, ADR 22). The likely cause
+is that it was trained on the scaled synthetic population (4,000 cards, 80
+merchants) and scores the full live one (200,000 cards, 4,000 merchants)
+higher, the same mismatch ADR 29 found for drift. Not yet measured:
+`verdict history quality --root /data/history` (`verdict/history/quality.py`)
+reports the weighted fraud rate of each action and the champion's
+calibration by score band from the finalised days, read-only; it needs a
+run on the instance. Latency for the record: since the labels feed began on
+2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
+the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
+apart from the five-hour finalise.
+
 **2026-10-08, the compactor fix is on the instance, and the data volume is
 200 GB.** 2026-09-30 stalled at 06:00Z the same way; the run was killed at
 09:19Z, image `c11c306feca4` (the merge of pull request 1) was pushed from a

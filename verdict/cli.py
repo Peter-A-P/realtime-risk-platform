@@ -1098,6 +1098,43 @@ def history_compactor(
         loop.join()
 
 
+@history_app.command("quality")
+def history_quality(
+    root: Annotated[Path, typer.Option(help="The history root.")],
+    out: Annotated[Path | None, typer.Option(help="Write the report here as JSON.")] = None,
+) -> None:
+    """How good the decisions were, from the finalised days' kept rows and labels.
+
+    Weighted by each kept row's weight (ADR 18): the fraud share, each
+    action's share, fraud rate and share of all fraud, and the champion's
+    and shadow model's calibration by score band (`verdict/history/quality.py`).
+    Reads only the kept days; writes nothing on the volume.
+
+    Args:
+        root: The history root.
+        out: Where to write the report, or None to print it.
+    """
+    import pyarrow.parquet as pq
+
+    from verdict.history.compact import HistoryPaths
+    from verdict.history.quality import COLUMNS, report
+
+    paths = HistoryPaths(root)
+    days = [
+        (path.stem, pq.read_table(path, columns=list(COLUMNS)))
+        for path in sorted(paths.kept.glob("*.parquet"))
+    ]
+    if not days:
+        typer.echo(f"no finalised days under {paths.kept}")
+        raise typer.Exit(code=1)
+    text = json.dumps(report(days), indent=2, sort_keys=True)
+    if out is None:
+        typer.echo(text)
+    else:
+        out.write_text(text + "\n", encoding="utf-8")
+        typer.echo(f"wrote {out} from {len(days)} days")
+
+
 @history_app.command("footprint")
 def history_footprint(
     work: Annotated[
