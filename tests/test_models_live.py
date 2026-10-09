@@ -371,3 +371,68 @@ def test_a_pass_with_no_reference_yet_judges_nothing_and_still_runs(tmp_path: Pa
         clock=lambda: dt.datetime(2026, 10, 3, tzinfo=dt.UTC),
     )
     assert models_job.run_pass(job)["judged"] == "no reference yet"
+
+
+def test_a_request_opened_by_hand_fits_a_candidate_whose_pull_request_says_so(
+    tmp_path: Path,
+) -> None:
+    """ADR 32: the same path as drift, with the reason where the drift evidence would be."""
+    from typer.testing import CliRunner
+
+    from verdict.cli import app
+
+    paths = HistoryPaths(tmp_path / "history")
+    for n in range(live.MIN_DAYS):
+        keep_day(paths, DAY + dt.timedelta(days=n), frauds=40, legit=200)
+    state_dir = tmp_path / "state"
+    reason = "The champion was trained on another population."
+    runner = CliRunner()
+    opened = runner.invoke(app, ["models-request", f"--state={state_dir}", f"--reason={reason}"])
+    assert opened.exit_code == 0, opened.output
+    again = runner.invoke(app, ["models-request", f"--state={state_dir}", "--reason=again"])
+    assert again.exit_code == 1
+
+    def fit(request: object, **kwargs: Any) -> dict[str, Any]:  # noqa: ANN401
+        kwargs["candidate_path"].write_bytes(b"an onnx file")
+        report = a_report(beats=True)
+        report["drifted_days_in_training"] = {
+            "covers_the_drift": None,
+            "first_drifted_day": None,
+            "last_day_trained_on": "2026-10-04",
+            "days_short": None,
+        }
+        return report
+
+    fake = FakeGitHub({models_job.COMPOSE_PATH: LIVE_COMPOSE.read_bytes()})
+    job = models_job.Job(
+        paths=paths,
+        state_dir=state_dir,
+        reference=None,
+        since=dt.datetime(2026, 10, 2, tzinfo=dt.UTC),
+        starts_file=tmp_path / "starts.jsonl",
+        champion_path=ARTIFACTS / "champion.onnx",
+        shadow_path=None,
+        github=GitHub(fake),
+        clock=lambda: dt.datetime(2026, 10, 20, 12, tzinfo=dt.UTC),
+        fit=fit,
+    )
+    said = models_job.run_pass(job)
+    assert said["candidate"]["pull_request"] == "https://github.com/pull/1"
+    pull = fake.pulls[0]
+    assert "requested by hand" in pull["title"]
+    assert reason in pull["body"]
+    assert "not by drift" in pull["body"]
+    assert "does not promote anything" in pull["body"]
+
+
+def test_a_candidate_for_a_request_opened_by_hand_has_no_drift_to_reach() -> None:
+    from verdict.models.retrain import _drift_coverage
+
+    request = RetrainRequest(DAY, (), (), reason="by hand")
+    coverage = _drift_coverage(
+        request,
+        dt.datetime(2026, 10, 9, tzinfo=dt.UTC),
+        dt.datetime(2026, 10, 1, 12, tzinfo=dt.UTC),
+    )
+    assert coverage["covers_the_drift"] is None
+    assert coverage["first_drifted_day"] is None

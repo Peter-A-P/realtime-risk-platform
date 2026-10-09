@@ -249,7 +249,11 @@ def _candidate(
         files.append(FileChange(COMPOSE_PATH, shadow_to(compose, stem).encode("utf-8")))
         record["pull_request"] = job.github.open_pull_request(
             branch=f"live/{stem}",
-            title=f"Retraining candidate {version}, for the drift of {request.opened_on}",
+            title=(
+                f"Retraining candidate {version}, requested by hand on {request.opened_on}"
+                if request.by_hand
+                else f"Retraining candidate {version}, for the drift of {request.opened_on}"
+            ),
             body=body,
             message=f"Add {stem}, fitted on the live window, as the shadow model",
             files=files,

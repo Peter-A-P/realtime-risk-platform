@@ -316,3 +316,40 @@ def test_judging_starts_after_the_reference_days(tmp_path: Path) -> None:
         judge_from=days[2],
     ).judged
     assert judged == [(days[2], False)]
+
+
+def test_a_request_opened_by_hand_is_closed_only_by_a_winning_candidate(tmp_path: Path) -> None:
+    """ADR 32: no drift opened it, so clean days cannot close it; a candidate that wins does."""
+    from verdict.drift.trigger import RetrainRequest
+
+    paths, state, reference = (
+        HistoryPaths(tmp_path / "h"),
+        live.DriftState(tmp_path / "d"),
+        a_reference(),
+    )
+    state.open(
+        RetrainRequest(FIRST, (), (), reason="trained on another population"),
+        at=after(FIRST, 0),
+    )
+    days = [FIRST + dt.timedelta(days=n) for n in range(1, 4)]
+    for day in days:
+        stage_day(paths, day)
+    clean = a_pass(paths, state, reference, after(days[-1]))
+    assert clean.closed is None
+    request = live.DriftState(tmp_path / "d").open_request()
+    assert request is not None
+    assert request.by_hand
+    assert request.reason == "trained on another population"
+    answered = live.watch_once(
+        paths, state, reference, since=WINDOW, starts=[], now=after(days[-1], 6), answered=True
+    )
+    assert answered.closed is Resolution.ANSWERED
+    assert state.open_request() is None
+
+
+def test_a_request_saved_before_requests_had_reasons_reads_as_drift() -> None:
+    item = {"opened_on": "2026-10-03", "quantities": ["score"], "evidence": []}
+    request = live.request_from_json(item)
+    assert request.reason is None
+    assert not request.by_hand
+    assert live.request_from_json(live.request_to_json(request)) == request

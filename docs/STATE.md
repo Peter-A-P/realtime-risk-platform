@@ -32,8 +32,11 @@ merchants); the live stream is the full one (200,000 cards, 4,000
 merchants), whose feature values it never saw, the same mismatch ADR 29
 found for drift. The drift monitors judge against the live window's own
 first days, so a model wrong from the first day is not drift to them; this
-needs a decision from Peter (retrain on live history through the platform's
-own pull request and shadow path, or report it as found).
+Peter decided the same day to retrain on live history through the
+platform's own path (ADR 32): `verdict models-request` opens a request by
+hand, the models job fits a candidate once three days are finalised and
+opens its pull request; merge it to shadow, and the gate's pull request a
+week later decides promotion.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%

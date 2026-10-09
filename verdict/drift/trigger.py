@@ -48,15 +48,35 @@ CONSECUTIVE_DAYS: Final = 2
 class RetrainRequest:
     """A request for a retrained candidate, with its evidence.
 
+    Most requests are opened by the monitors, on a run of drift. One may also
+    be opened by a person, with a reason and no drift (ADR 32): on 2026-10-08
+    the champion, trained on the scaled synthetic population, was found to
+    barely separate fraud on the full live one from the window's first day,
+    which no drift monitor judging against the live window's own first days
+    could see. A request opened by hand goes through the same candidate, pull
+    request, shadow window and gate, and closes only when a candidate beats
+    the incumbent.
+
     Attributes:
-        opened_on: The day the run of drift completed.
-        quantities: The quantities that drifted on every day of the run.
-        evidence: The reports for the days of the run.
+        opened_on: The day the run of drift completed, or the day a person
+            opened it.
+        quantities: The quantities that drifted on every day of the run;
+            empty for a request opened by hand.
+        evidence: The reports for the days of the run; empty for a request
+            opened by hand.
+        reason: Why a person opened it; None for a request the monitors
+            opened.
     """
 
     opened_on: dt.date
     quantities: tuple[str, ...]
     evidence: tuple[DailyReport, ...]
+    reason: str | None = None
+
+    @property
+    def by_hand(self) -> bool:
+        """Whether a person opened it, rather than a run of drift."""
+        return self.reason is not None
 
     def to_markdown(self) -> str:
         """The request's evidence, for the retraining pull request.
@@ -64,6 +84,13 @@ class RetrainRequest:
         Returns:
             Markdown, plain punctuation.
         """
+        if self.reason is not None:
+            return (
+                f"### Requested by hand on {self.opened_on.isoformat()}, not by drift\n\n"
+                f"{self.reason}\n\n"
+                "A retrained candidate is requested. It runs in shadow and is promoted only "
+                "through the promotion gate and a merged pull request.\n"
+            )
         lines = [
             f"### Drift on {len(self.evidence)} consecutive days, to {self.opened_on.isoformat()}",
             "",
@@ -146,6 +173,9 @@ def resolve(
     """
     if candidate_beat_incumbent:
         return Resolution.ANSWERED
+    if request.by_hand:
+        # No drift opened it, so no end of drift can close it.
+        return Resolution.STILL_OPEN
     later = [report for report in since if report.day > request.opened_on]
     if len(later) < CONSECUTIVE_DAYS:
         return Resolution.STILL_OPEN

@@ -1815,6 +1815,40 @@ def queue_eval(
     )
 
 
+@app.command(name="models-request")
+def models_request(
+    state: Annotated[Path, typer.Option(help="The models job's state directory.")],
+    reason: Annotated[str, typer.Option(help="Why a candidate is wanted, for its pull request.")],
+) -> None:
+    """Open a retraining request by hand, for a reason no drift monitor can see (ADR 32).
+
+    The models job then fits a candidate as it would for drift, opens its pull
+    request, and the candidate goes through shadow and the promotion gate. The
+    request closes only when a candidate beats the incumbent. Refused while a
+    request is already open.
+
+    Args:
+        state: The models job's state directory, as `models-job --state`.
+        reason: Why, in a sentence or two; it opens the pull request.
+
+    Raises:
+        typer.Exit: With code 1 if a request is already open.
+    """
+    from verdict.drift import live as drift_live
+    from verdict.drift.trigger import RetrainRequest
+
+    drift_state = drift_live.DriftState(state / "drift")
+    if drift_state.open_request() is not None:
+        typer.echo("a request is already open; it is answered first")
+        raise typer.Exit(code=1)
+    now = dt.datetime.now(dt.UTC)
+    drift_state.open(
+        RetrainRequest(opened_on=now.date(), quantities=(), evidence=(), reason=reason.strip()),
+        at=now,
+    )
+    typer.echo(f"request opened by hand on {now.date().isoformat()}; the next pass fits when due")
+
+
 @app.command(name="models-job")
 def models_job(
     history: Annotated[Path, typer.Option(help="The history root the scorer stages to.")],

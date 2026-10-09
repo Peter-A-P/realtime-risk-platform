@@ -87,6 +87,8 @@ def retrain(
             "drift_on": request.opened_on.isoformat(),
             "quantities": list(request.quantities),
             "days_of_evidence": len(request.evidence),
+            "by_hand": request.by_hand,
+            "reason": request.reason,
         },
         "cutoff": split.cutoff.isoformat(),
         "train_share": train_share,
@@ -161,8 +163,17 @@ def _drift_coverage(
         The first drifted day, the last day trained on, and whether the
         training reaches the drift.
     """
-    first_drifted = min(report.day for report in request.evidence)
     last_day = last_trained_on.date()
+    if not request.evidence:
+        # Opened by hand: there is no drifted day to reach.
+        return {
+            "first_drifted_day": None,
+            "training_cutoff": cutoff.isoformat(),
+            "last_day_trained_on": last_day.isoformat(),
+            "covers_the_drift": None,
+            "days_short": None,
+        }
+    first_drifted = min(report.day for report in request.evidence)
     return {
         "first_drifted_day": first_drifted.isoformat(),
         "training_cutoff": cutoff.isoformat(),
@@ -247,6 +258,12 @@ def _coverage_note(coverage: dict[str, Any]) -> str:
     Returns:
         Markdown, plain punctuation.
     """
+    if coverage["covers_the_drift"] is None:
+        return (
+            f"The candidate was fitted on transactions up to "
+            f"{coverage['last_day_trained_on']}. The request was opened by hand, not by "
+            f"drift, so there is no drifted day for it to reach."
+        )
     if coverage["covers_the_drift"]:
         return (
             f"The candidate was fitted on transactions up to "

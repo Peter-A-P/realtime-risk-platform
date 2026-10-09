@@ -487,6 +487,7 @@ def request_to_json(request: RetrainRequest) -> dict[str, Any]:
         "opened_on": request.opened_on.isoformat(),
         "quantities": list(request.quantities),
         "evidence": [report_to_json(report, cold=False) for report in request.evidence],
+        "reason": request.reason,
     }
 
 
@@ -503,6 +504,7 @@ def request_from_json(item: dict[str, Any]) -> RetrainRequest:
         opened_on=dt.date.fromisoformat(item["opened_on"]),
         quantities=tuple(item["quantities"]),
         evidence=tuple(report_from_json(report) for report in item["evidence"]),
+        reason=item.get("reason"),
     )
 
 
