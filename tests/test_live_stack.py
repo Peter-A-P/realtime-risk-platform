@@ -218,9 +218,17 @@ def test_the_scorer_stages_its_decisions_on_the_data_volume() -> None:
 
 
 def test_the_live_scorer_runs_the_challenger_in_shadow_on_what_history_keeps() -> None:
-    """ADR 11: the promotion gate needs a labelled shadow window from the live path."""
+    """ADR 11: the promotion gate needs a labelled shadow window from the live path.
+
+    The shadow model is the challenger until a candidate's merged pull request
+    names that candidate instead (ADR 28), so this asks for a shadow model that
+    ships, not for one name.
+    """
     command = _compose(LIVE_COMPOSE)["services"]["scorer"]["command"]
-    assert "--shadow=challenger" in command
+    shadow = [arg.removeprefix("--shadow=") for arg in command if arg.startswith("--shadow=")]
+    assert len(shadow) == 1
+    assert shadow[0] != "champion"
+    assert (ROOT / "verdict" / "models" / "artifacts" / f"{shadow[0]}.onnx").is_file()
     assert "--shadow-kept-only" in command
 
 

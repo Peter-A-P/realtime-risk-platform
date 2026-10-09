@@ -156,7 +156,9 @@ def test_a_candidate_becomes_the_shadow_model_by_one_line_of_the_compose_file() 
     compose = LIVE_COMPOSE.read_text(encoding="utf-8")
     changed = models_job.shadow_to(compose, "candidate-2026-10-12-1")
     assert "      - --shadow=candidate-2026-10-12-1\n" in changed
-    assert changed.replace("candidate-2026-10-12-1", "challenger") == compose
+    # Whatever the shadow model is on main, that one line is all that changes.
+    assert models_job.shadow_to(changed, "x") == models_job.shadow_to(compose, "x")
+    assert len(changed.splitlines()) == len(compose.splitlines())
     with pytest.raises(ValueError, match="one --shadow= line"):
         models_job.shadow_to("services: {}\n", "candidate")
 
