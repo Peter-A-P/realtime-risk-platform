@@ -1,0 +1,91 @@
+{
+  "beats_incumbent": true,
+  "comparison": {
+    "challenger": "candidate-2026-10-09-1-3f05ac05258b",
+    "challenger_minus_champion": {
+      "frauds": 115381,
+      "high": 0.3787219097238327,
+      "low": 0.3576874658692648,
+      "resamples": 1000,
+      "rows": 692172,
+      "value": 0.3683047138147246
+    },
+    "challenger_pr_auc": {
+      "frauds": 115381,
+      "high": 0.43517200520823446,
+      "low": 0.4143104102740465,
+      "resamples": 1000,
+      "rows": 692172,
+      "value": 0.4248791041743795
+    },
+    "champion": "champion-8d960d985749",
+    "champion_pr_auc": {
+      "frauds": 115381,
+      "high": 0.05698931654654942,
+      "low": 0.0561870966397306,
+      "resamples": 1000,
+      "rows": 692172,
+      "value": 0.056574390359654905
+    },
+    "cutoff": "2026-10-08T08:09:17.922255+00:00",
+    "model_hop_ms": {
+      "calls": 5000.0,
+      "p50": 0.0492915,
+      "p99": 0.10630421000000001
+    },
+    "test": {
+      "frauds": 115381,
+      "rows": 692172
+    },
+    "track": "synthetic, offline replay"
+  },
+  "cutoff": "2026-10-08T08:09:17.922255+00:00",
+  "drifted_days_in_training": {
+    "covers_the_drift": null,
+    "days_short": null,
+    "first_drifted_day": null,
+    "last_day_trained_on": "2026-10-01",
+    "training_cutoff": "2026-10-08T08:09:17.922255+00:00"
+  },
+  "fit": {
+    "params": {
+      "colsample_bytree": 0.8,
+      "eta": 0.05,
+      "eval_metric": "aucpr",
+      "lambda": 1.0,
+      "max_depth": 6,
+      "min_child_weight": 1.0,
+      "nthread": 1,
+      "objective": "binary:logistic",
+      "seed": 20270405,
+      "subsample": 0.8,
+      "tree_method": "hist"
+    },
+    "seconds": 122.2,
+    "trees": 617
+  },
+  "fitted_on_days": [
+    "2026-09-29",
+    "2026-10-01"
+  ],
+  "opened_by": {
+    "by_hand": true,
+    "days_of_evidence": 0,
+    "drift_on": "2026-10-09",
+    "quantities": [],
+    "reason": "The champion was trained on the scaled synthetic population (4,000 cards, 80 merchants) and barely separates fraud on the full live one (200,000 cards, 4,000 merchants): over the first two finalised days it acted on 19.0% of transactions at 5.3% precision and 33.9% recall, against 2.97% fraud (docs/live-decision-quality.json). The drift monitors judge against the live window own first days, so a model wrong from the first day is not drift to them. Opened by Peter Parker decision, ADR 32."
+  },
+  "promoted": false,
+  "request": "answered",
+  "table_share_kept": {
+    "fraud": 0.16488216078071702,
+    "legit": 0.056264185783666286
+  },
+  "track": "synthetic live, finalised history",
+  "train": {
+    "excluded_unarrived_labels": 0,
+    "frauds": 284599,
+    "rows": 1707900
+  },
+  "train_share": 0.7
+}
