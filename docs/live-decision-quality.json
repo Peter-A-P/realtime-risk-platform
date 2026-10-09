@@ -1,0 +1,410 @@
+{
+  "all": {
+    "acted_precision": 0.05314867429918296,
+    "acted_recall": 0.33900034376410687,
+    "acted_share": 0.18966749171476285,
+    "by_action": {
+      "approve": {
+        "fraud_rate": 0.024256222639275807,
+        "share_of_all_fraud": 0.6609996562358932,
+        "share_of_transactions": 0.8103325082852372
+      },
+      "decline": {
+        "fraud_rate": 0.05849721386959819,
+        "share_of_all_fraud": 0.20336491232791915,
+        "share_of_transactions": 0.10337750362148028
+      },
+      "review": {
+        "fraud_rate": 0.04674099385991224,
+        "share_of_all_fraud": 0.13563543143618773,
+        "share_of_transactions": 0.08628998809328256
+      }
+    },
+    "by_rule": {
+      "default-approve": {
+        "fraud_rate": 0.024256222639275807,
+        "share_of_all_fraud": 0.6609996562358932,
+        "share_of_transactions": 0.8103325082852372
+      },
+      "large-amount-review": {
+        "fraud_rate": 0.0,
+        "share_of_all_fraud": 0.0,
+        "share_of_transactions": 4.88375312480623e-06
+      },
+      "score-decline": {
+        "fraud_rate": 0.05849721386959819,
+        "share_of_all_fraud": 0.20336491232791915,
+        "share_of_transactions": 0.10337750362148028
+      },
+      "score-review": {
+        "fraud_rate": 0.04674363940895069,
+        "share_of_all_fraud": 0.13563543143618773,
+        "share_of_transactions": 0.08628510434015775
+      }
+    },
+    "champion_calibration": [
+      {
+        "band": "0.0 to 0.1",
+        "fraud_rate": 0.020606784123918073,
+        "mean_score": 0.013372219327857444,
+        "share_of_transactions": 0.6712453292176178
+      },
+      {
+        "band": "0.1 to 0.2",
+        "fraud_rate": 0.039372430821817975,
+        "mean_score": 0.14424065924311327,
+        "share_of_transactions": 0.05815093030767881
+      },
+      {
+        "band": "0.2 to 0.3",
+        "fraud_rate": 0.042382201010683025,
+        "mean_score": 0.24679844109495733,
+        "share_of_transactions": 0.03436122300746465
+      },
+      {
+        "band": "0.3 to 0.5",
+        "fraud_rate": 0.044601855612133326,
+        "mean_score": 0.3940253236182929,
+        "share_of_transactions": 0.04657990950560066
+      },
+      {
+        "band": "0.5 to 0.7",
+        "fraud_rate": 0.046437029553997165,
+        "mean_score": 0.5996069818180779,
+        "share_of_transactions": 0.03872015001434478
+      },
+      {
+        "band": "0.7 to 0.9",
+        "fraud_rate": 0.04699323450996468,
+        "mean_score": 0.8083112995051035,
+        "share_of_transactions": 0.04756495432581298
+      },
+      {
+        "band": "0.9 to 1.0",
+        "fraud_rate": 0.05849721386959819,
+        "mean_score": 0.97605071087092,
+        "share_of_transactions": 0.10337750362148028
+      }
+    ],
+    "fraud_share": 0.029736181475100435,
+    "rows_kept": 21940684,
+    "shadow_calibration": [
+      {
+        "band": "0.0 to 0.1",
+        "fraud_rate": 0.026303441997830124,
+        "mean_score": 0.01046603907771951,
+        "share_of_transactions": 0.9077182470603944
+      },
+      {
+        "band": "0.1 to 0.2",
+        "fraud_rate": 0.04552358286864085,
+        "mean_score": 0.14156165553915376,
+        "share_of_transactions": 0.02411314453695645
+      },
+      {
+        "band": "0.2 to 0.3",
+        "fraud_rate": 0.05274795880266113,
+        "mean_score": 0.24615296462789543,
+        "share_of_transactions": 0.011861599565747949
+      },
+      {
+        "band": "0.3 to 0.5",
+        "fraud_rate": 0.0596547259545214,
+        "mean_score": 0.39276454866061306,
+        "share_of_transactions": 0.014898420936193101
+      },
+      {
+        "band": "0.5 to 0.7",
+        "fraud_rate": 0.07061418052664592,
+        "mean_score": 0.5983782444253006,
+        "share_of_transactions": 0.011381827661937842
+      },
+      {
+        "band": "0.7 to 0.9",
+        "fraud_rate": 0.08229337344734007,
+        "mean_score": 0.8070117666517472,
+        "share_of_transactions": 0.012804955141408845
+      },
+      {
+        "band": "0.9 to 1.0",
+        "fraud_rate": 0.0807367578346134,
+        "mean_score": 0.9619465678181215,
+        "share_of_transactions": 0.017221805097361393
+      }
+    ],
+    "transactions_weighted": 109956418.0
+  },
+  "days": {
+    "2026-09-29": {
+      "acted_precision": 0.04032047591689421,
+      "acted_recall": 0.22195790453534675,
+      "acted_share": 0.15644468126920333,
+      "by_action": {
+        "approve": {
+          "fraud_rate": 0.02621231408171421,
+          "share_of_all_fraud": 0.7780420954646533,
+          "share_of_transactions": 0.8435553187307967
+        },
+        "decline": {
+          "fraud_rate": 0.047338908216140126,
+          "share_of_all_fraud": 0.14412622175104722,
+          "share_of_transactions": 0.08652479930762745
+        },
+        "review": {
+          "fraud_rate": 0.03163527180742297,
+          "share_of_all_fraud": 0.07783168278429953,
+          "share_of_transactions": 0.06991988196157588
+        }
+      },
+      "by_rule": {
+        "default-approve": {
+          "fraud_rate": 0.02621231408171421,
+          "share_of_all_fraud": 0.7780420954646533,
+          "share_of_transactions": 0.8435553187307967
+        },
+        "large-amount-review": {
+          "fraud_rate": 0.0,
+          "share_of_all_fraud": 0.0,
+          "share_of_transactions": 4.684647660989869e-06
+        },
+        "score-decline": {
+          "fraud_rate": 0.047338908216140126,
+          "share_of_all_fraud": 0.14412622175104722,
+          "share_of_transactions": 0.08652479930762745
+        },
+        "score-review": {
+          "fraud_rate": 0.031637391519699715,
+          "share_of_all_fraud": 0.07783168278429953,
+          "share_of_transactions": 0.06991519731391489
+        }
+      },
+      "champion_calibration": [
+        {
+          "band": "0.0 to 0.1",
+          "fraud_rate": 0.02540754269379591,
+          "mean_score": 0.014112875556566769,
+          "share_of_transactions": 0.720818101147881
+        },
+        {
+          "band": "0.1 to 0.2",
+          "fraud_rate": 0.03181506918972426,
+          "mean_score": 0.14303081215976127,
+          "share_of_transactions": 0.054192371565676765
+        },
+        {
+          "band": "0.2 to 0.3",
+          "fraud_rate": 0.02997550388929477,
+          "mean_score": 0.24658739403870272,
+          "share_of_transactions": 0.029923508430000502
+        },
+        {
+          "band": "0.3 to 0.5",
+          "fraud_rate": 0.030451336125201244,
+          "mean_score": 0.3931824637572273,
+          "share_of_transactions": 0.038626022234899346
+        },
+        {
+          "band": "0.5 to 0.7",
+          "fraud_rate": 0.03105697618960267,
+          "mean_score": 0.5993574361221742,
+          "share_of_transactions": 0.03129643169009825
+        },
+        {
+          "band": "0.7 to 0.9",
+          "fraud_rate": 0.0321077568572978,
+          "mean_score": 0.808509144810569,
+          "share_of_transactions": 0.03861876562381664
+        },
+        {
+          "band": "0.9 to 1.0",
+          "fraud_rate": 0.047338908216140126,
+          "mean_score": 0.976231521604917,
+          "share_of_transactions": 0.08652479930762745
+        }
+      ],
+      "fraud_share": 0.028419460963313284,
+      "rows_kept": 3633308,
+      "shadow_calibration": [
+        {
+          "band": "0.0 to 0.1",
+          "fraud_rate": 0.026098073774077826,
+          "mean_score": 0.010793200977179314,
+          "share_of_transactions": 0.9185698468795356
+        },
+        {
+          "band": "0.1 to 0.2",
+          "fraud_rate": 0.03815353323886967,
+          "mean_score": 0.1401487169816732,
+          "share_of_transactions": 0.021587131989350784
+        },
+        {
+          "band": "0.2 to 0.3",
+          "fraud_rate": 0.04671076792911567,
+          "mean_score": 0.24635603610033432,
+          "share_of_transactions": 0.009879600421599919
+        },
+        {
+          "band": "0.3 to 0.5",
+          "fraud_rate": 0.05291521150469778,
+          "mean_score": 0.39273360126016826,
+          "share_of_transactions": 0.012059339421507557
+        },
+        {
+          "band": "0.5 to 0.7",
+          "fraud_rate": 0.059410969756279415,
+          "mean_score": 0.5994465734453236,
+          "share_of_transactions": 0.009855671976194275
+        },
+        {
+          "band": "0.7 to 0.9",
+          "fraud_rate": 0.06721266142137941,
+          "mean_score": 0.8083269784948108,
+          "share_of_transactions": 0.012124189642069495
+        },
+        {
+          "band": "0.9 to 1.0",
+          "fraud_rate": 0.07051470630649338,
+          "mean_score": 0.9605486963511719,
+          "share_of_transactions": 0.015924219669742445
+        }
+      ],
+      "transactions_weighted": 21773249.0
+    },
+    "2026-09-30": {
+      "acted_precision": 0.05565295453012402,
+      "acted_recall": 0.36632087215662607,
+      "acted_share": 0.19787051427013244,
+      "by_action": {
+        "approve": {
+          "fraud_rate": 0.023748302097199775,
+          "share_of_all_fraud": 0.633679127843374,
+          "share_of_transactions": 0.8021294857298675
+        },
+        "decline": {
+          "fraud_rate": 0.060713939986253435,
+          "share_of_all_fraud": 0.217192651552303,
+          "share_of_transactions": 0.10753859390106518
+        },
+        "review": {
+          "fraud_rate": 0.04962793859464671,
+          "share_of_all_fraud": 0.14912822060432307,
+          "share_of_transactions": 0.09033192036906726
+        }
+      },
+      "by_rule": {
+        "default-approve": {
+          "fraud_rate": 0.023748302097199775,
+          "share_of_all_fraud": 0.633679127843374,
+          "share_of_transactions": 0.8021294857298675
+        },
+        "large-amount-review": {
+          "fraud_rate": 0.0,
+          "share_of_all_fraud": 0.0,
+          "share_of_transactions": 4.932914125596915e-06
+        },
+        "score-decline": {
+          "fraud_rate": 0.060713939986253435,
+          "share_of_all_fraud": 0.217192651552303,
+          "share_of_transactions": 0.10753859390106518
+        },
+        "score-review": {
+          "fraud_rate": 0.04963064886282033,
+          "share_of_all_fraud": 0.14912822060432307,
+          "share_of_transactions": 0.09032698745494165
+        }
+      },
+      "champion_calibration": [
+        {
+          "band": "0.0 to 0.1",
+          "fraud_rate": 0.019310249413300045,
+          "mean_score": 0.013172191249965262,
+          "share_of_transactions": 0.659005348288175
+        },
+        {
+          "band": "0.1 to 0.2",
+          "fraud_rate": 0.04108264398775326,
+          "mean_score": 0.14451444479307693,
+          "share_of_transactions": 0.05912833547635377
+        },
+        {
+          "band": "0.2 to 0.3",
+          "fraud_rate": 0.04496746575068643,
+          "mean_score": 0.2468424183523755,
+          "share_of_transactions": 0.03545693623235518
+        },
+        {
+          "band": "0.3 to 0.5",
+          "fraud_rate": 0.04738192829006907,
+          "mean_score": 0.3941909155368964,
+          "share_of_transactions": 0.04854379864710918
+        },
+        {
+          "band": "0.5 to 0.7",
+          "fraud_rate": 0.04936769176735352,
+          "mean_score": 0.5996545326375817,
+          "share_of_transactions": 0.04055313548552559
+        },
+        {
+          "band": "0.7 to 0.9",
+          "fraud_rate": 0.049844892573069996,
+          "mean_score": 0.8082733976537997,
+          "share_of_transactions": 0.04977385196941607
+        },
+        {
+          "band": "0.9 to 1.0",
+          "fraud_rate": 0.060713939986253435,
+          "mean_score": 0.9760147907331616,
+          "share_of_transactions": 0.10753859390106518
+        }
+      ],
+      "fraud_share": 0.030061292081712328,
+      "rows_kept": 18307376,
+      "shadow_calibration": [
+        {
+          "band": "0.0 to 0.1",
+          "fraud_rate": 0.026354907442559534,
+          "mean_score": 0.010384052038310117,
+          "share_of_transactions": 0.9050388855950504
+        },
+        {
+          "band": "0.1 to 0.2",
+          "fraud_rate": 0.04711161273198119,
+          "mean_score": 0.14186610242039055,
+          "share_of_transactions": 0.024736840654932687
+        },
+        {
+          "band": "0.2 to 0.3",
+          "fraud_rate": 0.053940327668966934,
+          "mean_score": 0.24611285721594792,
+          "share_of_transactions": 0.012350973687507193
+        },
+        {
+          "band": "0.3 to 0.5",
+          "fraud_rate": 0.06094114157687594,
+          "mean_score": 0.3927704557952738,
+          "share_of_transactions": 0.015599416709553724
+        },
+        {
+          "band": "0.5 to 0.7",
+          "fraud_rate": 0.07293268975759826,
+          "mean_score": 0.5981571532805041,
+          "share_of_transactions": 0.011758649771363967
+        },
+        {
+          "band": "0.7 to 0.9",
+          "fraud_rate": 0.08577330149195282,
+          "mean_score": 0.80670827683181,
+          "share_of_transactions": 0.012973042508826145
+        },
+        {
+          "band": "0.9 to 1.0",
+          "fraud_rate": 0.08302788885829057,
+          "mean_score": 0.9622598813126025,
+          "share_of_transactions": 0.017542191072765823
+        }
+      ],
+      "transactions_weighted": 88183169.0
+    }
+  },
+  "note": "Synthetic live track, the window restarted 2026-09-29T19:11Z (ADR 31): the finalised days so far, weighted by each kept row's weight (ADR 18). Measured 2026-10-08 on the instance with image 45c56df21678, `verdict history quality --root /data/history`. 2026-09-29 is the partial first day (from 19:11Z)."
+}

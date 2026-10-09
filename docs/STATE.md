@@ -14,23 +14,27 @@ judgement or an open question, it says so.
 
 ## 1. Status in one paragraph
 
-**2026-10-08, reviewed after the compactor work, and two things open.**
-(1) The launch template still carries image `f697afd2c9c6` and the compose
-file from go-live, without the compactor fix, its time limits or the new
-alerts: a replacement instance would boot the old compactor. A plan that
-changes only the launch template (image, the compose it carries, the latest
-Amazon Linux) is ready; the build identity may not apply it, so it waits on
-Peter. (2) **The champion acts on far more of the live stream than it was
-measured to**: over the first week it declined 9.0% of transactions and
-sent 7.9% to review (83.1% approved), where the offline replay sent 1.9% to
-review against a fraud share of about 3% (README, ADR 22). The likely cause
-is that it was trained on the scaled synthetic population (4,000 cards, 80
-merchants) and scores the full live one (200,000 cards, 4,000 merchants)
-higher, the same mismatch ADR 29 found for drift. Not yet measured:
-`verdict history quality --root /data/history` (`verdict/history/quality.py`)
-reports the weighted fraud rate of each action and the champion's
-calibration by score band from the finalised days, read-only; it needs a
-run on the instance. Latency for the record: since the labels feed began on
+**2026-10-08, reviewed after the compactor work.** (1) The launch
+template carried image `f697afd2c9c6` and the compose file from go-live, so
+a replacement instance would have booted the old compactor; on Peter's go it
+now carries `45c56df21678` and the compose running on the instance (version
+23, launch template only, nothing restarted). (2) **The champion barely
+separates fraud on the live stream** (`docs/live-decision-quality.json`,
+`verdict history quality`, the two finalised days, weighted): fraud is
+2.97% of transactions; the champion acted on 19.0% (declined 10.3%, reviewed
+8.6%), and what it declined was 5.8% fraud, what it reviewed 4.7%, what it
+approved 2.4%. Acted precision 5.3%, recall 33.9%: about 1.8 times better
+than acting at random. Its scores are not calibrated: transactions it scored
+0.98 on average were 5.8% fraud. The challenger in shadow ranks better (its
+top band 8.1% fraud) and is also weak. Offline the champion scored PR-AUC
+0.84 on the scaled synthetic population it was trained on (4,000 cards, 80
+merchants); the live stream is the full one (200,000 cards, 4,000
+merchants), whose feature values it never saw, the same mismatch ADR 29
+found for drift. The drift monitors judge against the live window's own
+first days, so a model wrong from the first day is not drift to them; this
+needs a decision from Peter (retrain on live history through the platform's
+own pull request and shadow path, or report it as found).
+Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
 apart from the five-hour finalise.
