@@ -37,6 +37,14 @@ platform's own path (ADR 32): `verdict models-request` opens a request by
 hand, the models job fits a candidate once three days are finalised and
 opens its pull request; merge it to shadow, and the gate's pull request a
 week later decides promotion.
+**Done 2026-10-09 ~01:00Z:** image `5b9db613d1cf` pushed; on the instance
+`stack.env` names it (the previous kept as `stack.env.c11c306.*`) and **only
+the models service** was recreated on it; the scorer, feeds, labels and
+alerts still run `f697afd2c9c6`, the compactor `c11c306feca4`, until their
+next restart. The request was opened by hand (`/data/models/drift/request.json`,
+opened_on 2026-10-09). The launch template carries `5b9db613d1cf` too. The
+first candidate is due once 2026-10-01 is finalised (about 06:00Z), on the
+next hourly pass after; its pull request then waits for Peter.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
