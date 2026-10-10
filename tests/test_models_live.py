@@ -112,6 +112,22 @@ def test_a_thinned_table_still_stands_for_the_same_totals(tmp_path: Path) -> Non
     assert 800 < fraud.sum() < 1_200
 
 
+def test_a_table_read_a_batch_at_a_time_is_the_same_table(tmp_path: Path) -> None:
+    """A live day is read in batches to bound memory; the rows must not depend on it."""
+    paths = HistoryPaths(tmp_path)
+    days = [DAY, DAY + dt.timedelta(days=1)]
+    for day in days:
+        keep_day(paths, day, frauds=300, legit=3_000, shadow_version="candidate-a")
+    targets = {True: 200, False: 1_000}
+    keep = pc.field("shadow_version") == "candidate-a"
+    whole, share = live.bounded_table(paths, days, columns=NAMES, targets=targets, keep=keep)
+    batched, same = live.bounded_table(
+        paths, days, columns=NAMES, targets=targets, keep=keep, batch_rows=97
+    )
+    assert same == share
+    assert batched.equals(whole)
+
+
 def test_the_gate_reads_only_what_the_shadow_model_scored(tmp_path: Path) -> None:
     paths = HistoryPaths(tmp_path)
     keep_day(paths, DAY, frauds=20, legit=100, shadow_version="candidate-a")

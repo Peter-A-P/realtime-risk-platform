@@ -82,6 +82,11 @@ FIT_DAYS: Final = 14
 TARGET_ROWS: Final = {True: 400_000, False: 2_000_000}
 """The most rows of each label a table keeps before drawing a share of them."""
 
+BATCH_ROWS: Final = 500_000
+"""Rows of a kept day read at once. A live day keeps around twenty million
+rows; read whole with every feature it took over 11 GB beside the scorer
+(2026-10-10), where a batch at a time holds only what is kept."""
+
 _SALT: Final = b"verdict/models/live/table/v1"
 
 
@@ -111,6 +116,7 @@ def bounded_table(
     columns: list[str],
     targets: dict[bool, int] = TARGET_ROWS,
     keep: pc.Expression | None = None,
+    batch_rows: int = BATCH_ROWS,
 ) -> tuple[pa.Table, dict[str, float]]:
     """Kept rows from some days, thinned by label to fit, with weights scaled to match.
 
@@ -121,6 +127,7 @@ def bounded_table(
             always read.
         targets: The most rows of each label kept whole.
         keep: A filter applied first, such as "the shadow model scored it".
+        batch_rows: Rows read at once; the result does not depend on it.
 
     Returns:
         The rows, in event-time order, and the share of each label kept.
@@ -139,33 +146,42 @@ def bounded_table(
         for label in (True, False)
     }
     parts = []
+    read = list(dict.fromkeys([*wanted, *_filter_columns(keep)]))
     for day in days:
-        read = list(dict.fromkeys([*wanted, *_filter_columns(keep)]))
-        table = pq.read_table(paths.kept_file(day), columns=read)
-        if keep is not None:
-            table = table.filter(keep).select(wanted)
-        if share[True] < 1.0 or share[False] < 1.0:
-            ids = cast("list[str]", table["event_id"].to_pylist())
-            is_fraud = cast("list[bool]", table["is_fraud"].to_pylist())
-            mask = np.array(
-                [_draw(str(i)) < share[bool(f)] for i, f in zip(ids, is_fraud, strict=True)],
-                dtype=np.bool_,
-            )
-            table = table.filter(pa.array(mask))
-            scale = np.where(
-                table["is_fraud"].to_numpy(zero_copy_only=False),
-                1.0 / share[True],
-                1.0 / share[False],
-            )
-            weights = table["weight"].to_numpy(zero_copy_only=False) * scale
-            table = table.set_column(
-                table.schema.get_field_index("weight"), "weight", pa.array(weights)
-            )
-        parts.append(table)
+        file = pq.ParquetFile(paths.kept_file(day))
+        for batch in file.iter_batches(batch_size=batch_rows, columns=read):
+            parts.append(_thinned(pa.Table.from_batches([batch]), wanted, keep, share))
     if not parts:
         return pa.table({name: [] for name in wanted}), {"fraud": 1.0, "legit": 1.0}
     joined = pa.concat_tables(parts).sort_by("event_time")
     return joined, {"fraud": share[True], "legit": share[False]}
+
+
+def _thinned(
+    table: pa.Table, wanted: list[str], keep: pc.Expression | None, share: dict[bool, float]
+) -> pa.Table:
+    """One batch filtered, thinned by label and reweighted to match."""
+    if keep is not None:
+        table = table.filter(keep)
+    table = table.select(wanted)
+    if share[True] < 1.0 or share[False] < 1.0:
+        ids = cast("list[str]", table["event_id"].to_pylist())
+        is_fraud = cast("list[bool]", table["is_fraud"].to_pylist())
+        mask = np.array(
+            [_draw(str(i)) < share[bool(f)] for i, f in zip(ids, is_fraud, strict=True)],
+            dtype=np.bool_,
+        )
+        table = table.filter(pa.array(mask))
+        scale = np.where(
+            table["is_fraud"].to_numpy(zero_copy_only=False),
+            1.0 / share[True],
+            1.0 / share[False],
+        )
+        weights = table["weight"].to_numpy(zero_copy_only=False) * scale
+        table = table.set_column(
+            table.schema.get_field_index("weight"), "weight", pa.array(weights)
+        )
+    return table
 
 
 def _filter_columns(keep: pc.Expression | None) -> list[str]:
