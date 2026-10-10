@@ -13,6 +13,11 @@ Every pass, in order:
    is worth telling (`models/live.gate_due`). Merging an eligible one is the
    approval to promote; a person then moves the pointer with `verdict flag
    set`.
+4. **Ask the gate sooner, on a replay** (ADR 33): once a merged candidate
+   ships in this image and `REPLAY_DAYS` finalised days follow its training
+   days, score it on those days' recorded live rows and open one pull
+   request with the gate's verdict. The same gate, the same weights, the
+   same approval; only the model hop runs here rather than in the scorer.
 
 Nothing here moves the champion pointer, writes a flag, merges, or deploys.
 The job runs at the lowest CPU priority with XGBoost on one thread, beside a
@@ -184,6 +189,9 @@ def run_pass(job: Job) -> dict[str, Any]:
         verdict = _verdict(job, shadow, finalised, now)
         if verdict is not None:
             said["verdict"] = verdict
+    replayed = _replayed_verdict(job, finalised, now)
+    if replayed is not None:
+        said["replayed"] = replayed
     return said
 
 
@@ -357,6 +365,101 @@ def _after_merging_candidate(stem: str) -> str:
         "history could keep (ADR 11's addendum). Build and push the image and roll it "
         "as `docs/STATE.md` describes. Nothing moves the champion; the gate's own pull "
         "request does that, a week of labelled shadow scores later.\n"
+    )
+
+
+def _replayed_verdict(
+    job: Job, finalised: list[dt.date], now: dt.datetime
+) -> dict[str, Any] | None:
+    """The gate's verdict on the latest shipped candidate, on recorded days (ADR 33)."""
+    from verdict.models.champion import _model_hop
+    from verdict.models.inputs import matrix
+    from verdict.models.promote import evaluate
+    from verdict.scoring.onnx_model import model_version
+    from verdict.scoring.registry import path_of
+
+    champion = model_version(job.champion_path)
+    for candidate in reversed(job.models_state.read()["candidates"]):
+        version = candidate["version"]
+        if not candidate["beats_incumbent"] or version == champion:
+            continue
+        try:
+            model_path = path_of(version)
+        except FileNotFoundError:
+            continue  # its pull request is not merged, or this image predates it
+        days = models_live.replay_due(
+            job.models_state,
+            version=version,
+            last_day=dt.date.fromisoformat(candidate["last_day"]),
+            finalised=finalised,
+        )
+        if days is None:
+            return None
+        break
+    else:
+        return None
+    rows, share = models_live.replayed_rows(job.paths, days, model_path=model_path, version=version)
+    sample, _ = models_live.training_table(job.paths, days[-1:])
+    hop = _model_hop(model_path, matrix(sample)[:5_000])
+    gate = job.gate or evaluate
+    verdict = gate(rows, as_of=now, challenger_p99_ms=hop["p99"])
+    body = (
+        _replay_preamble(version, days)
+        + verdict.to_markdown(champion=champion, challenger=version)
+        + _after_merging_verdict(version, eligible=verdict.eligible)
+    )
+    stem = f"replayed-verdict-{version}-{now.date().isoformat()}"
+    evidence = {
+        "track": "synthetic live, finalised history, replayed (ADR 33)",
+        "basis": "the candidate scored on recorded live features; the champion's live scores",
+        "shadow_version": version,
+        "champion_version": champion,
+        "days": [day.isoformat() for day in days],
+        "rows_share_kept": share,
+        "eligible": verdict.eligible,
+        "reasons": list(verdict.reasons),
+        "rows": verdict.rows,
+        "frauds": verdict.frauds,
+        "challenger_p99_ms": verdict.challenger_p99_ms,
+        "markdown": body,
+    }
+    record: dict[str, Any] = {
+        "version": version,
+        "days": [days[0].isoformat(), days[-1].isoformat()],
+        "eligible": verdict.eligible,
+        "at": now.isoformat(),
+        "pull_request": None,
+    }
+    if job.github is not None:
+        title = (
+            f"Promote {version}: the gate finds it eligible on {len(days)} replayed days"
+            if verdict.eligible
+            else f"Replayed verdict on {version}: refused"
+        )
+        record["pull_request"] = job.github.open_pull_request(
+            branch=f"live/{stem}",
+            title=title,
+            body=body,
+            message=f"Record the promotion gate's replayed verdict on {version}",
+            files=[
+                FileChange(f"{RECORDS_PATH}/{stem}.json", _json_bytes(evidence)),
+                FileChange(f"{RECORDS_PATH}/{stem}.md", body.encode("utf-8")),
+            ],
+        )
+    job.models_state.add("replays", record)
+    return record
+
+
+def _replay_preamble(version: str, days: list[dt.date]) -> str:
+    return (
+        f"### A replayed verdict, on {days[0].isoformat()} to {days[-1].isoformat()} "
+        "(ADR 33)\n\n"
+        f"`{version}` was not fitted on these days. Their kept rows hold the features the "
+        "scorer served and the score the champion gave live; the candidate scored the same "
+        "rows here, and the promotion gate judged both, weighted as history keeps them "
+        "(ADR 18). The model hop below was timed here, not in the scorer. The candidate "
+        "also runs in shadow in the scorer, and the gate's live verdict follows a week of "
+        "labelled shadow scores later.\n\n"
     )
 
 

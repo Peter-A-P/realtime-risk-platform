@@ -158,6 +158,13 @@ delay, as they do in life): non-inferior PR-AUC and expected loss with the inter
 latency within budget, and a human approval. Rollback is a configuration flag read on every
 event; the drill flips it and measures the time to the previous champion serving.
 
+**Amended 2026-10-10, Peter's decision (ADR 33).** On the live window a candidate fitted on
+the window's history may also be judged on recorded days it was not fitted on: it scores
+the features the scorer served, beside the champion's live scores, and the same gate
+judges them. One pull request carries that replayed verdict, and a person still approves.
+It reaches a verdict about two weeks sooner than a labelled live shadow week, which still
+follows.
+
 ### 2.6 Drift triggers a candidate, a person promotes it
 
 PSI and KS are computed per feature and on the score distribution daily, against a fixed

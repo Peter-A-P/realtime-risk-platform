@@ -46,6 +46,7 @@ def keep_day(
     frauds: int,
     legit: int,
     shadow_version: str | None = None,
+    champion_version: str = "champion-x",
     seed: int = 0,
 ) -> None:
     """A finalised day of kept rows: some frauds, some legitimate, each weighted."""
@@ -61,7 +62,7 @@ def keep_day(
         "event_time": times,
         "amount_cents": rng.integers(100, 100_000, rows),
         "decided_at": times,
-        "champion_version": ["champion-x"] * rows,
+        "champion_version": [champion_version] * rows,
         "champion_score": rng.random(rows),
         "action": ["approve"] * rows,
         "rule": ["model"] * rows,
@@ -119,6 +120,127 @@ def test_the_gate_reads_only_what_the_shadow_model_scored(tmp_path: Path) -> Non
     rows, _ = live.shadow_rows(paths, days, shadow_version="candidate-a")
     assert len(rows) == 120
     assert live.shadow_days(paths, days, shadow_version="candidate-a") == [DAY]
+
+
+def test_the_gate_leaves_out_what_the_shadow_model_decided_itself(tmp_path: Path) -> None:
+    """After promotion a model may score in shadow beside itself; that is no evidence."""
+    paths = HistoryPaths(tmp_path)
+    after = DAY + dt.timedelta(days=1)
+    keep_day(paths, DAY, frauds=20, legit=100, shadow_version="candidate-a")
+    keep_day(
+        paths,
+        after,
+        frauds=20,
+        legit=100,
+        shadow_version="candidate-a",
+        champion_version="candidate-a",
+    )
+    rows, _ = live.shadow_rows(paths, [DAY, after], shadow_version="candidate-a")
+    assert len(rows) == 120
+    assert live.shadow_days(paths, [DAY, after], shadow_version="candidate-a") == [DAY]
+
+
+# --- a replayed verdict (ADR 33) -----------------------------------------------------
+
+
+def test_a_replay_scores_the_recorded_rows_as_the_scorer_would(tmp_path: Path) -> None:
+    from verdict.models.inputs import matrix
+    from verdict.scoring.onnx_model import OnnxModel
+
+    paths = HistoryPaths(tmp_path)
+    shadow = ARTIFACTS / "challenger.onnx"
+    version = model_version(shadow, "challenger")
+    after = DAY + dt.timedelta(days=1)
+    keep_day(paths, DAY, frauds=20, legit=100)
+    keep_day(paths, after, frauds=20, legit=100, champion_version=version)
+    rows, share = live.replayed_rows(paths, [DAY, after], model_path=shadow, version=version)
+    assert share == {"fraud": 1.0, "legit": 1.0}
+    # Rows the candidate decided itself are not evidence about it.
+    assert len(rows) == 120
+    table = pq.read_table(paths.kept_file(DAY)).sort_by("event_time")
+    expected = OnnxModel(shadow, prefix="challenger").score_matrix(matrix(table))
+    by_id = {row.event_id: row for row in rows}
+    for event_id, score, champion, weight in zip(
+        table["event_id"].to_pylist(),
+        expected.tolist(),
+        table["champion_score"].to_pylist(),
+        table["weight"].to_pylist(),
+        strict=True,
+    ):
+        row = by_id[str(event_id)]
+        assert row.challenger_score == pytest.approx(score, abs=1e-6)
+        assert row.champion_score == champion
+        assert row.weight == weight
+
+
+def test_a_replay_waits_for_unseen_days_and_is_told_once(tmp_path: Path) -> None:
+    state = live.ModelsState(tmp_path / "models.json")
+    last = DAY
+    days = [DAY + dt.timedelta(days=n) for n in range(live.REPLAY_DAYS + 1)]
+    early = days[: live.REPLAY_DAYS]
+    assert live.replay_due(state, version="c", last_day=last, finalised=early) is None
+    assert live.replay_due(state, version="c", last_day=last, finalised=days) == days[1:]
+    state.add("replays", {"version": "c", "eligible": False})
+    assert live.replay_due(state, version="c", last_day=last, finalised=days) is None
+    assert live.replay_due(state, version="d", last_day=last, finalised=days) == days[1:]
+
+
+def test_a_merged_candidate_gets_one_replayed_verdict_and_an_unmerged_one_none(
+    tmp_path: Path,
+) -> None:
+    paths = HistoryPaths(tmp_path / "history")
+    shadow = ARTIFACTS / "challenger.onnx"
+    version = model_version(shadow, "challenger")
+    days = [DAY + dt.timedelta(days=n) for n in range(live.REPLAY_DAYS + 1)]
+    for day in days:
+        keep_day(paths, day, frauds=10, legit=50)
+    state_dir = tmp_path / "state"
+    state = live.ModelsState(state_dir / "models.json")
+    for item in (
+        {"version": version, "last_day": DAY.isoformat(), "beats_incumbent": True},
+        {"version": "candidate-unmerged-0", "last_day": DAY.isoformat(), "beats_incumbent": True},
+    ):
+        state.add("candidates", {"opened_on": DAY.isoformat(), **item})
+
+    class Eligible:
+        eligible = True
+        reasons = ()
+        rows, frauds, challenger_p99_ms = 180, 30, 0.1
+
+        def to_markdown(self, *, champion: str, challenger: str) -> str:
+            return f"### Shadow evidence: {challenger} against {champion}\n"
+
+    seen: list[int] = []
+
+    def gate(rows: list[object], **kwargs: object) -> Eligible:
+        seen.append(len(rows))
+        return Eligible()
+
+    fake = FakeGitHub()
+    job = models_job.Job(
+        paths=paths,
+        state_dir=state_dir,
+        reference=None,
+        since=dt.datetime(2026, 10, 2, tzinfo=dt.UTC),
+        starts_file=tmp_path / "starts.jsonl",
+        champion_path=ARTIFACTS / "champion.onnx",
+        shadow_path=None,
+        github=GitHub(fake),
+        clock=lambda: dt.datetime(2026, 10, 30, tzinfo=dt.UTC),
+        gate=gate,
+    )
+    # The newest candidate's pull request is not merged: no file ships for it,
+    # so the replay falls back to the newest one that does.
+    said = models_job.run_pass(job)
+    assert said["replayed"]["version"] == version
+    assert seen == [live.REPLAY_DAYS * 60]
+    pull = fake.pulls[0]
+    assert pull["title"] == f"Promote {version}: the gate finds it eligible on 3 replayed days"
+    assert "ADR 33" in pull["body"]
+    assert f"verdict flag set {version}" in pull["body"]
+    assert not any(path.startswith("verdict/") for path in fake.committed())
+    assert "replayed" not in models_job.run_pass(job)
+    assert len(fake.pulls) == 1
 
 
 # --- when ------------------------------------------------------------------------

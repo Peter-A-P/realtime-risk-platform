@@ -29,6 +29,15 @@ pull request is opened for the first verdict on each shadow model, and again
 if it later turns eligible. Eligible is not promoted; merging the pull
 request is the approval, and the pointer moves by `verdict flag set` after it
 (ADR 11).
+
+**A replayed verdict, sooner (ADR 33).** Labels arrive a week after the
+transaction, so a week of labelled live shadow scores is two weeks after the
+roll. A candidate that ships can instead be judged on the finalised days
+after the last one it was fitted on: the kept rows hold the features the
+scorer served and the score the champion gave, so the candidate scores those
+same rows and the same gate judges them, weighted as everything here is.
+What it does not test is the model running inside the scorer, which the
+live shadow does, beside it, from the roll on.
 """
 
 from __future__ import annotations
@@ -61,6 +70,11 @@ NEW_DAYS: Final = 3
 
 SHADOW_DAYS: Final = 7
 """Finalised days of shadow scores before the gate is asked: ADR 11's week."""
+
+REPLAY_DAYS: Final = 3
+"""Finalised days after a candidate's last training day before its replayed
+verdict (ADR 33): each holds thousands of labelled frauds, far past the
+gate's fifty, and three let a bad day show as one of three."""
 
 FIT_DAYS: Final = 14
 """The most recent finalised days a candidate is fitted on."""
@@ -155,7 +169,20 @@ def bounded_table(
 
 
 def _filter_columns(keep: pc.Expression | None) -> list[str]:
-    return [] if keep is None else ["shadow_version", "shadow_score"]
+    return [] if keep is None else ["shadow_version", "shadow_score", "champion_version"]
+
+
+def _scored_beside(shadow_version: str) -> pc.Expression:
+    """Rows a shadow model scored while another model decided.
+
+    Once a shadow model is promoted the scorer may still run it in shadow,
+    scoring beside itself; those rows say nothing about it against anything.
+    """
+    return (
+        (pc.field("shadow_version") == shadow_version)
+        & pc.field("shadow_score").is_valid()
+        & (pc.field("champion_version") != shadow_version)
+    )
 
 
 def training_table(paths: HistoryPaths, days: list[dt.date]) -> tuple[pa.Table, dict[str, float]]:
@@ -186,7 +213,7 @@ def shadow_rows(
     Returns:
         The rows, and the share of each label kept.
     """
-    keep = (pc.field("shadow_version") == shadow_version) & pc.field("shadow_score").is_valid()
+    keep = _scored_beside(shadow_version)
     table, share = bounded_table(
         paths,
         days,
@@ -241,11 +268,65 @@ def shadow_days(paths: HistoryPaths, days: list[dt.date], *, shadow_version: str
         Those days.
     """
     found = []
+    keep = _scored_beside(shadow_version)
     for day in days:
-        versions = pq.read_table(paths.kept_file(day), columns=["shadow_version"])
-        if pc.any(pc.equal(versions["shadow_version"], pa.scalar(shadow_version))).as_py():
+        versions = pq.read_table(paths.kept_file(day), columns=_filter_columns(keep))
+        if versions.filter(keep).num_rows:
             found.append(day)
     return found
+
+
+def replayed_rows(
+    paths: HistoryPaths, days: list[dt.date], *, model_path: Path, version: str
+) -> tuple[list[ShadowRow], dict[str, float]]:
+    """A shipped model's scores on recorded live rows, as the gate takes them (ADR 33).
+
+    The features are the ones the scorer served and the champion's score is
+    the one it gave, both as history kept them; only the model's own hop runs
+    here rather than in the scorer.
+
+    Args:
+        paths: The history root.
+        days: Finalised days the model was not fitted on.
+        model_path: Its ONNX file.
+        version: Its version: rows it decided are left out.
+
+    Returns:
+        The rows, and the share of each label kept.
+    """
+    from verdict.models.inputs import matrix
+    from verdict.scoring.onnx_model import OnnxModel
+
+    names = training_schema().names
+    keep = pc.field("champion_version") != version
+    table, share = bounded_table(
+        paths,
+        days,
+        columns=[*names, "champion_score"],
+        keep=keep,
+        targets={True: 200_000, False: 400_000},
+    )
+    model = OnnxModel(model_path, prefix=model_path.stem)
+    scores = model.score_matrix(matrix(table)) if table.num_rows else np.empty(0)
+    rows = [
+        ShadowRow(
+            event_id=row["event_id"],
+            is_fraud=row["is_fraud"],
+            label_time=row["label_time"],
+            amount_cents=row["amount_cents"],
+            champion_score=row["champion_score"],
+            challenger_score=float(min(1.0, max(0.0, score))),
+            weight=row["weight"],
+        )
+        for row, score in zip(
+            table.select(
+                ["event_id", "is_fraud", "label_time", "amount_cents", "champion_score", "weight"]
+            ).to_pylist(),
+            scores.tolist(),
+            strict=True,
+        )
+    ]
+    return rows, share
 
 
 # --- what has been done, on the data volume -----------------------------------------
@@ -265,18 +346,20 @@ class ModelsState:
         """The record.
 
         Returns:
-            `candidates` and `verdicts`, each a list, oldest first.
+            `candidates`, `verdicts` and `replays`, each a list, oldest first.
         """
-        if not self.path.exists():
-            return {"candidates": [], "verdicts": []}
-        loaded: dict[str, Any] = json.loads(self.path.read_text(encoding="utf-8"))
+        loaded: dict[str, Any] = {}
+        if self.path.exists():
+            loaded = json.loads(self.path.read_text(encoding="utf-8"))
+        for kind in ("candidates", "verdicts", "replays"):
+            loaded.setdefault(kind, [])
         return loaded
 
     def add(self, kind: str, item: dict[str, Any]) -> None:
         """Append to the record.
 
         Args:
-            kind: `candidates` or `verdicts`.
+            kind: `candidates`, `verdicts` or `replays`.
             item: What happened.
         """
         record = self.read()
@@ -305,6 +388,17 @@ class ModelsState:
         """
         return [v for v in self.read()["verdicts"] if v["shadow_version"] == shadow_version]
 
+    def replays_for(self, version: str) -> list[dict[str, Any]]:
+        """The gate's replayed verdicts on a candidate (ADR 33).
+
+        Args:
+            version: The candidate.
+
+        Returns:
+            Them, oldest first.
+        """
+        return [v for v in self.read()["replays"] if v["version"] == version]
+
 
 def candidate_due(
     state: ModelsState, *, opened_on: dt.date, finalised: list[dt.date]
@@ -327,6 +421,30 @@ def candidate_due(
         if sum(1 for day in finalised if day > last) < NEW_DAYS:
             return None
     return finalised[-FIT_DAYS:]
+
+
+def replay_due(
+    state: ModelsState, *, version: str, last_day: dt.date, finalised: list[dt.date]
+) -> list[dt.date] | None:
+    """Whether a candidate's replayed verdict should be asked for now, and on which days.
+
+    Asked once, when `REPLAY_DAYS` finalised days follow its last training
+    day; a refused candidate is not asked again, since more days of the same
+    stream rarely turn a refusal and the live shadow verdict follows anyway.
+
+    Args:
+        state: The replayed verdicts already told.
+        version: The candidate.
+        last_day: The last day it was fitted on.
+        finalised: The finalised days of the window.
+
+    Returns:
+        The days to replay, or None if nothing is due.
+    """
+    if state.replays_for(version):
+        return None
+    after = [day for day in finalised if day > last_day]
+    return after if len(after) >= REPLAY_DAYS else None
 
 
 def gate_due(

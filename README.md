@@ -347,7 +347,7 @@ Every piece, where it lives, and what it guarantees.
 | The public dashboard | [verdict/observe/dashboard.py](verdict/observe/dashboard.py) | Grafana, anonymous and read-only behind the tunnel, provisioned from code. A test checks every panel's query against the metrics the platform exports |
 | Decisions 1 to 30 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; the latency budget and what the host costs; labels arrive late and nothing reads them early; shadow and promotion; drift thresholds; queue ranking; the live stack's shape; surviving a spot replacement; teardown and repeatability; what a card, device and moment are on the real data; history as a weighted sample; the champion and challenger; day-long windows at hourly resolution; harder synthetic fraud; the queue measured on the queue the platform would hold; drift against the schedule's own regimes; retraining that stops at a pull request; latency while serving and availability as two numbers; alerts by email; saved feature state; drift, retraining and the gate on the live stack; live traffic that follows the day, judged against its own baseline; a demo site that gives the dashboard its context |
 
-648 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
+678 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
 
 **The leakage test caught a real leak on the day the first features were written**, which
 is what it was written a week earlier for. Two transactions sharing a timestamp saw each

@@ -65,6 +65,17 @@ decisions paused about four minutes (00:47 to 00:51Z). The launch template carri
 `eb9e75ffdfa6` (plan: 1 change, launch template only). The candidate's
 shadow week starts with its first kept, labelled shadow scores; the gate's
 pull request is due about seven days of those later.
+**2026-10-10, ADR 33, Peter's decision: a replayed verdict, sooner.** The
+models job now also asks the gate about the newest merged candidate on
+`REPLAY_DAYS` (3) finalised days after its last training day, scoring the
+recorded features beside the champion's live scores, and opens one pull
+request with that verdict. For `candidate-2026-10-09-1` (fitted to
+2026-10-01) that is 2026-10-02 to 04, due once 2026-10-04 is finalised,
+about 2026-10-12T06:00Z, on the next hourly pass. Live shadow and replay
+agree exactly on 208,140 rows of 2026-10-10T00. **If eligible, Peter merges
+it and the pointer moves by `verdict flag set <version>` on the instance**
+(inside the scorer container, as the pull request says). The live gate now
+leaves out rows a shadow model decided itself.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
