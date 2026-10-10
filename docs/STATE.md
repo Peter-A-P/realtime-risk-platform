@@ -76,6 +76,15 @@ agree exactly on 208,140 rows of 2026-10-10T00. **If eligible, Peter merges
 it and the pointer moves by `verdict flag set <version>` on the instance**
 (inside the scorer container, as the pull request says). The live gate now
 leaves out rows a shadow model decided itself.
+**Dry run 2026-10-10 ~12:40Z on real data** (2026-10-02 alone, scratch state,
+no GitHub): eligible; 600,260 rows, 200,185 frauds; PR-AUC 0.0615 champion,
+0.4494 candidate, difference +0.388 (CI +0.376 to +0.400); decision cost down
+$62.3M (CI $61.6M to $62.9M) on the weighted day; hop p99 0.11 ms. The first
+run peaked at 11.45 GB, swapped 2 GB and slowed decisions for two minutes;
+`bounded_table` now reads 500,000 rows at a time (`d56c623`), and the rerun
+gave the identical verdict at 3.4 GB in 354 s with no dip. The models
+service and the launch template run `d56c6238a75b`; the scorer and the rest
+stay on `eb9e75ffdfa6`.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
