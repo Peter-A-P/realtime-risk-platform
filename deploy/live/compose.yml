@@ -113,7 +113,7 @@ services:
       # The challenger in shadow (ADR 11), on the decisions history could
       # keep, which is all the promotion gate reads: about a seventh of them,
       # where scoring every one would take a fifth of the scorer's core.
-      - --shadow=challenger
+      - --shadow=candidate-2026-10-09-1
       - --shadow-kept-only
       # The feature state, saved as it runs, so a replacement starts from it
       # and replays what came after rather than from empty windows (ADR 27).
