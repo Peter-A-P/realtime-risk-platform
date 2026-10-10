@@ -45,6 +45,14 @@ next restart. The request was opened by hand (`/data/models/drift/request.json`,
 opened_on 2026-10-09). The launch template carries `5b9db613d1cf` too. The
 first candidate is due once 2026-10-01 is finalised (about 06:00Z), on the
 next hourly pass after; its pull request then waits for Peter.
+**2026-10-09 09:17Z:** the models job opened #2, candidate
+`candidate-2026-10-09-1` (test PR-AUC 0.425 against the champion's 0.057
+on 692,172 later rows, difference CI +0.358 to +0.379), which answered and
+closed the request. CI failed on it because two tests pinned the shadow
+model's name to `challenger`; they now check for a shipped, non-champion
+shadow model instead, and #2 is green after updating its branch. **Waiting
+on Peter to merge #2**, then build and push the image from `main` and roll
+the scorer (and the rest) onto it, which starts the candidate's shadow week.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
