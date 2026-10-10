@@ -53,6 +53,18 @@ model's name to `challenger`; they now check for a shipped, non-champion
 shadow model instead, and #2 is green after updating its branch. **Waiting
 on Peter to merge #2**, then build and push the image from `main` and roll
 the scorer (and the rest) onto it, which starts the candidate's shadow week.
+**2026-10-10 00:47Z: merged and rolled.** Peter merged #2 (`eb9e75f`);
+image `eb9e75ffdfa6` pushed; on the instance `/opt/verdict/compose.yml`
+(now identical to `main`'s, the previous kept as `compose.yml.c11c306.*`)
+names `--shadow=candidate-2026-10-09-1`, `stack.env` names the image (the
+previous kept as `stack.env.5b9db61.*`), and `up -d` recreated every service
+on our image (scorer, feeds, labels, alerts, compactor, models); broker,
+Prometheus, Grafana and cloudflared untouched. The scorer restored 349,983
+entities saved at 00:35Z and replayed 4,976,865 records in 248 s, so
+decisions paused about four minutes (00:47 to 00:51Z). The launch template carries
+`eb9e75ffdfa6` (plan: 1 change, launch template only). The candidate's
+shadow week starts with its first kept, labelled shadow scores; the gate's
+pull request is due about seven days of those later.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
