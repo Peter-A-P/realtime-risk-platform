@@ -85,6 +85,17 @@ run peaked at 11.45 GB, swapped 2 GB and slowed decisions for two minutes;
 gave the identical verdict at 3.4 GB in 354 s with no dip. The models
 service and the launch template run `d56c6238a75b`; the scorer and the rest
 stay on `eb9e75ffdfa6`.
+**2026-10-12 21:18Z: promoted.** The replayed verdict (#4, 2026-10-02 to 04:
+PR-AUC 0.0616 to 0.4504, difference +0.389, CI +0.375 to +0.401; decision
+cost down $186M, CI $184M to $188M) was merged by Peter, and `verdict flag
+set candidate-2026-10-09-1-3f05ac05258b` was run in the scorer container
+(previous flag kept as `/data/flags/champion.json.before-promotion`;
+`verdict flag rollback` returns to `champion-8d960d985749`). Its first
+27,042 decisions acted on 0.5%, against 18 to 19% before. Drift on
+2026-10-10 and 11 (amount means per card, device and merchant) opened a
+request that #3 "answered" with a candidate fitted only to 2026-10-02,
+because beating the old champion was trivially easy; Peter closed #3
+unmerged.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
