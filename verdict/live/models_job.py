@@ -41,7 +41,7 @@ from typing import Any, Final
 from prometheus_client import CollectorRegistry, Counter, Gauge
 
 from verdict.drift import live as drift_live
-from verdict.drift.monitors import Reference
+from verdict.drift.monitors import DailyReport, Reference
 from verdict.drift.trigger import RetrainRequest
 from verdict.history.compact import HistoryPaths
 from verdict.live.github import FileChange, GitHub
@@ -155,7 +155,8 @@ def run_pass(job: Job) -> dict[str, Any]:
     said: dict[str, Any] = {"at": now.isoformat()}
     open_request = job.drift_state.open_request()
     answered = open_request is not None and any(
-        c["beats_incumbent"] for c in job.models_state.candidates_for(open_request.opened_on)
+        c["beats_incumbent"] and c.get("covers_the_drift") is not False
+        for c in job.models_state.candidates_for(open_request.opened_on)
     )
     if job.reference is None:
         said["judged"] = "no reference yet"
@@ -179,11 +180,15 @@ def run_pass(job: Job) -> dict[str, Any]:
     finalised = [day for day in models_live.finalised_days(job.paths) if day >= job.since.date()]
     request = job.drift_state.open_request()
     if request is not None:
+        began = drift_began(request, job.drift_state.reports())
         days = models_live.candidate_due(
-            job.models_state, opened_on=request.opened_on, finalised=finalised
+            job.models_state,
+            opened_on=request.opened_on,
+            finalised=finalised,
+            drift_began=began,
         )
         if days is not None:
-            said["candidate"] = _candidate(job, request, days, now)
+            said["candidate"] = _candidate(job, request, days, now, drift_began=began)
     shadow = job.shadow_path or _shadow_from_history(job.paths, finalised)
     if shadow is not None:
         verdict = _verdict(job, shadow, finalised, now)
@@ -193,6 +198,33 @@ def run_pass(job: Job) -> dict[str, Any]:
     if replayed is not None:
         said["replayed"] = replayed
     return said
+
+
+def drift_began(request: RetrainRequest, reports: list[DailyReport]) -> dt.date | None:
+    """The first day of the run of drift a request answers (ADR 34).
+
+    A request's evidence is the run after the last request closed, so when an
+    earlier request on the same run closed, the drift began before the
+    evidence. Walk back over consecutive judged days on which any of the
+    request's quantities drifted.
+
+    Args:
+        request: The open request.
+        reports: Every judged day.
+
+    Returns:
+        The first drifted day, or None for a request opened by hand.
+    """
+    if not request.evidence:
+        return None
+    by_day = {report.day: report for report in reports}
+    names = set(request.quantities)
+    day = min(report.day for report in request.evidence)
+    while True:
+        earlier = by_day.get(day - dt.timedelta(days=1))
+        if earlier is None or not names & earlier.drifted():
+            return day
+        day = earlier.day
 
 
 def _shadow_from_history(paths: HistoryPaths, finalised: list[dt.date]) -> Path | None:
@@ -208,7 +240,12 @@ def _shadow_from_history(paths: HistoryPaths, finalised: list[dt.date]) -> Path 
 
 
 def _candidate(
-    job: Job, request: RetrainRequest, days: list[dt.date], now: dt.datetime
+    job: Job,
+    request: RetrainRequest,
+    days: list[dt.date],
+    now: dt.datetime,
+    *,
+    drift_began: dt.date | None = None,
 ) -> dict[str, Any]:
     from verdict.models.retrain import pull_request_body, retrain
     from verdict.scoring.onnx_model import model_version
@@ -224,6 +261,11 @@ def _candidate(
     pq.write_table(table, table_path)
     candidate_path = work / f"{stem}.onnx"
     fit = job.fit or retrain
+    split: dict[str, Any] = {}
+    if drift_began is not None:
+        # Fit on every day but the last, so the drifted days are learned from
+        # rather than tested on; the replayed verdict tests on later days.
+        split = {"train_share": train_until(table, days[-1]), "drift_began": drift_began}
     report = fit(
         request,
         track="synthetic",
@@ -231,6 +273,7 @@ def _candidate(
         champion_path=job.champion_path,
         candidate_path=candidate_path,
         threads=1,
+        **split,
     )
     report["track"] = "synthetic live, finalised history"
     report["fitted_on_days"] = [days[0].isoformat(), days[-1].isoformat()]
@@ -243,6 +286,8 @@ def _candidate(
         "version": version,
         "last_day": days[-1].isoformat(),
         "beats_incumbent": bool(report["beats_incumbent"]),
+        "covers_the_drift": report.get("drifted_days_in_training", {}).get("covers_the_drift"),
+        "drift_began": None if drift_began is None else drift_began.isoformat(),
         "at": now.isoformat(),
         "pull_request": None,
     }
@@ -268,6 +313,27 @@ def _candidate(
         )
     job.models_state.add("candidates", record)
     return record
+
+
+def train_until(table: Any, last_day: dt.date) -> float:  # noqa: ANN401 - a pyarrow table
+    """The train share that puts the split at the start of the table's last day.
+
+    `split_by_time` places its point a share of the way from the first
+    transaction to the last, so the share is read from the table's own times.
+
+    Args:
+        table: The candidate's table, in event-time order.
+        last_day: The day to test on.
+
+    Returns:
+        The share, in (0, 1).
+    """
+    import pyarrow.compute as pc
+
+    start = pc.min(table["event_time"]).as_py()
+    end = pc.max(table["event_time"]).as_py()
+    point = dt.datetime(last_day.year, last_day.month, last_day.day, tzinfo=dt.UTC)
+    return float((point - start) / (end - start))
 
 
 def _verdict(

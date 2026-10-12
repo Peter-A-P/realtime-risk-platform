@@ -30,7 +30,7 @@ substitute for the gate.
 
 **The models job asks the gate for a replayed verdict** on the newest
 candidate that beat the incumbent and ships in the image (its pull request
-merged), once `REPLAY_DAYS` (3) finalised days follow the last day it was
+merged), once `REPLAY_DAYS` (3; 2 since ADR 34) finalised days follow the last day it was
 fitted on:
 
 - the candidate scores those days' kept rows, from the recorded features,

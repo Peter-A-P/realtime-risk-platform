@@ -49,6 +49,7 @@ def retrain(
     candidate_path: Path,
     train_share: float = 0.7,
     threads: int = 6,
+    drift_began: dt.date | None = None,
 ) -> dict[str, Any]:
     """Fit a candidate on the arrived history and compare it to the champion.
 
@@ -63,6 +64,9 @@ def retrain(
             left to test on.
         threads: XGBoost threads. The live job fits with one, beside the
             scorer (ADR 28).
+        drift_began: The first day of the run of drift, which may be before
+            the request's own evidence when an earlier request on the same
+            run closed (ADR 34). None to take the evidence's first day.
 
     Returns:
         The report: what asked for the retrain, what was fitted, and how the
@@ -82,6 +86,10 @@ def retrain(
         challenger_prefix=candidate_path.stem,
     )
     beats = comparison["challenger_minus_champion"]["low"] > 0.0
+    coverage = _drift_coverage(request, split.cutoff, last_trained_on, drift_began)
+    # A candidate that never saw the drift answers nothing, however it compares
+    # (ADR 34): against a weak incumbent, beating it is no news about the drift.
+    answers = beats and coverage["covers_the_drift"] is not False
     return {
         "opened_by": {
             "drift_on": request.opened_on.isoformat(),
@@ -103,9 +111,9 @@ def retrain(
             "seconds": round(fitted.seconds, 1),
         },
         "comparison": comparison,
-        "drifted_days_in_training": _drift_coverage(request, split.cutoff, last_trained_on),
+        "drifted_days_in_training": coverage,
         "beats_incumbent": beats,
-        "request": str(resolve(request, candidate_beat_incumbent=beats)),
+        "request": str(resolve(request, candidate_beat_incumbent=answers)),
         "promoted": False,
     }
 
@@ -141,7 +149,10 @@ def _last_transaction(table: pa.Table, event_ids: tuple[str, ...]) -> dt.datetim
 
 
 def _drift_coverage(
-    request: RetrainRequest, cutoff: dt.datetime, last_trained_on: dt.datetime
+    request: RetrainRequest,
+    cutoff: dt.datetime,
+    last_trained_on: dt.datetime,
+    drift_began: dt.date | None = None,
 ) -> dict[str, Any]:
     """Whether the candidate could see the drift that asked for it.
 
@@ -158,6 +169,8 @@ def _drift_coverage(
         request: The drift request.
         cutoff: The moment the candidate is as of.
         last_trained_on: The latest transaction it was fitted on.
+        drift_began: The first day of the run of drift, if known to be
+            earlier than the evidence's.
 
     Returns:
         The first drifted day, the last day trained on, and whether the
@@ -173,7 +186,7 @@ def _drift_coverage(
             "covers_the_drift": None,
             "days_short": None,
         }
-    first_drifted = min(report.day for report in request.evidence)
+    first_drifted = drift_began or min(report.day for report in request.evidence)
     return {
         "first_drifted_day": first_drifted.isoformat(),
         "training_cutoff": cutoff.isoformat(),

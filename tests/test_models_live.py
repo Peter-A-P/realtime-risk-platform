@@ -13,7 +13,7 @@ import base64
 import datetime as dt
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pyarrow as pa
@@ -22,7 +22,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from verdict.drift import live as drift_live
-from verdict.drift.monitors import SCORE, Reference
+from verdict.drift.monitors import SCORE, DailyReport, QuantityResult, Reference, Status
 from verdict.drift.trigger import RetrainRequest
 from verdict.history.compact import HistoryPaths
 from verdict.history.records import history_schema
@@ -251,7 +251,9 @@ def test_a_merged_candidate_gets_one_replayed_verdict_and_an_unmerged_one_none(
     assert said["replayed"]["version"] == version
     assert seen == [live.REPLAY_DAYS * 60]
     pull = fake.pulls[0]
-    assert pull["title"] == f"Promote {version}: the gate finds it eligible on 3 replayed days"
+    assert pull["title"] == (
+        f"Promote {version}: the gate finds it eligible on {live.REPLAY_DAYS} replayed days"
+    )
     assert "ADR 33" in pull["body"]
     assert f"verdict flag set {version}" in pull["body"]
     assert not any(path.startswith("verdict/") for path in fake.committed())
@@ -576,3 +578,103 @@ def test_a_candidate_for_a_request_opened_by_hand_has_no_drift_to_reach() -> Non
     )
     assert coverage["covers_the_drift"] is None
     assert coverage["first_drifted_day"] is None
+
+
+# --- a drift candidate learns from the drift (ADR 34) --------------------------------
+
+
+def a_judged_day(day: dt.date, drifted: bool) -> DailyReport:
+    status = Status.DRIFTED if drifted else Status.STABLE
+    return DailyReport(day=day, results=(QuantityResult("amount", 52_000, 0.5, 0.3, 1e-9, status),))
+
+
+def test_the_drift_began_where_the_run_began_not_where_this_request_opened() -> None:
+    """An earlier request on the same run closed; the run still began before this one."""
+    days = [DAY + dt.timedelta(days=n) for n in range(8)]
+    drifted = [False, False, True, True, True, True, False, True]
+    reports = [a_judged_day(day, d) for day, d in zip(days, drifted, strict=True)]
+    request = RetrainRequest(days[5], ("amount",), (reports[4], reports[5]))
+    assert models_job.drift_began(request, reports) == days[2]
+    assert models_job.drift_began(RetrainRequest(DAY, (), (), reason="by hand"), reports) is None
+
+
+def test_a_drift_candidate_waits_for_drifted_days_to_learn_from_and_one_to_test_on(
+    tmp_path: Path,
+) -> None:
+    state = live.ModelsState(tmp_path / "models.json")
+    began = DAY + dt.timedelta(days=5)
+    finalised = [DAY + dt.timedelta(days=n) for n in range(5 + live.DRIFT_DAYS)]
+    assert (
+        live.candidate_due(state, opened_on=began, finalised=finalised, drift_began=began) is None
+    )
+    more = [*finalised, finalised[-1] + dt.timedelta(days=1)]
+    due = live.candidate_due(state, opened_on=began, finalised=more, drift_began=began)
+    assert due == more[-live.FIT_DAYS :]
+    # Opened by hand: no drift to wait for.
+    assert live.candidate_due(state, opened_on=DAY, finalised=finalised) == finalised
+
+
+def test_a_drift_candidate_is_fitted_on_the_drifted_days_and_tested_on_the_last(
+    tmp_path: Path,
+) -> None:
+    paths = HistoryPaths(tmp_path / "history")
+    days = [DAY + dt.timedelta(days=n) for n in range(6)]
+    for day in days:
+        keep_day(paths, day, frauds=20, legit=100)
+    state_dir = tmp_path / "state"
+    drift_state = drift_live.DriftState(state_dir / "drift")
+    reports = [a_judged_day(day, day >= days[3]) for day in days]
+    for report in reports:
+        drift_state.save_day(report, cold=False)
+    drift_state.open(
+        RetrainRequest(days[4], ("amount",), (reports[3], reports[4])),
+        at=dt.datetime(2026, 10, 9, tzinfo=dt.UTC),
+    )
+    seen: list[dict[str, Any]] = []
+
+    def fit(request: object, **kwargs: Any) -> dict[str, Any]:  # noqa: ANN401
+        seen.append(kwargs)
+        kwargs["candidate_path"].write_bytes(b"an onnx file")
+        report = a_report(beats=True)
+        report["drifted_days_in_training"]["covers_the_drift"] = True
+        return report
+
+    job = models_job.Job(
+        paths=paths,
+        state_dir=state_dir,
+        reference=None,
+        since=dt.datetime(2026, 10, 2, tzinfo=dt.UTC),
+        starts_file=tmp_path / "starts.jsonl",
+        champion_path=ARTIFACTS / "champion.onnx",
+        shadow_path=None,
+        github=None,
+        clock=lambda: dt.datetime(2026, 10, 20, tzinfo=dt.UTC),
+        fit=fit,
+    )
+    said = models_job.run_pass(job)
+    assert said["candidate"]["drift_began"] == days[3].isoformat()
+    assert said["candidate"]["covers_the_drift"] is True
+    (kwargs,) = seen
+    assert kwargs["drift_began"] == days[3]
+    # The split falls at the start of the last day: drifted days 3 and 4 are
+    # trained on, day 5 is tested on.
+    table = pq.read_table(kwargs["table_path"])
+    times = cast("list[dt.datetime]", table["event_time"].to_pylist())
+    point = times[0] + (times[-1] - times[0]) * kwargs["train_share"]
+    midnight = dt.datetime(days[5].year, days[5].month, days[5].day, tzinfo=dt.UTC)
+    assert abs(point - midnight) < dt.timedelta(seconds=1)
+
+
+def test_a_candidate_that_never_saw_the_drift_does_not_answer_it() -> None:
+    from verdict.models.retrain import _drift_coverage
+
+    evidence = (a_judged_day(DAY + dt.timedelta(days=3), True),)
+    request = RetrainRequest(DAY + dt.timedelta(days=3), ("amount",), evidence)
+    blind = _drift_coverage(
+        request,
+        dt.datetime(2026, 10, 12, tzinfo=dt.UTC),
+        dt.datetime(2026, 10, 2, 12, tzinfo=dt.UTC),
+        drift_began=DAY + dt.timedelta(days=1),
+    )
+    assert blind["first_drifted_day"] == (DAY + dt.timedelta(days=1)).isoformat()
+    assert blind["covers_the_drift"] is False

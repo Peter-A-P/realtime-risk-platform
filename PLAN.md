@@ -172,6 +172,11 @@ reference window. Two consecutive days above threshold open a retraining job; th
 it in shadow, and opens a pull request with the evidence tables. Merging the pull request
 is the approval gate. Nothing retrains itself into production.
 
+**Amended 2026-10-12 (ADR 34).** A drift request's candidate is fitted only once two drifted
+days and one more have been labelled, on every day but the last, and only a candidate whose
+training reached the drift can answer the request. The first live drift showed why: a
+candidate fitted on the days before it beat a weak incumbent and closed the request blind.
+
 **Amended 2026-09-15, in the same commit as the code.** This section said Evidently
 computes the statistics. They are written in `verdict/drift/stats.py` instead: each is a
 few lines, a hand-worked test holds each, this platform's `NO_EVENTS` sentinel needs its

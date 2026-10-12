@@ -96,6 +96,17 @@ set candidate-2026-10-09-1-3f05ac05258b` was run in the scorer container
 request that #3 "answered" with a candidate fitted only to 2026-10-02,
 because beating the old champion was trivially easy; Peter closed #3
 unmerged.
+**ADR 34 (2026-10-12, Peter: two days and two days).** A drift candidate is
+due once `DRIFT_DAYS` (2) finalised days from the start of the drift run and
+one more are in; it is fitted on all but the last day and tested on the last;
+only a candidate whose training reached the drift answers the request;
+`REPLAY_DAYS` is now 2. Expected: request reopens about 2026-10-14 if the
+drift continues; candidate PR about 2026-10-20 (days to 10-11, tested on
+10-12); merge, roll the image (the models job needs the file to replay it);
+replayed verdict about 2026-10-22 on 10-13 and 14. Event-to-decision rising
+in the evening is the daily traffic cycle (mean 8 ms at ~780/s to 15 ms at
+~1,320/s, same shape each day); scorer memory flat at 15.0 GB since the
+2026-10-10 restart.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%

@@ -71,10 +71,16 @@ NEW_DAYS: Final = 3
 SHADOW_DAYS: Final = 7
 """Finalised days of shadow scores before the gate is asked: ADR 11's week."""
 
-REPLAY_DAYS: Final = 3
+REPLAY_DAYS: Final = 2
 """Finalised days after a candidate's last training day before its replayed
-verdict (ADR 33): each holds thousands of labelled frauds, far past the
-gate's fifty, and three let a bad day show as one of three."""
+verdict (ADR 33, 34): a live day is about a hundred million transactions and
+three million frauds, so evidence is not short; a second day keeps one odd
+day from deciding alone."""
+
+DRIFT_DAYS: Final = 2
+"""Finalised days of drift a drift request's candidate is fitted on before it
+is fitted at all (ADR 34). A candidate fitted only on days before the drift
+cannot answer it, and against a weak incumbent it can still look better."""
 
 FIT_DAYS: Final = 14
 """The most recent finalised days a candidate is fitted on."""
@@ -417,20 +423,34 @@ class ModelsState:
 
 
 def candidate_due(
-    state: ModelsState, *, opened_on: dt.date, finalised: list[dt.date]
+    state: ModelsState,
+    *,
+    opened_on: dt.date,
+    finalised: list[dt.date],
+    drift_began: dt.date | None = None,
 ) -> list[dt.date] | None:
     """Whether a candidate should be fitted now for an open request, and on which days.
+
+    For a drift request the candidate is fitted on every day but the last and
+    tested on the last (`train_until`), so it is due once `DRIFT_DAYS` drifted
+    days and one more are finalised (ADR 34).
 
     Args:
         state: What has been fitted.
         opened_on: The open request's day.
         finalised: The finalised days of the window.
+        drift_began: The first day of the run of drift; None for a request
+            opened by hand.
 
     Returns:
-        The days to fit on, or None if nothing is due.
+        The days to fit and test on, or None if nothing is due.
     """
     if len(finalised) < MIN_DAYS:
         return None
+    if drift_began is not None:
+        drifted = [day for day in finalised if day >= drift_began]
+        if len(drifted) < DRIFT_DAYS + 1:
+            return None
     earlier = state.candidates_for(opened_on)
     if earlier:
         last = dt.date.fromisoformat(earlier[-1]["last_day"])
