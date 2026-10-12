@@ -104,7 +104,9 @@ only a candidate whose training reached the drift answers the request;
 2026-10-13 and 14 (ADR 29), inside the drift, so the monitors judge nothing
 until 2026-10-15 and then see the shifted stream as normal; the drift is
 carried instead by a request opened by hand with `--drift-days
-2026-10-10,2026-10-11`. Expected: candidate PR about 2026-10-20 (days to 10-11, tested on
+2026-10-10,2026-10-11` (opened 2026-10-12 ~22:00Z on image
+`14bcaa2770a6`, models service and launch template; the job computes the
+drift as beginning 2026-10-10). Expected: candidate PR about 2026-10-20 (days to 10-11, tested on
 10-12); merge, roll the image (the models job needs the file to replay it);
 replayed verdict about 2026-10-22 on 10-13 and 14. Event-to-decision rising
 in the evening is the daily traffic cycle (mean 8 ms at ~780/s to 15 ms at
