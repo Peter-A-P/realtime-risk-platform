@@ -6,8 +6,10 @@ typed into the page by hand: every figure it shows is read here from a report
 under `docs/` that the README also cites, so the page and the README cannot
 disagree, and `tests/test_site.py` holds the page's file to a fresh export.
 
-The live numbers are not here. They are on the dashboard the page links at
-its top, and the live window's own report fills them in when it ends.
+The live window's running numbers are not here. They are on the dashboard
+the page links at its top, and the live window's own report fills them in
+when it ends. What is here from the window is what was approved on the way:
+each promotion verdict a merged pull request committed to `docs/live/`.
 """
 
 from __future__ import annotations
@@ -246,6 +248,47 @@ def _queue(docs: Path) -> dict[str, Any]:
     }
 
 
+def _promotions(docs: Path) -> list[dict[str, Any]]:
+    """The live window's approved promotions, oldest first.
+
+    A verdict record reaches `docs/live/` only by its pull request being
+    merged, so a record there that the gate found eligible is one a person
+    approved. The comparison is read from the record's data, never its table.
+
+    Args:
+        docs: The repository's `docs/` directory.
+
+    Returns:
+        One entry per approved verdict that carries its comparison.
+    """
+    out = []
+    for path in sorted((docs / "live").glob("*verdict-*.json")):
+        record = _load(docs, f"live/{path.name}")
+        pr_auc = record.get("pr_auc")
+        if not record.get("eligible") or pr_auc is None:
+            continue
+        out.append(
+            {
+                "source": f"docs/live/{path.name}",
+                "champion": record["champion_version"],
+                "challenger": record["shadow_version"],
+                "replayed": path.name.startswith("replayed-"),
+                "judged_on": path.stem[-10:],
+                "days": record["days"],
+                "rows": record["rows"],
+                "frauds": record["frauds"],
+                "champion_pr_auc": pr_auc["champion"],
+                "challenger_pr_auc": pr_auc["challenger"],
+                "difference": {
+                    "value": pr_auc["difference"],
+                    "low": pr_auc["low"],
+                    "high": pr_auc["high"],
+                },
+            }
+        )
+    return out
+
+
 def site_data(docs: Path) -> dict[str, Any]:
     """Everything the demo page shows, from the reports in `docs`.
 
@@ -260,8 +303,11 @@ def site_data(docs: Path) -> dict[str, Any]:
     sealed = _load(docs, "sealed-schedule.json")
     generator = _load(docs, "week1-measurement.json")
     rules = DecisionRules()
+    promotions = _promotions(docs)
     return {
-        "sources": [f"docs/{name}" for name in REPORTS],
+        "sources": [f"docs/{name}" for name in REPORTS] + [p["source"] for p in promotions],
+        "adr_count": len(list((docs / "adr").glob("[0-9][0-9][0-9][0-9]-*.md"))),
+        "promotions": promotions,
         "repository": REPOSITORY,
         "dashboard": DASHBOARD,
         "live": {

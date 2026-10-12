@@ -6,12 +6,14 @@ production mismatch that quietly breaks most deployed models. The platform aroun
 model is what organisations are actually missing, and this one runs live behind a
 public dashboard.
 
-**Status: restarting.** The first live window began on 2026-09-28 and failed on its
-second day: its spot instance was reclaimed thirteen times in 28 hours, and the last
-replacement's restore outgrew the machine and a hard stop left two state files empty
-([ADR 31](docs/adr/0031-a-thirty-day-window-on-demand-with-32-gb.md)). It restarts for
-thirty days on an on-demand machine with 32 GB, on the same fraud schedule, sealed before
-the first window started. **[fraud.peterparker.ca](https://fraud.peterparker.ca)**
+**Status: live, 2026-09-29 to 2026-10-29.** A first window, begun on 2026-09-28 on a spot
+instance, failed on its second day: the instance was reclaimed thirteen times in 28 hours,
+and the last replacement's restore outgrew the machine and a hard stop left two state files
+empty. The window restarted for thirty days on an on-demand machine with 32 GB, on the same
+fraud schedule, sealed before the first window started
+([ADR 31](docs/adr/0031-a-thirty-day-window-on-demand-with-32-gb.md)). Its first champion
+turned out to be wrong from the first day, and was replaced through the platform's own
+retraining path on 2026-10-12; [the live window so far](#the-live-window-so-far) says how. **[fraud.peterparker.ca](https://fraud.peterparker.ca)**
 explains what the platform does and what has been measured, in charts, and links the live
 dashboard at [risk.peterparker.ca](https://risk.peterparker.ca). The design is
 in [PLAN.md](PLAN.md). The live-window table below fills when the window ends; everything
@@ -280,6 +282,34 @@ caching, showed both the fast and the slow behaviour in about the same proportio
 shipped settings. The first result was run order. What the setting sweep could not do, the
 comparison against the same client inside the broker's network did in one run.
 
+### The live window so far
+
+**The first live champion was wrong from the first day, and that is the approach tried and
+rejected: training on a scaled-down population.** The champion that opened the window was
+fitted on the generator's scaled configuration, 4,000 cards and 80 merchants, where it
+scored a test PR-AUC of 0.84 (0.839 to 0.846, synthetic, offline). The live stream is the
+full configuration, 200,000 cards and 4,000 merchants, and the features the model leans on,
+a merchant's transactions in the last hour above all, take values there that it never saw.
+Nothing could see that at first: the drift monitors judge the live stream against its own
+first days ([ADR 29](docs/adr/0029-traffic-follows-the-day-and-drift-is-judged-against-the-live-baseline.md)), so a
+model wrong from day one looks normal to them, and labels arrive a week after the
+transaction. Once they had, `verdict history quality` measured it, a retraining request was
+opened by hand ([ADR 32](docs/adr/0032-a-retraining-request-opened-by-hand.md)), and the
+models job fitted a candidate on the window's own finalised history. The promotion gate
+judged it on three days it was not trained on, replayed from the features the scorer had
+served ([ADR 33](docs/adr/0033-a-replayed-verdict-on-recorded-live-days.md)): **PR-AUC
+0.0616 for the first champion and 0.4504 for the candidate, a difference of +0.389 (+0.375
+to +0.401)**, on 599,079 weighted labelled transactions from 2026-10-02 to 04, synthetic
+live track ([the verdict](docs/live/replayed-verdict-candidate-2026-10-09-1-3f05ac05258b-2026-10-12.json)).
+Its pull request was merged and the flag moved on 2026-10-12. The lesson for the platform:
+before go-live, compare the training table's feature values with a sample of the production
+stream, which would have caught this in minutes.
+
+A shift in the fraud began on 2026-10-10, and the monitors flagged it. Its first candidate
+had never seen a shifted transaction and still beat the weak incumbent, so a drift
+candidate now waits for two labelled drifted days and is fitted on them
+([ADR 34](docs/adr/0034-a-drift-candidate-learns-from-the-drift.md)).
+
 **Live window**
 
 | Decision latency while serving p50 / p95 / p99 ms (95% CI) | Same, every minute | Sustained events/s | Uptime % | Spot reclaims (median recovery) / other stops | Drift triggers / retrains approved | Champion vs challenger PR-AUC (95% CI) | Cost per million events |
@@ -347,7 +377,7 @@ Every piece, where it lives, and what it guarantees.
 | The public dashboard | [verdict/observe/dashboard.py](verdict/observe/dashboard.py) | Grafana, anonymous and read-only behind the tunnel, provisioned from code. A test checks every panel's query against the metrics the platform exports |
 | Decisions 1 to 30 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; the latency budget and what the host costs; labels arrive late and nothing reads them early; shadow and promotion; drift thresholds; queue ranking; the live stack's shape; surviving a spot replacement; teardown and repeatability; what a card, device and moment are on the real data; history as a weighted sample; the champion and challenger; day-long windows at hourly resolution; harder synthetic fraud; the queue measured on the queue the platform would hold; drift against the schedule's own regimes; retraining that stops at a pull request; latency while serving and availability as two numbers; alerts by email; saved feature state; drift, retraining and the gate on the live stack; live traffic that follows the day, judged against its own baseline; a demo site that gives the dashboard its context |
 
-684 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
+685 tests, `ruff` and `mypy --strict` clean. The broker tests skip, with a reason, where no broker is running.
 
 **The leakage test caught a real leak on the day the first features were written**, which
 is what it was written a week earlier for. Two transactions sharing a timestamp saw each

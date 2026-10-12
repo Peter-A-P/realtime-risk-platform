@@ -70,6 +70,17 @@ dashboard keeps its own.
 - Nothing about the platform changes: no port, no route, no credential on the
   live stack.
 
+## Addendum, 2026-10-12: approved promotions from the live window
+
+The page now shows one thing from the live window before it ends: each
+promotion verdict a merged pull request committed to `docs/live/`, read from
+the record's data (`demo_site._promotions`), never from its table. A record
+reaches `main` only by a person merging it, so the page shows only what was
+approved. The models job writes the gate's comparisons into the record as
+data from 2026-10-12; the first verdict's were added to its record from its
+own table, at that table's rounding. The window's running numbers stay on
+the dashboard, and its report still fills the README's table at the end.
+
 ## Sources
 
 - Azure Static Web Apps, free plan and custom domains:

@@ -612,10 +612,41 @@ function sealed(data) {
   table.append(el("caption", {}, "SHA-256 hashes, committed as docs/sealed-schedule.json before the window opened. After the reveal, `verdict schedule verify` with the published secret checks all three."));
 }
 
+function live(data) {
+  const p = data.promotions[0];
+  if (!p) {
+    $("live-panel").hidden = true;
+    return;
+  }
+  const d = p.difference;
+  const signed = (v) => `${v >= 0 ? "+" : ""}${fmt(v, 3)}`;
+  const cards = [
+    [fmt(p.champion_pr_auc, 3), "PR-AUC of the model that opened the window", "on the live stream, where guessing scores about 0.03"],
+    [fmt(p.challenger_pr_auc, 3), "PR-AUC of the retrained model", "on the same transactions"],
+    [signed(d.value), "the difference", `95% CI ${signed(d.low)} to ${signed(d.high)}`],
+  ];
+  const holder = $("live-headline");
+  for (const [figure, caption, rangeText] of cards) {
+    const card = el("div", { class: "stat up" });
+    card.append(el("span", { class: "figure" }, figure), el("span", { class: "caption" }, caption), el("span", { class: "range" }, rangeText));
+    holder.append(card);
+  }
+  const first = p.days[0], last = p.days[p.days.length - 1];
+  fill($("live-verdict"), [
+    strong(`PR-AUC rose from ${fmt(p.champion_pr_auc, 3)} to ${fmt(p.challenger_pr_auc, 3)}, a difference of ${signed(d.value)} with a 95 percent interval of ${signed(d.low)} to ${signed(d.high)}.`),
+    ` Synthetic live track, ${first} to ${last}, days the new model was not trained on: ${number.format(p.rows)} labelled transactions, ${number.format(p.frauds)} of them fraud, each weighted to stand for the whole stream. ${p.replayed ? "The new model scored the features the scorer had served on those days, beside the scores the old one gave live. " : ""}The promotion gate found it eligible on ${p.judged_on}; the pull request carrying that evidence was merged by a person, and only then did the flag move. Source: ${p.source}.`,
+  ]);
+}
+
 function honesty(data) {
   const s = data.models.synthetic.champion, r = data.models.real.champion;
   $("honesty-synth").textContent = `${fmt(s.value, 2)} (${range(s, 3)})`;
   $("honesty-real").textContent = `${fmt(r.value, 3)} (${range(r, 3)}), against a base rate of 0.035`;
+  const p = data.promotions[0];
+  $("honesty-live").textContent = p
+    ? `${fmt(p.challenger_pr_auc, 2)}, against the first champion's ${fmt(p.champion_pr_auc, 2)} on the same days (the difference's 95% CI is +${fmt(p.difference.low, 3)} to +${fmt(p.difference.high, 3)})`
+    : "-";
+  $("adr-count").textContent = number.format(data.adr_count);
 }
 
 async function main() {
@@ -630,6 +661,7 @@ async function main() {
     spotChart(data);
     driftChart(data);
     retrainChart(data);
+    live(data);
     queueChart(data);
     rollback(data);
     leak(data);

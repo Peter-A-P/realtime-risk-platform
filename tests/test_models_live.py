@@ -30,6 +30,7 @@ from verdict.live import models_job
 from verdict.live.github import FileChange, GitHub
 from verdict.models import live
 from verdict.models.dataset import training_schema
+from verdict.models.promote import Difference
 from verdict.scoring.onnx_model import model_version
 from verdict.scoring.registry import ARTIFACTS
 from verdict.store.features import FEATURE_SET
@@ -222,6 +223,8 @@ def test_a_merged_candidate_gets_one_replayed_verdict_and_an_unmerged_one_none(
         eligible = True
         reasons = ()
         rows, frauds, challenger_p99_ms = 180, 30, 0.1
+        pr_auc = Difference(0.06, 0.45, 0.39, 0.37, 0.40)
+        cost_cents = None
 
         def to_markdown(self, *, champion: str, challenger: str) -> str:
             return f"### Shadow evidence: {challenger} against {champion}\n"
@@ -256,6 +259,18 @@ def test_a_merged_candidate_gets_one_replayed_verdict_and_an_unmerged_one_none(
     )
     assert "ADR 33" in pull["body"]
     assert f"verdict flag set {version}" in pull["body"]
+    (record,) = [
+        json.loads(data) for path, data in fake.committed().items() if path.endswith(".json")
+    ]
+    # The comparison is data in the record, so the demo site reads it, not the table.
+    assert record["pr_auc"] == {
+        "champion": 0.06,
+        "challenger": 0.45,
+        "difference": 0.39,
+        "low": 0.37,
+        "high": 0.40,
+    }
+    assert record["cost_cents"] is None
     assert not any(path.startswith("verdict/") for path in fake.committed())
     assert "replayed" not in models_job.run_pass(job)
     assert len(fake.pulls) == 1

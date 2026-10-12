@@ -376,6 +376,7 @@ def _verdict(
         "rows": verdict.rows,
         "frauds": verdict.frauds,
         "challenger_p99_ms": verdict.challenger_p99_ms,
+        **_comparisons(verdict),
         "markdown": body,
     }
     record = {
@@ -487,6 +488,7 @@ def _replayed_verdict(
         "rows": verdict.rows,
         "frauds": verdict.frauds,
         "challenger_p99_ms": verdict.challenger_p99_ms,
+        **_comparisons(verdict),
         "markdown": body,
     }
     record: dict[str, Any] = {
@@ -542,6 +544,25 @@ def _after_merging_verdict(version: str, *, eligible: bool) -> str:
         "champion's file stays in the image, so `verdict flag rollback` returns to it in "
         "one event.\n"
     )
+
+
+def _comparisons(verdict: Any) -> dict[str, Any]:  # noqa: ANN401 - the gate's Verdict
+    """The gate's two comparisons as data, for the record the demo site reads (ADR 30).
+
+    Args:
+        verdict: What the gate returned.
+
+    Returns:
+        `pr_auc` and `cost_cents`, each champion, challenger, difference and
+        its interval, or None where the evidence did not suffice.
+    """
+    from dataclasses import asdict
+
+    out: dict[str, Any] = {}
+    for name in ("pr_auc", "cost_cents"):
+        value = getattr(verdict, name, None)
+        out[name] = None if value is None else asdict(value)
+    return out
 
 
 def _json_bytes(item: dict[str, Any]) -> bytes:

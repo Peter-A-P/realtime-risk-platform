@@ -147,3 +147,43 @@ def test_the_teams_totals_are_the_hourly_difference_times_its_hours() -> None:
         assert queue["team_a_year_dollars"][key] == pytest.approx(
             hourly[key] * hours * 365, abs=400
         )
+
+
+def test_the_page_shows_only_approved_promotions_and_reads_their_data(tmp_path: Path) -> None:
+    """A verdict on main was merged; only an eligible one with its comparison is shown."""
+    from verdict.publish.demo_site import _promotions
+
+    live = tmp_path / "live"
+    live.mkdir()
+    comparison = {
+        "champion": 0.06,
+        "challenger": 0.45,
+        "difference": 0.39,
+        "low": 0.37,
+        "high": 0.4,
+    }
+    record = {
+        "champion_version": "champion-a",
+        "shadow_version": "candidate-b",
+        "days": ["2026-10-02", "2026-10-03"],
+        "rows": 10,
+        "frauds": 3,
+        "markdown": "| PR-AUC | 0.9999 | 0.9999 |",
+    }
+    files = {
+        "replayed-verdict-candidate-b-2026-10-12.json": {
+            **record,
+            "eligible": True,
+            "pr_auc": comparison,
+        },
+        "verdict-candidate-c-2026-10-13.json": {**record, "eligible": False, "pr_auc": comparison},
+        "verdict-candidate-d-2026-10-14.json": {**record, "eligible": True, "pr_auc": None},
+    }
+    for name, item in files.items():
+        (live / name).write_text(json.dumps(item), encoding="utf-8")
+    (shown,) = _promotions(tmp_path)
+    assert shown["challenger"] == "candidate-b"
+    assert shown["replayed"] is True
+    assert shown["judged_on"] == "2026-10-12"
+    assert shown["challenger_pr_auc"] == 0.45
+    assert shown["difference"] == {"value": 0.39, "low": 0.37, "high": 0.4}

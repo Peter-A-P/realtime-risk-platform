@@ -1,4 +1,5 @@
 {
+ "adr_count": 34,
  "budget_ms": 50,
  "dashboard": "https://risk.peterparker.ca",
  "drift": {
@@ -1096,6 +1097,29 @@
    }
   }
  },
+ "promotions": [
+  {
+   "challenger": "candidate-2026-10-09-1-3f05ac05258b",
+   "challenger_pr_auc": 0.4504,
+   "champion": "champion-8d960d985749",
+   "champion_pr_auc": 0.0616,
+   "days": [
+    "2026-10-02",
+    "2026-10-03",
+    "2026-10-04"
+   ],
+   "difference": {
+    "high": 0.4013,
+    "low": 0.375,
+    "value": 0.3888
+   },
+   "frauds": 200432,
+   "judged_on": "2026-10-12",
+   "replayed": true,
+   "rows": 599079,
+   "source": "docs/live/replayed-verdict-candidate-2026-10-09-1-3f05ac05258b-2026-10-12.json"
+  }
+ ],
  "queue": {
   "analyst_hours_a_day": 192.0,
   "analysts": 8,
@@ -1196,6 +1220,7 @@
   "docs/champion-real.json",
   "docs/challenger-real.json",
   "docs/sealed-schedule.json",
-  "docs/week1-measurement.json"
+  "docs/week1-measurement.json",
+  "docs/live/replayed-verdict-candidate-2026-10-09-1-3f05ac05258b-2026-10-12.json"
  ]
 }
