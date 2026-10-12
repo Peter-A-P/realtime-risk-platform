@@ -112,6 +112,10 @@ replayed verdict about 2026-10-22 on 10-13 and 14. Event-to-decision rising
 in the evening is the daily traffic cycle (mean 8 ms at ~780/s to 15 ms at
 ~1,320/s, same shape each day); scorer memory flat at 15.0 GB since the
 2026-10-10 restart.
+**2026-10-12 ~22:50Z, public text updated (`cb57b86`, Peter's go).** README status
+is now live, with "The live window so far" (the scaled-population champion as the
+approach tried and rejected); the demo site gained the first-live-model section,
+read from `docs/live/` verdict records, and was redeployed to fraud.peterparker.ca.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
