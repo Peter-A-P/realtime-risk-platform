@@ -678,3 +678,39 @@ def test_a_candidate_that_never_saw_the_drift_does_not_answer_it() -> None:
     )
     assert blind["first_drifted_day"] == (DAY + dt.timedelta(days=1)).isoformat()
     assert blind["covers_the_drift"] is False
+
+
+def test_a_request_by_hand_can_carry_a_drift_the_monitors_stopped_seeing(tmp_path: Path) -> None:
+    """A promotion rebuilds the reference inside a drift (ADR 29); the drift is still owed."""
+    from typer.testing import CliRunner
+
+    from verdict.cli import app
+
+    state_dir = tmp_path / "state"
+    drift_state = drift_live.DriftState(state_dir / "drift")
+    days = [DAY + dt.timedelta(days=n) for n in range(4)]
+    reports = [a_judged_day(day, day >= days[2]) for day in days]
+    for report in reports:
+        drift_state.save_day(report, cold=False)
+    runner = CliRunner()
+    refused = runner.invoke(
+        app,
+        ["models-request", f"--state={state_dir}", "--reason=r", f"--drift-days={days[1]}"],
+    )
+    assert refused.exit_code == 1
+    opened = runner.invoke(
+        app,
+        [
+            "models-request",
+            f"--state={state_dir}",
+            "--reason=The promotion moved the reference inside the drift.",
+            f"--drift-days={days[2]},{days[3]}",
+        ],
+    )
+    assert opened.exit_code == 0, opened.output
+    request = drift_state.open_request()
+    assert request is not None
+    assert request.by_hand
+    assert request.quantities == ("amount",)
+    assert [r.day for r in request.evidence] == days[2:]
+    assert models_job.drift_began(request, drift_state.reports()) == days[2]

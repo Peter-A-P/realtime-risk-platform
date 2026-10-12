@@ -100,8 +100,11 @@ unmerged.
 due once `DRIFT_DAYS` (2) finalised days from the start of the drift run and
 one more are in; it is fitted on all but the last day and tested on the last;
 only a candidate whose training reached the drift answers the request;
-`REPLAY_DAYS` is now 2. Expected: request reopens about 2026-10-14 if the
-drift continues; candidate PR about 2026-10-20 (days to 10-11, tested on
+`REPLAY_DAYS` is now 2. The promotion rebuilt the drift reference from
+2026-10-13 and 14 (ADR 29), inside the drift, so the monitors judge nothing
+until 2026-10-15 and then see the shifted stream as normal; the drift is
+carried instead by a request opened by hand with `--drift-days
+2026-10-10,2026-10-11`. Expected: candidate PR about 2026-10-20 (days to 10-11, tested on
 10-12); merge, roll the image (the models job needs the file to replay it);
 replayed verdict about 2026-10-22 on 10-13 and 14. Event-to-decision rising
 in the evening is the daily traffic cycle (mean 8 ms at ~780/s to 15 ms at

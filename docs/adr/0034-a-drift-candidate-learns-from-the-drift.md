@@ -48,10 +48,19 @@ the end of the table were tested on, not learned from.
 
 Requests opened by hand (ADR 32) are unchanged.
 
+**A drift the monitors stopped seeing is still owed.** The promotion at
+2026-10-12T21:18Z rebuilt the monitors' reference from the two days after it
+(ADR 29), days inside this drift, so from 2026-10-15 they judge the shifted
+stream as normal and would never reopen a request for it. `verdict
+models-request --drift-days` opens a request by hand that carries judged
+days' reports as its evidence: its candidate waits for and learns from the
+drift like a drift request's, and, opened by hand, it closes only when a
+candidate that saw the drift beats the incumbent (ADR 32). It was opened on
+2026-10-12 with 2026-10-10 and 11.
+
 ## Consequences
 
-- For the drift that began on 2026-10-10: the monitors open a request about
-  2026-10-14 if it continues; the candidate is fitted once 2026-10-12 is
+- For the drift that began on 2026-10-10: the candidate is fitted once 2026-10-12 is
   finalised (about 2026-10-20T06:00Z) on days to 2026-10-11 and tested on
   2026-10-12; after its pull request is merged and the image rolled, the
   replayed verdict reads 2026-10-13 and 14 (finalised about 2026-10-22T06:00Z).
