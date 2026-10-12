@@ -109,9 +109,13 @@ The first version of this generator gave the champion 0.9996, which was a fact a
 generator and not about the model: every attack ran in one long session, and that single
 feature ranked the test set at 0.64 on its own. The scenarios were rewritten to be much
 harder before the schedule is sealed, and no single feature now ranks above 0.05
-([ADR 21](docs/adr/0021-harder-synthetic-fraud.md)). The synthetic stream is still far
-easier than the real one, by design: the live window is there to show the platform's
-velocity and entity-graph features working, not to make fraud undetectable.
+([ADR 21](docs/adr/0021-harder-synthetic-fraud.md)). The scaled-down synthetic stream the
+offline numbers come from (4,000 cards, 80 merchants) is still far easier than the real
+data. The full-size live stream (200,000 cards, 4,000 merchants) is much harder for the same
+features: the first champion scored 0.0616 there and the retrained one 0.4504, a
+difference of +0.389 (+0.375 to +0.401), synthetic live
+([the live window so far](#the-live-window-so-far)). Neither stream is there to make fraud
+easy or undetectable; they are there to exercise the platform.
 
 **What has been measured: the review queue**
 

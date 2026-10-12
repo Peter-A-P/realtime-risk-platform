@@ -574,7 +574,7 @@ function queueChart(data) {
   }
   fill($("queue-assumption"), [
     strong("The prices are stated, not discovered."),
-    ` A review is priced at ${dollars(q.review_cost_dollars)} and ${fmt(q.recovery_rate * 100, 0)} percent of a fraud is assumed recovered by chargeback. Neither changes the order of the queue, only the dollars reported; a test holds the ranking to that. The queue here is ${fmt(q.queue_fraud_share * 100, 0)} percent fraud, richer than a real team's, because the synthetic stream is easier than real fraud.`,
+    ` A review is priced at ${dollars(q.review_cost_dollars)} and ${fmt(q.recovery_rate * 100, 0)} percent of a fraud is assumed recovered by chargeback. Neither changes the order of the queue, only the dollars reported; a test holds the ranking to that. The queue here is ${fmt(q.queue_fraud_share * 100, 0)} percent fraud, richer than a real team's, because it was measured offline on the scaled-down synthetic stream, where the model separates fraud far better than on the full live stream or on real data.`,
   ]);
 }
 

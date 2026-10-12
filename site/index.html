@@ -385,13 +385,15 @@
         live model above is what the window has shown so far.
       </li>
       <li>
-        <strong>The stream is synthetic, and easier than real fraud.</strong> On the scaled copy
-        it was trained and tested on offline, the first champion scores
-        <span id="honesty-synth">-</span> PR-AUC. On the full live stream the retrained model
-        scores <span id="honesty-live">-</span>. On the public competition data, which has
-        only the card and amount features a stream could compute and a median of one transaction
-        per card, the offline champion scores <span id="honesty-real">-</span>. The synthetic stream is there to
-        exercise the platform, not to make fraud look easy to catch.
+        <strong>The stream is synthetic, and how hard it is depends on its size.</strong> On the
+        scaled-down copy the first champion was trained and tested on offline, 4,000 cards and 80
+        merchants, it scored <span id="honesty-synth">-</span> PR-AUC. On the full live stream,
+        200,000 cards and 4,000 merchants, the same sixteen features separate fraud far less
+        well: the retrained model scores <span id="honesty-live">-</span>, where guessing would
+        score about 0.03. Neither is easy. On the public competition data, with only the card and
+        amount features a stream could compute and a median of one transaction per card, the
+        offline champion scores <span id="honesty-real">-</span>. None of these is a claim about
+        how well fraud can be caught; the stream is there to exercise the platform.
       </li>
       <li>
         <strong>The neural challenger loses on both tracks</strong>, by an interval that excludes
