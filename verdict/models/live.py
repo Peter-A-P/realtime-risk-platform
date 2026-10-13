@@ -86,12 +86,13 @@ cannot answer it, and against a weak incumbent it can still look better."""
 FIT_DAYS: Final = 14
 """The most recent finalised days a candidate is fitted on."""
 
-TARGET_ROWS: Final = {True: 800_000, False: 4_000_000}
+TARGET_ROWS: Final = {True: 400_000, False: 2_000_000}
 """The most rows of each label a table keeps before drawing a share of them.
 
-400,000 frauds until 2026-10-13; on 2026-10-04 doubling it raised a candidate's
-test PR-AUC from 0.458 to 0.495, where spreading the same count over more days
-or tuning moved it by 0.02 at most (`docs/model-ceiling.json`, ADR 35)."""
+Doubling it raised a candidate's test PR-AUC from 0.458 to 0.495 on 2026-10-04
+(`docs/model-ceiling.json`), but a one-thread fit at that size beside the
+scorer raised the share of decisions over 50 ms from about 0.17% to 1.2% at
+the same hour (ADR 35, rejected). The scorer's latency comes first."""
 
 BATCH_ROWS: Final = 500_000
 """Rows of a kept day read at once. A live day keeps around twenty million

@@ -1,6 +1,6 @@
 # 35. The live candidate learns from twice the rows
 
-- Status: accepted, 2026-10-13
+- Status: rejected, 2026-10-13, on the test fit's evidence (see Outcome)
 - Date: 2026-10-13
 - Deciders: Peter Parker (800,000 frauds, 2026-10-13); the build session
 
@@ -47,6 +47,21 @@ rather than from a cap sized for a smaller machine.
   what would move it further, and they wait for the end of the window, since
   designing them now against the stream would weaken the sealed experiment.
 - A fit takes about twice as long and holds about twice the memory.
+
+## Outcome: rejected
+
+The test fit ran on 2026-10-13 from 00:29Z, by the job's own path
+(`training_table` then `retrain`, one thread, lowest priority), on 4,798,065
+rows, and was stopped at 00:47Z by a guard that stops it when decisions over
+50 ms pass 2% in two consecutive two-minute windows. In two-minute windows
+from 00:12 to 00:50Z the share of decisions over 50 ms averaged 1.18% that
+night, with windows up to 3.6%, against 0.17% over the same minutes on each of
+the two nights before; available memory fell from 10 to 5 GB as it built its
+table. The likely cause is memory more than processor: the fit's copies of
+the table push the broker's page cache out. `TARGET_ROWS` is back at 400,000
+frauds. The gain was about +0.04 PR-AUC; a fit that holds fewer copies of the
+table, or runs off the instance, would be needed to take it, and the
+scorer's latency is the platform's first claim.
 
 ## Sources
 
