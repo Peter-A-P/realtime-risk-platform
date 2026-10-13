@@ -9,9 +9,10 @@ each job has something new to say.
 
 **Tables are bounded, and the bound is another weighted sample.** A live day
 keeps millions of rows (every reviewed or declined one, a tenth of approved
-frauds, a hundredth of the rest), and the instance fits beside a scorer
-holding 7.5 GB. So a table keeps every row up to a target per label and,
-past it, a hash-drawn share of each label with the weight scaled to match:
+frauds, a hundredth of the rest), and the job fits beside a scorer holding
+about 15 GB on a 32 GB instance, on one thread. So a table keeps every row
+up to a target per label and, past it, a hash-drawn share of each label
+with the weight scaled to match:
 the same case-control sampling history already uses, unbiased for anything
 that reads the weight, which the fit and every estimate here do.
 
@@ -85,8 +86,12 @@ cannot answer it, and against a weak incumbent it can still look better."""
 FIT_DAYS: Final = 14
 """The most recent finalised days a candidate is fitted on."""
 
-TARGET_ROWS: Final = {True: 400_000, False: 2_000_000}
-"""The most rows of each label a table keeps before drawing a share of them."""
+TARGET_ROWS: Final = {True: 800_000, False: 4_000_000}
+"""The most rows of each label a table keeps before drawing a share of them.
+
+400,000 frauds until 2026-10-13; on 2026-10-04 doubling it raised a candidate's
+test PR-AUC from 0.458 to 0.495, where spreading the same count over more days
+or tuning moved it by 0.02 at most (`docs/model-ceiling.json`, ADR 35)."""
 
 BATCH_ROWS: Final = 500_000
 """Rows of a kept day read at once. A live day keeps around twenty million
