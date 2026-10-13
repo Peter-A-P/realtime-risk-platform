@@ -132,6 +132,18 @@ raised decisions over 50 ms to 1.18% (two-minute windows, 00:12 to 00:50Z) again
 at the same minutes the two nights before, available memory 10 to 5 GB. Cap back at
 400,000; models service and launch template on `b36ac60797d7`. Taking the +0.04 needs a
 fit that holds fewer copies of the table, or runs off the instance.
+**2026-10-13, #5 is not to be merged; the gate now judges only against the current
+champion (`62849fc`).** At 09:04Z the live gate opened #5, "Promote
+challenger-136b21035bfe", on the challenger's seven shadow days before the 2026-10-10
+roll. Its rows carry the first champion's scores (PR-AUC 0.0597 against 0.0595, both near
+chance), but its heading named the current champion, by a wrong prefix
+(`champion-3f05ac05258b`). Merging and flagging it would have replaced the retrained model
+with one near chance. Shadow and replayed rows are now only those the current champion
+decided, and the champion is named by its file's stem. Models service and launch template
+on `62849fc09bd2`. **Waiting on Peter: close #5.** Day so far (00:00 to 22:25Z): 79.6M
+decisions, all by `candidate-2026-10-09-1`; mean 9.9 ms; over 25 ms 2.8%, over 50 ms
+0.52% (0.34 to 0.37% on the two days before; today includes the 00:00 to 00:50Z fits);
+approve 99.24%, review 0.63%, decline 0.13%; every target up all day.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
