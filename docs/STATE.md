@@ -126,6 +126,12 @@ score bands under twice the base rate. **The 800k and 1.6M fits slowed the
 scorer: decisions over 50 ms rose to 3 to 6% from ~23:20Z and 17% at 00:00Z;
 the 1.6M fit was killed at ~00:10Z and latency was back to normal by 00:12Z.**
 Heavy fits must not run beside the scorer at that size.
+**2026-10-13, ADR 35 tried and rejected.** `TARGET_ROWS` raised to 800,000 frauds; a
+one-thread test fit by the job's own path (00:29 to 00:47Z, stopped by its latency guard)
+raised decisions over 50 ms to 1.18% (two-minute windows, 00:12 to 00:50Z) against 0.17%
+at the same minutes the two nights before, available memory 10 to 5 GB. Cap back at
+400,000; models service and launch template on `b36ac60797d7`. Taking the +0.04 needs a
+fit that holds fewer copies of the table, or runs off the instance.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
