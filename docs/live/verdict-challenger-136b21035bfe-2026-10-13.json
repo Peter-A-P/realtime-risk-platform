@@ -1,0 +1,38 @@
+{
+  "challenger_p99_ms": 0.36434251,
+  "champion_version": "champion-3f05ac05258b",
+  "cost_cents": {
+    "challenger": 93605684590.5578,
+    "champion": 112573954629.35571,
+    "difference": -18968270038.797913,
+    "high": -18616134512.083996,
+    "low": -19303252012.35646
+  },
+  "days": [
+    "2026-09-29",
+    "2026-09-30",
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-03",
+    "2026-10-04",
+    "2026-10-05"
+  ],
+  "eligible": true,
+  "frauds": 200622,
+  "markdown": "### Shadow evidence: challenger-136b21035bfe against champion-3f05ac05258b\n\nVerdict: **eligible for promotion**. Eligible is not promoted; merging this pull request is the approval.\n\nLabelled rows: 600,292, of which frauds: 200,622. Rows excluded because their label had not arrived: 0.\n\n| Measure | Champion | Challenger | Difference (95% CI) | Margin |\n|---|---:|---:|---|---|\n| PR-AUC | 0.0597 | 0.0595 | -0.0002 (-0.0008 to +0.0005) | lower bound at least -0.0100 |\n| Decision cost, $ | 1,125,739,546.29 | 936,056,845.91 | -189,682,700.39 (-193,032,520.12 to -186,161,345.12) | upper bound at most 2% of champion |\n| Challenger model hop p99, ms | | 0.364 | | at most 3.0 |\n\nPaired bootstrap, 1,000 resamples, seed 20270405, percentile intervals.\n\n### After merging\n\nMove the pointer on the instance: `verdict flag set challenger-136b21035bfe`. The previous champion's file stays in the image, so `verdict flag rollback` returns to it in one event.\n",
+  "pr_auc": {
+    "challenger": 0.05951253981068758,
+    "champion": 0.059703985456126284,
+    "difference": -0.0001914456454387009,
+    "high": 0.0005155731385845867,
+    "low": -0.0008474471704898858
+  },
+  "reasons": [],
+  "rows": 600292,
+  "rows_share_kept": {
+    "fraud": 0.029213870804285617,
+    "legit": 0.004210596699237457
+  },
+  "shadow_version": "challenger-136b21035bfe",
+  "track": "synthetic live, finalised history"
+}
