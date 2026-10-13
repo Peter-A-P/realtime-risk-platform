@@ -1,0 +1,204 @@
+{
+ "test_day": "2026-10-04",
+ "train_days": [
+  "2026-09-29",
+  "2026-09-30",
+  "2026-10-01",
+  "2026-10-02",
+  "2026-10-03"
+ ],
+ "runs": {
+  "rows_25k": {
+   "days": [
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-03"
+   ],
+   "train_rows": 150374,
+   "train_frauds": 25150,
+   "params": {},
+   "trees": 44,
+   "seconds": 1,
+   "test_pr_auc": 0.2365340214623851,
+   "test_precision_at_80_recall": 0.07984217900725615,
+   "test_pr_auc_ci": [
+    0.2258488100455134,
+    0.2514194703730713
+   ],
+   "minus_baseline_ci": [
+    -0.2356035837071677,
+    -0.20340715868815937
+   ]
+  },
+  "rows_100k": {
+   "days": [
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-03"
+   ],
+   "train_rows": 600672,
+   "train_frauds": 100181,
+   "params": {},
+   "trees": 143,
+   "seconds": 14,
+   "test_pr_auc": 0.34465372806116795,
+   "test_precision_at_80_recall": 0.10623896427478279,
+   "test_pr_auc_ci": [
+    0.33071789967668325,
+    0.3633166969081276
+   ],
+   "minus_baseline_ci": [
+    -0.12642234884068315,
+    -0.0965469039496814
+   ]
+  },
+  "baseline_400k_3days": {
+   "days": [
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-03"
+   ],
+   "train_rows": 2399612,
+   "train_frauds": 399615,
+   "params": {},
+   "trees": 533,
+   "seconds": 116,
+   "test_pr_auc": 0.45831979457959726,
+   "test_precision_at_80_recall": 0.12756966032598233,
+   "in_sample_pr_auc": 0.5361363468340457,
+   "fraud_share_in_bands_under_2x_base": 0.3318069306930693,
+   "test_pr_auc_ci": [
+    0.44381468654768763,
+    0.4732933881556162
+   ],
+   "minus_baseline_ci": [
+    0.0,
+    0.0
+   ]
+  },
+  "days_1": {
+   "days": [
+    "2026-10-03"
+   ],
+   "train_rows": 2398722,
+   "train_frauds": 399271,
+   "params": {},
+   "trees": 805,
+   "seconds": 170,
+   "test_pr_auc": 0.4693062269005913,
+   "test_precision_at_80_recall": 0.13117986230073958,
+   "test_pr_auc_ci": [
+    0.4533734481733642,
+    0.4856626021878027
+   ],
+   "minus_baseline_ci": [
+    0.002387985666547633,
+    0.02083911892196411
+   ]
+  },
+  "days_all": {
+   "days": [
+    "2026-09-29",
+    "2026-09-30",
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-03"
+   ],
+   "train_rows": 2400129,
+   "train_frauds": 399784,
+   "params": {},
+   "trees": 797,
+   "seconds": 173,
+   "test_pr_auc": 0.46781540601500143,
+   "test_precision_at_80_recall": 0.12842962914673778,
+   "test_pr_auc_ci": [
+    0.4546907328830703,
+    0.4827749216400529
+   ],
+   "minus_baseline_ci": [
+    -0.0013167604729509563,
+    0.02090309111694048
+   ]
+  },
+  "depth_10": {
+   "days": [
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-03"
+   ],
+   "train_rows": 2399612,
+   "train_frauds": 399615,
+   "params": {
+    "max_depth": 10
+   },
+   "trees": 330,
+   "seconds": 119,
+   "test_pr_auc": 0.4480413715937526,
+   "test_precision_at_80_recall": 0.12896910175238252,
+   "in_sample_pr_auc": 0.6872142066107422,
+   "fraud_share_in_bands_under_2x_base": 0.3521204620462047,
+   "test_pr_auc_ci": [
+    0.43333978640869086,
+    0.4642012045709086
+   ],
+   "minus_baseline_ci": [
+    -0.02034664599288737,
+    0.0027780788755551603
+   ]
+  },
+  "depth_8_mcw_20_eta_0.1": {
+   "days": [
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-03"
+   ],
+   "train_rows": 2399612,
+   "train_frauds": 399615,
+   "params": {
+    "max_depth": 8,
+    "min_child_weight": 20.0,
+    "eta": 0.1
+   },
+   "trees": 326,
+   "seconds": 91,
+   "test_pr_auc": 0.46781172922728403,
+   "test_precision_at_80_recall": 0.1280893137461032,
+   "test_pr_auc_ci": [
+    0.4530667283988703,
+    0.48278405686047765
+   ],
+   "minus_baseline_ci": [
+    -0.00027243806657487176,
+    0.02056579472496591
+   ]
+  },
+  "rows_800k": {
+   "days": [
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-03"
+   ],
+   "train_rows": 4799022,
+   "train_frauds": 798901,
+   "params": {},
+   "trees": 1017,
+   "seconds": 424,
+   "test_pr_auc": 0.4946505323728902,
+   "test_precision_at_80_recall": 0.13651680466461186,
+   "note": "second run, same test day; its paired bootstrap was not reached because the run was stopped during the 1.6M-fraud fit, which slowed the scorer"
+  }
+ },
+ "test": {
+  "rows": 599198,
+  "frauds": 200157,
+  "share_kept": {
+   "fraud": 0.18063844853249325,
+   "legit": 0.027170121777844315
+  },
+  "fraud_share_weighted": 0.030290866810916677
+ },
+ "resamples": 100,
+ "track": "synthetic live, finalised kept history, weighted",
+ "script": "docs/model-ceiling.py",
+ "stopped": "a 1,600,000-fraud fit was stopped at 2026-10-13T00:10Z: with the 800,000-fraud fit before it, decisions over 50 ms rose to 17% for ten minutes"
+}

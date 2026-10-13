@@ -116,6 +116,16 @@ in the evening is the daily traffic cycle (mean 8 ms at ~780/s to 15 ms at
 is now live, with "The live window so far" (the scaled-population champion as the
 approach tried and rejected); the demo site gained the first-live-model section,
 read from `docs/live/` verdict records, and was redeployed to fraud.peterparker.ca.
+**2026-10-12/13, model ceiling diagnostic (`docs/model-ceiling.json`, script
+`docs/model-ceiling.py`).** Test 2026-10-04, weighted, synthetic live. Training
+frauds matter: 25k 0.237 (0.226 to 0.251), 100k 0.345 (0.331 to 0.363), 400k (the
+live cap, `TARGET_ROWS`) 0.458 (0.444 to 0.473), 800k 0.495 (no interval: run
+stopped). Days of spread (1, 3, 5 at 400k) and two tunings move it by at most
++0.02. Depth 10 overfits (in-sample 0.687, test 0.448). A third of frauds sit in
+score bands under twice the base rate. **The 800k and 1.6M fits slowed the
+scorer: decisions over 50 ms rose to 3 to 6% from ~23:20Z and 17% at 00:00Z;
+the 1.6M fit was killed at ~00:10Z and latency was back to normal by 00:12Z.**
+Heavy fits must not run beside the scorer at that size.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
