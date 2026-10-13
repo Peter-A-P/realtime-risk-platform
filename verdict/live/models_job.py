@@ -345,10 +345,15 @@ def _verdict(
     from verdict.scoring.onnx_model import model_version
 
     version = model_version(shadow_path, shadow_path.stem)
-    days_scored = models_live.shadow_days(job.paths, finalised, shadow_version=version)
+    champion = model_version(job.champion_path, job.champion_path.stem)
+    days_scored = models_live.shadow_days(
+        job.paths, finalised, shadow_version=version, champion_version=champion
+    )
     if len(days_scored) < models_live.SHADOW_DAYS:
         return None
-    rows, share = models_live.shadow_rows(job.paths, days_scored, shadow_version=version)
+    rows, share = models_live.shadow_rows(
+        job.paths, days_scored, shadow_version=version, champion_version=champion
+    )
     sample, _ = models_live.training_table(job.paths, days_scored[-1:])
     hop = _model_hop(shadow_path, matrix(sample)[:5_000])
     gate = job.gate or evaluate
@@ -360,7 +365,6 @@ def _verdict(
         eligible_now=verdict.eligible,
     ):
         return None
-    champion = model_version(job.champion_path)
     body = verdict.to_markdown(champion=champion, challenger=version) + _after_merging_verdict(
         version, eligible=verdict.eligible
     )
@@ -445,7 +449,7 @@ def _replayed_verdict(
     from verdict.scoring.onnx_model import model_version
     from verdict.scoring.registry import path_of
 
-    champion = model_version(job.champion_path)
+    champion = model_version(job.champion_path, job.champion_path.stem)
     for candidate in reversed(job.models_state.read()["candidates"]):
         version = candidate["version"]
         if not candidate["beats_incumbent"] or version == champion:
@@ -465,7 +469,9 @@ def _replayed_verdict(
         break
     else:
         return None
-    rows, share = models_live.replayed_rows(job.paths, days, model_path=model_path, version=version)
+    rows, share = models_live.replayed_rows(
+        job.paths, days, model_path=model_path, version=version, champion_version=champion
+    )
     sample, _ = models_live.training_table(job.paths, days[-1:])
     hop = _model_hop(model_path, matrix(sample)[:5_000])
     gate = job.gate or evaluate

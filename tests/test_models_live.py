@@ -38,6 +38,8 @@ from verdict.store.features import FEATURE_SET
 NAMES = [spec.name for spec in FEATURE_SET]
 DAY = dt.date(2026, 10, 2)
 LIVE_COMPOSE = Path(__file__).resolve().parents[1] / "deploy" / "live" / "compose.yml"
+CHAMPION = model_version(ARTIFACTS / "champion.onnx", "champion")
+"""The version a job whose pointer names `champion.onnx` sees as the champion."""
 
 
 def keep_day(
@@ -210,7 +212,7 @@ def test_a_merged_candidate_gets_one_replayed_verdict_and_an_unmerged_one_none(
     version = model_version(shadow, "challenger")
     days = [DAY + dt.timedelta(days=n) for n in range(live.REPLAY_DAYS + 1)]
     for day in days:
-        keep_day(paths, day, frauds=10, legit=50)
+        keep_day(paths, day, frauds=10, legit=50, champion_version=CHAMPION)
     state_dir = tmp_path / "state"
     state = live.ModelsState(state_dir / "models.json")
     for item in (
@@ -474,7 +476,7 @@ def test_the_gate_opens_one_pull_request_with_its_verdict(tmp_path: Path) -> Non
     version = model_version(shadow, "challenger")
     week = [DAY + dt.timedelta(days=n) for n in range(live.SHADOW_DAYS)]
     for day in week:
-        keep_day(paths, day, frauds=10, legit=50, shadow_version=version)
+        keep_day(paths, day, frauds=10, legit=50, shadow_version=version, champion_version=CHAMPION)
     rng = np.random.default_rng(0)
     reference = Reference({name: rng.normal(size=1_000) for name in [*NAMES, SCORE]})
 
@@ -729,3 +731,15 @@ def test_a_request_by_hand_can_carry_a_drift_the_monitors_stopped_seeing(tmp_pat
     assert request.quantities == ("amount",)
     assert [r.day for r in request.evidence] == days[2:]
     assert models_job.drift_began(request, drift_state.reports()) == days[2]
+
+
+def test_a_verdict_is_about_the_champion_it_would_replace(tmp_path: Path) -> None:
+    """2026-10-13: a week judged against the first champion asked to replace its successor."""
+    paths = HistoryPaths(tmp_path)
+    days = [DAY, DAY + dt.timedelta(days=1)]
+    keep_day(paths, days[0], frauds=20, legit=100, shadow_version="c", champion_version="old")
+    keep_day(paths, days[1], frauds=20, legit=100, shadow_version="c", champion_version="new")
+    rows, _ = live.shadow_rows(paths, days, shadow_version="c", champion_version="new")
+    assert len(rows) == 120
+    assert live.shadow_days(paths, days, shadow_version="c", champion_version="new") == days[1:]
+    assert live.shadow_days(paths, days, shadow_version="c") == days

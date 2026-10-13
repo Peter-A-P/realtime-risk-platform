@@ -200,17 +200,24 @@ def _filter_columns(keep: pc.Expression | None) -> list[str]:
     return [] if keep is None else ["shadow_version", "shadow_score", "champion_version"]
 
 
-def _scored_beside(shadow_version: str) -> pc.Expression:
+def _scored_beside(shadow_version: str, champion_version: str | None = None) -> pc.Expression:
     """Rows a shadow model scored while another model decided.
 
     Once a shadow model is promoted the scorer may still run it in shadow,
     scoring beside itself; those rows say nothing about it against anything.
+    With `champion_version`, only rows that champion decided: a verdict is
+    about the model it would replace, not one that has since been replaced
+    (2026-10-13: a shadow week judged against the first champion opened a
+    pull request to replace its successor).
     """
-    return (
+    keep = (
         (pc.field("shadow_version") == shadow_version)
         & pc.field("shadow_score").is_valid()
         & (pc.field("champion_version") != shadow_version)
     )
+    if champion_version is not None:
+        keep = keep & (pc.field("champion_version") == champion_version)
+    return keep
 
 
 def training_table(paths: HistoryPaths, days: list[dt.date]) -> tuple[pa.Table, dict[str, float]]:
@@ -229,7 +236,11 @@ def training_table(paths: HistoryPaths, days: list[dt.date]) -> tuple[pa.Table, 
 
 
 def shadow_rows(
-    paths: HistoryPaths, days: list[dt.date], *, shadow_version: str
+    paths: HistoryPaths,
+    days: list[dt.date],
+    *,
+    shadow_version: str,
+    champion_version: str | None = None,
 ) -> tuple[list[ShadowRow], dict[str, float]]:
     """The labelled rows a shadow model scored, for the gate.
 
@@ -237,11 +248,12 @@ def shadow_rows(
         paths: The history root.
         days: The finalised days to use.
         shadow_version: The shadow model's version.
+        champion_version: Only rows this champion decided, if given.
 
     Returns:
         The rows, and the share of each label kept.
     """
-    keep = _scored_beside(shadow_version)
+    keep = _scored_beside(shadow_version, champion_version)
     table, share = bounded_table(
         paths,
         days,
@@ -284,19 +296,26 @@ def current_shadow(paths: HistoryPaths, finalised: list[dt.date]) -> str | None:
     return seen.most_common(1)[0][0] if seen else None
 
 
-def shadow_days(paths: HistoryPaths, days: list[dt.date], *, shadow_version: str) -> list[dt.date]:
+def shadow_days(
+    paths: HistoryPaths,
+    days: list[dt.date],
+    *,
+    shadow_version: str,
+    champion_version: str | None = None,
+) -> list[dt.date]:
     """The finalised days on which a shadow model scored anything.
 
     Args:
         paths: The history root.
         days: The finalised days.
         shadow_version: The shadow model's version.
+        champion_version: Only days this champion decided on, if given.
 
     Returns:
         Those days.
     """
     found = []
-    keep = _scored_beside(shadow_version)
+    keep = _scored_beside(shadow_version, champion_version)
     for day in days:
         versions = pq.read_table(paths.kept_file(day), columns=_filter_columns(keep))
         if versions.filter(keep).num_rows:
@@ -305,7 +324,12 @@ def shadow_days(paths: HistoryPaths, days: list[dt.date], *, shadow_version: str
 
 
 def replayed_rows(
-    paths: HistoryPaths, days: list[dt.date], *, model_path: Path, version: str
+    paths: HistoryPaths,
+    days: list[dt.date],
+    *,
+    model_path: Path,
+    version: str,
+    champion_version: str | None = None,
 ) -> tuple[list[ShadowRow], dict[str, float]]:
     """A shipped model's scores on recorded live rows, as the gate takes them (ADR 33).
 
@@ -318,6 +342,7 @@ def replayed_rows(
         days: Finalised days the model was not fitted on.
         model_path: Its ONNX file.
         version: Its version: rows it decided are left out.
+        champion_version: Only rows this champion decided, if given.
 
     Returns:
         The rows, and the share of each label kept.
@@ -327,6 +352,8 @@ def replayed_rows(
 
     names = training_schema().names
     keep = pc.field("champion_version") != version
+    if champion_version is not None:
+        keep = keep & (pc.field("champion_version") == champion_version)
     table, share = bounded_table(
         paths,
         days,
