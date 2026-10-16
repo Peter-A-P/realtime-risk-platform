@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1262" height="584" viewBox="0 0 1262 584" role="img" aria-label="Terraform from the laptop stands up an auto-scaling group of one in AWS ca-central-1 that boots the pushed image, keeps history and saved feature state on an EBS volume, serves the dashboard through a Cloudflare tunnel, emails alerts through SNS and opens its retraining and promotion verdicts as pull requests a person merges." font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#14201E"/></marker><marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#0E6E60"/></marker><marker id="arrow-signal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#A64C1C"/></marker><marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#5C6B67"/></marker></defs>
+<rect width="1262" height="584" fill="#FFFFFF"/>
+<text x="28" y="42" font-size="16" font-weight="700" fill="#14201E">The live window: one region, one instance, no inbound port</text>
+<rect x="342.0" y="60.0" width="908.0" height="358.0" rx="8" fill="#F6F8F7" stroke="#D5DCD9" stroke-width="1"/>
+<text x="354.0" y="74.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" font-weight="600" letter-spacing="0.08em" fill="#5C6B67">AWS CA-CENTRAL-1, TERRAFORM</text>
+<path d="M 244.0 122.0 L 358.0 122.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 136.0 154.0 L 136.0 240.0 Q 136.0 246.0 142.0 246.0 L 358.0 246.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 574.0 122.0 L 750.7 122.0 Q 756.7 122.0 756.7 128.0 L 756.7 206.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 574.0 246.0 L 678.0 246.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 835.3 206.0 L 835.3 128.0 Q 835.3 122.0 841.3 122.0 L 1018.0 122.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 1126.0 154.0 L 1126.0 214.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 855.0 286.0 L 855.0 364.0 Q 855.0 370.0 861.0 370.0 L 1018.0 370.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<path d="M 737.0 286.0 L 737.0 364.0 Q 737.0 370.0 731.0 370.0 L 574.0 370.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 466.0 402.0 L 466.0 462.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 796.0 286.0 L 796.0 462.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 688.0 494.0 L 574.0 494.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<rect x="28.0" y="90.0" width="216.0" height="64.0" rx="32.0" fill="#F2F4F3" stroke="#14201E" stroke-width="1.1"/>
+<text x="136.0" y="118.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Laptop</text>
+<text x="136.0" y="134.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">terraform, go-live.sh, down.sh</text>
+<path d="M 358.0 92.0 a 108.0 7 0 0 1 216.0 0 L 574.0 152.0 a 108.0 7 0 0 1 -216.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 358.0 92.0 a 108.0 7 0 0 0 216.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="466.0" y="115.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">ECR image repository</text>
+<text x="466.0" y="131.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">one image for every service</text>
+<text x="466.0" y="148.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">deploy/push-image.sh</text>
+<rect x="358.0" y="214.0" width="216.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="466.0" y="235.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Auto Scaling group of one</text>
+<text x="466.0" y="251.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">boot script reads SSM secrets</text>
+<text x="466.0" y="268.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">deploy/terraform</text>
+<rect x="358.0" y="338.0" width="216.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="466.0" y="359.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">SNS alerts topic</text>
+<text x="466.0" y="375.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">a day not finalised, unsealed</text>
+<text x="466.0" y="392.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.observe.alerts</text>
+<rect x="678.0" y="206.0" width="236.0" height="80.0" rx="4" fill="#FFFFFF" stroke="#0E6E60" stroke-width="1.6"/>
+<rect x="678.0" y="206.0" width="5" height="80.0" rx="2" fill="#0E6E60"/>
+<text x="796.0" y="227.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">The instance, Docker Compose</text>
+<text x="796.0" y="243.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Redpanda, scorer, feeds, labels,</text>
+<text x="796.0" y="259.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">compactor, models job, alerts</text>
+<text x="796.0" y="276.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">deploy/live/compose.yml</text>
+<rect x="1018.0" y="90.0" width="216.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="1126.0" y="111.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Prometheus and Grafana</text>
+<text x="1126.0" y="127.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">anonymous, read-only</text>
+<text x="1126.0" y="144.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.observe</text>
+<rect x="1018.0" y="214.0" width="216.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="1126.0" y="242.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">cloudflared tunnel</text>
+<text x="1126.0" y="258.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">to the public dashboard</text>
+<path d="M 1018.0 345.0 a 108.0 7 0 0 1 216.0 0 L 1234.0 395.0 a 108.0 7 0 0 1 -216.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 1018.0 345.0 a 108.0 7 0 0 0 216.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="1126.0" y="370.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">EBS data volume</text>
+<text x="1126.0" y="386.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">history, saved feature state</text>
+<rect x="688.0" y="462.0" width="216.0" height="64.0" rx="4" fill="#F2F4F3" stroke="#5C6B67" stroke-width="1.1" stroke-dasharray="5 3"/>
+<text x="796.0" y="490.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">GitHub repository</text>
+<text x="796.0" y="506.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">retraining and gate PRs</text>
+<rect x="358.0" y="462.0" width="216.0" height="64.0" rx="32.0" fill="#F2F4F3" stroke="#14201E" stroke-width="1.1"/>
+<text x="466.0" y="490.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Peter</text>
+<text x="466.0" y="506.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">merges, closes, reads alerts</text>
+<rect x="265.6" y="112.0" width="70.8" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="301.0" y="124.0" font-size="12" text-anchor="middle" fill="#14201E">push image</text>
+<rect x="199.8" y="236.0" width="94.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="247.0" y="248.0" font-size="12" text-anchor="middle" fill="#14201E">apply, go live</text>
+<rect x="624.1" y="112.0" width="82.6" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="665.3" y="124.0" font-size="12" text-anchor="middle" fill="#14201E">pull at boot</text>
+<rect x="584.7" y="236.0" width="82.6" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="626.0" y="248.0" font-size="12" text-anchor="middle" fill="#14201E">new instance</text>
+<rect x="900.1" y="112.0" width="53.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="926.7" y="124.0" font-size="12" text-anchor="middle" fill="#14201E">metrics</text>
+<rect x="1093.5" y="174.0" width="64.9" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="1126.0" y="186.0" font-size="12" text-anchor="middle" fill="#14201E">dashboard</text>
+<rect x="868.8" y="360.0" width="135.5" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="936.5" y="372.0" font-size="12" text-anchor="middle" fill="#14201E">writes, restores from</text>
+<rect x="631.9" y="360.0" width="47.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="655.5" y="372.0" font-size="12" text-anchor="middle" fill="#14201E">alerts</text>
+<rect x="445.3" y="422.0" width="41.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="466.0" y="434.0" font-size="12" text-anchor="middle" fill="#14201E">email</text>
+<rect x="734.1" y="374.0" width="123.7" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="796.0" y="386.0" font-size="12" text-anchor="middle" fill="#14201E">opens pull requests</text>
+<rect x="583.8" y="484.0" width="94.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="631.0" y="496.0" font-size="12" text-anchor="middle" fill="#14201E">merge or close</text>
+<rect x="28" y="548" width="26" height="16" rx="3" fill="#FFFFFF" stroke="#0E6E60" stroke-width="1.6"/>
+<text x="62" y="560" font-size="11" fill="#5C6B67">the platform</text>
+<rect x="152.68" y="548" width="26" height="16" rx="3" fill="#F2F4F3" stroke="#5C6B67" stroke-dasharray="4 3"/>
+<text x="186.68" y="560" font-size="11" fill="#5C6B67">outside AWS</text>
+<path d="M 272.0 555.0 a 13.0 7 0 0 1 26.0 0 L 298.0 557.0 a 13.0 7 0 0 1 -26.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 272.0 555.0 a 13.0 7 0 0 0 26.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="305.97" y="560" font-size="11" fill="#5C6B67">data at rest</text>
+</svg>

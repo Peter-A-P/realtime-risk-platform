@@ -411,7 +411,8 @@ ranked by expected loss, and the evaluation shows what that buys per analyst-hou
 live stack runs in one AWS region on a spot instance with Redpanda as the stream, the same
 broker the local Docker Compose stack runs, because AWS documents Kinesis's delivery delay
 as larger than the whole latency budget ([ADR 3](docs/adr/0003-stream-choice.md)). Thirty architecture decision records
-explain every choice with its public sources.
+explain every choice with its public sources. Four architecture diagrams, one per mechanism, are
+in [docs/architecture.md](docs/architecture.md).
 
 ## Part of a portfolio
 

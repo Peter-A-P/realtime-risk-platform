@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="922" height="1052" viewBox="0 0 922 1052" role="img" aria-label="The real-data track replays the competition data offline for the leakage test, the training sets, the promotion gate and the queue evaluation; the synthetic track plays a sealed regime schedule at a fixed rate on the live instance for latency, throughput and drift; every table in the README is written from a committed report." font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#14201E"/></marker><marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#0E6E60"/></marker><marker id="arrow-signal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#A64C1C"/></marker><marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#5C6B67"/></marker></defs>
+<rect width="922" height="1052" fill="#FFFFFF"/>
+<text x="28" y="42" font-size="16" font-weight="700" fill="#14201E">How the published numbers are produced: two tracks, one scorer</text>
+<rect x="12.0" y="60.0" width="254.0" height="710.0" rx="8" fill="#F6F8F7" stroke="#D5DCD9" stroke-width="1"/>
+<text x="24.0" y="74.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" font-weight="600" letter-spacing="0.08em" fill="#5C6B67">REAL DATA, OFFLINE</text>
+<rect x="656.0" y="60.0" width="254.0" height="710.0" rx="8" fill="#F6F8F7" stroke="#D5DCD9" stroke-width="1"/>
+<text x="668.0" y="74.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" font-weight="600" letter-spacing="0.08em" fill="#5C6B67">SYNTHETIC, LIVE AND UNDER LOAD</text>
+<path d="M 139.0 154.0 L 139.0 210.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 139.0 274.0 L 139.0 330.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 139.0 394.0 L 139.0 450.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 139.0 514.0 L 139.0 570.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 139.0 634.0 L 139.0 690.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 783.0 154.0 L 783.0 205.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 783.0 279.0 L 783.0 330.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 783.0 394.0 L 783.0 450.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 783.0 514.0 L 783.0 570.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 783.0 634.0 L 783.0 690.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 250.0 602.0 L 350.0 602.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 250.0 362.0 L 616.0 362.0 Q 622.0 362.0 622.0 368.0 L 622.0 823.7 Q 622.0 829.7 616.0 829.7 L 572.0 829.7" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 250.0 722.0 L 418.0 722.0 Q 424.0 722.0 424.0 728.0 L 424.0 805.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 672.0 482.0 L 628.0 482.0 Q 622.0 482.0 622.0 488.0 L 622.0 848.3 Q 622.0 854.3 616.0 854.3 L 572.0 854.3" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 672.0 722.0 L 504.0 722.0 Q 498.0 722.0 498.0 728.0 L 498.0 805.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 461.0 879.0 L 461.0 930.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<rect x="28.0" y="90.0" width="222.0" height="64.0" rx="4" fill="#F2F4F3" stroke="#5C6B67" stroke-width="1.1" stroke-dasharray="5 3"/>
+<text x="139.0" y="118.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">IEEE-CIS data</text>
+<text x="139.0" y="134.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">checksums recorded</text>
+<rect x="28.0" y="210.0" width="222.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="139.0" y="231.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Mapped onto events</text>
+<text x="139.0" y="247.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">nothing invented for the schema</text>
+<text x="139.0" y="264.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.events.ieee_cis_events</text>
+<rect x="28.0" y="330.0" width="222.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#A64C1C" stroke-width="1.6"/>
+<rect x="28.0" y="330.0" width="5" height="64.0" rx="2" fill="#A64C1C"/>
+<text x="139.0" y="351.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Leakage test</text>
+<text x="139.0" y="367.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">recomputes from the raw log</text>
+<text x="139.0" y="384.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.store.leakage</text>
+<rect x="28.0" y="450.0" width="222.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="139.0" y="471.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Training sets at a cutoff</text>
+<text x="139.0" y="487.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">only labels that had arrived</text>
+<text x="139.0" y="504.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.models.dataset</text>
+<rect x="28.0" y="570.0" width="222.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="139.0" y="591.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Promotion gate</text>
+<text x="139.0" y="607.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">paired bootstrap, interval bound</text>
+<text x="139.0" y="624.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.models.promote</text>
+<rect x="28.0" y="690.0" width="222.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="139.0" y="711.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Queue evaluation</text>
+<text x="139.0" y="727.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">expected loss vs score, by day</text>
+<text x="139.0" y="744.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.review_queue.evaluate</text>
+<rect x="672.0" y="90.0" width="222.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="783.0" y="111.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Generator</text>
+<text x="783.0" y="127.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">three patterns, entity graph</text>
+<text x="783.0" y="144.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.events.generator</text>
+<path d="M 672.0 212.0 a 111.0 7 0 0 1 222.0 0 L 894.0 272.0 a 111.0 7 0 0 1 -222.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 672.0 212.0 a 111.0 7 0 0 0 222.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="783.0" y="235.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Sealed regime schedule</text>
+<text x="783.0" y="251.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">hashes committed, secret after</text>
+<text x="783.0" y="268.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">docs/sealed-schedule.json</text>
+<rect x="672.0" y="330.0" width="222.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="783.0" y="351.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Load test at a fixed rate</text>
+<text x="783.0" y="367.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">five runs, timing per hop</text>
+<text x="783.0" y="384.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.scoring.loadtest</text>
+<rect x="672.0" y="450.0" width="222.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#0E6E60" stroke-width="1.6"/>
+<rect x="672.0" y="450.0" width="5" height="64.0" rx="2" fill="#0E6E60"/>
+<text x="783.0" y="471.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Scorer on the live instance</text>
+<text x="783.0" y="487.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">champion, shadow, history on</text>
+<text x="783.0" y="504.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.scoring</text>
+<rect x="672.0" y="570.0" width="222.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="783.0" y="591.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Parity checks</text>
+<text x="783.0" y="607.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">online/offline, stream/none</text>
+<text x="783.0" y="624.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.stream.parity</text>
+<rect x="672.0" y="690.0" width="222.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="783.0" y="711.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Drift, judged daily</text>
+<text x="783.0" y="727.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">against the window&#x27;s own days</text>
+<text x="783.0" y="744.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.drift</text>
+<rect x="350.0" y="570.0" width="222.0" height="64.0" rx="4" fill="#F2F4F3" stroke="#5C6B67" stroke-width="1.1" stroke-dasharray="5 3"/>
+<text x="461.0" y="598.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Pull request</text>
+<text x="461.0" y="614.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">with the evidence table</text>
+<path d="M 350.0 812.0 a 111.0 7 0 0 1 222.0 0 L 572.0 872.0 a 111.0 7 0 0 1 -222.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 350.0 812.0 a 111.0 7 0 0 0 222.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="461.0" y="835.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Committed reports</text>
+<text x="461.0" y="851.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">95% intervals across runs</text>
+<text x="461.0" y="868.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">docs/*.json</text>
+<rect x="350.0" y="930.0" width="222.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#A64C1C" stroke-width="1.6"/>
+<rect x="350.0" y="930.0" width="5" height="64.0" rx="2" fill="#A64C1C"/>
+<text x="461.0" y="958.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">README tables</text>
+<text x="461.0" y="974.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">from verdict observe report</text>
+<rect x="121.2" y="172.0" width="35.5" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="139.0" y="184.0" font-size="12" text-anchor="middle" fill="#14201E">rows</text>
+<rect x="86.0" y="292.0" width="106.1" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="139.0" y="304.0" font-size="12" text-anchor="middle" fill="#14201E">events, replayed</text>
+<rect x="88.9" y="412.0" width="100.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="139.0" y="424.0" font-size="12" text-anchor="middle" fill="#14201E">features, clean</text>
+<rect x="74.2" y="532.0" width="129.6" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="139.0" y="544.0" font-size="12" text-anchor="middle" fill="#14201E">champion, challenger</text>
+<rect x="68.3" y="652.0" width="141.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="139.0" y="664.0" font-size="12" text-anchor="middle" fill="#14201E">labelled shadow window</text>
+<rect x="756.4" y="169.5" width="53.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="783.0" y="181.5" font-size="12" text-anchor="middle" fill="#14201E">regimes</text>
+<rect x="685.9" y="294.5" width="194.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="783.0" y="306.5" font-size="12" text-anchor="middle" fill="#14201E">events, 1,000 to 4,000 a second</text>
+<rect x="738.8" y="412.0" width="88.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="783.0" y="424.0" font-size="12" text-anchor="middle" fill="#14201E">on the stream</text>
+<rect x="738.8" y="532.0" width="88.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="783.0" y="544.0" font-size="12" text-anchor="middle" fill="#14201E">served values</text>
+<rect x="738.8" y="652.0" width="88.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="783.0" y="664.0" font-size="12" text-anchor="middle" fill="#14201E">finished days</text>
+<rect x="273.4" y="592.0" width="53.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="300.0" y="604.0" font-size="12" text-anchor="middle" fill="#14201E">verdict</text>
+<rect x="388.8" y="352.0" width="94.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="436.0" y="364.0" font-size="12" text-anchor="middle" fill="#14201E">leak-inflation</text>
+<rect x="301.6" y="712.0" width="70.8" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="337.0" y="724.0" font-size="12" text-anchor="middle" fill="#14201E">queue-eval</text>
+<rect x="571.9" y="658.2" width="100.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="622.0" y="670.2" font-size="12" text-anchor="middle" fill="#14201E">per-hop timings</text>
+<rect x="533.7" y="712.0" width="82.6" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="575.0" y="724.0" font-size="12" text-anchor="middle" fill="#14201E">drift-report</text>
+<rect x="422.7" y="894.5" width="76.7" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="461.0" y="906.5" font-size="12" text-anchor="middle" fill="#14201E">one command</text>
+<rect x="28" y="1016" width="26" height="16" rx="3" fill="#FFFFFF" stroke="#A64C1C" stroke-width="1.6"/>
+<text x="62" y="1028" font-size="11" fill="#5C6B67">what the reader checks</text>
+<rect x="206.57999999999998" y="1016" width="26" height="16" rx="3" fill="#FFFFFF" stroke="#0E6E60" stroke-width="1.6"/>
+<text x="240.57999999999998" y="1028" font-size="11" fill="#5C6B67">the platform under test</text>
+<path d="M 390.5 1023.0 a 13.0 7 0 0 1 26.0 0 L 416.5 1025.0 a 13.0 7 0 0 1 -26.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 390.5 1023.0 a 13.0 7 0 0 0 26.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="424.54999999999995" y="1028" font-size="11" fill="#5C6B67">data at rest</text>
+</svg>

@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1026" height="908" viewBox="0 0 1026 908" role="img" aria-label="A transaction is consumed in a batch, deduplicated, served its features before it is observed, scored by the champion with the challenger in shadow, decided, persisted and checkpointed only after its decision is on the stream; the p99 per hop is from the published load test on the live instance." font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#14201E"/></marker><marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#0E6E60"/></marker><marker id="arrow-signal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#A64C1C"/></marker><marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#5C6B67"/></marker></defs>
+<rect width="1026" height="908" fill="#FFFFFF"/>
+<text x="28" y="42" font-size="16" font-weight="700" fill="#14201E">One transaction through the scorer: 8.4 ms at p99 against a 50 ms budget</text>
+<path d="M 513.0 130.0 L 513.0 186.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 513.0 250.0 L 513.0 306.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 513.0 370.0 L 513.0 426.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 513.0 490.0 L 513.0 546.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 513.0 610.0 L 513.0 666.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 513.0 730.0 L 513.0 786.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 408.0 218.0 L 238.0 218.0" fill="none" stroke="#14201E" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<path d="M 408.0 338.0 L 238.0 338.0" fill="none" stroke="#14201E" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<path d="M 788.0 458.0 L 618.0 458.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 618.0 578.0 L 788.0 578.0" fill="none" stroke="#14201E" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<path d="M 408.0 698.0 L 238.0 698.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 408.0 73.0 a 105.0 7 0 0 1 210.0 0 L 618.0 123.0 a 105.0 7 0 0 1 -210.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 408.0 73.0 a 105.0 7 0 0 0 210.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="513.0" y="106.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Transaction on the stream</text>
+<rect x="408.0" y="186.0" width="210.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="513.0" y="207.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Ingest and dedupe</text>
+<text x="513.0" y="223.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">a ledger stops repeats</text>
+<text x="513.0" y="240.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">stream in: p99 7.76 ms</text>
+<rect x="408.0" y="306.0" width="210.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#0E6E60" stroke-width="1.6"/>
+<rect x="408.0" y="306.0" width="5" height="64.0" rx="2" fill="#0E6E60"/>
+<text x="513.0" y="327.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Features</text>
+<text x="513.0" y="343.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">served, then observed</text>
+<text x="513.0" y="360.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">p99 0.19 ms</text>
+<rect x="408.0" y="426.0" width="210.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#0E6E60" stroke-width="1.6"/>
+<rect x="408.0" y="426.0" width="5" height="64.0" rx="2" fill="#0E6E60"/>
+<text x="513.0" y="447.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Model: ONNX champion</text>
+<text x="513.0" y="463.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">challenger scores in shadow</text>
+<text x="513.0" y="480.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">p99 0.56 ms</text>
+<rect x="408.0" y="546.0" width="210.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="513.0" y="567.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Decision</text>
+<text x="513.0" y="583.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">rules, action, model named</text>
+<text x="513.0" y="600.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">p99 0.04 ms</text>
+<rect x="408.0" y="666.0" width="210.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="513.0" y="687.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Persist, then checkpoint</text>
+<text x="513.0" y="703.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">never splits a batch</text>
+<text x="513.0" y="720.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">write: p99 0.02 ms</text>
+<path d="M 408.0 793.0 a 105.0 7 0 0 1 210.0 0 L 618.0 843.0 a 105.0 7 0 0 1 -210.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 408.0 793.0 a 105.0 7 0 0 0 210.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="513.0" y="826.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Decision on the stream</text>
+<path d="M 28.0 193.0 a 105.0 7 0 0 1 210.0 0 L 238.0 243.0 a 105.0 7 0 0 1 -210.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 28.0 193.0 a 105.0 7 0 0 0 210.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="133.0" y="218.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Dead-letter topic</text>
+<text x="133.0" y="234.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">bytes untouched</text>
+<path d="M 28.0 308.0 a 105.0 7 0 0 1 210.0 0 L 238.0 368.0 a 105.0 7 0 0 1 -210.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 28.0 308.0 a 105.0 7 0 0 0 210.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="133.0" y="331.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Saved feature state</text>
+<text x="133.0" y="347.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">on the data volume</text>
+<text x="133.0" y="364.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.scoring.recovery</text>
+<path d="M 788.0 428.0 a 105.0 7 0 0 1 210.0 0 L 998.0 488.0 a 105.0 7 0 0 1 -210.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 788.0 428.0 a 105.0 7 0 0 0 210.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="893.0" y="451.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Champion pointer</text>
+<text x="893.0" y="467.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">the rollback flag</text>
+<text x="893.0" y="484.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.scoring.flags</text>
+<rect x="788.0" y="546.0" width="210.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="893.0" y="567.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Prometheus metrics</text>
+<text x="893.0" y="583.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">per hop, per batch</text>
+<text x="893.0" y="600.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.observe.metrics</text>
+<path d="M 28.0 668.0 a 105.0 7 0 0 1 210.0 0 L 238.0 728.0 a 105.0 7 0 0 1 -210.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 28.0 668.0 a 105.0 7 0 0 0 210.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="133.0" y="691.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">History staging</text>
+<text x="133.0" y="707.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">decision with its features</text>
+<text x="133.0" y="724.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.history</text>
+<rect x="486.4" y="148.0" width="53.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="513.0" y="160.0" font-size="12" text-anchor="middle" fill="#14201E">a batch</text>
+<rect x="480.5" y="268.0" width="64.9" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="513.0" y="280.0" font-size="12" text-anchor="middle" fill="#14201E">new event</text>
+<rect x="465.8" y="388.0" width="94.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="513.0" y="400.0" font-size="12" text-anchor="middle" fill="#14201E">feature vector</text>
+<rect x="492.3" y="508.0" width="41.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="513.0" y="520.0" font-size="12" text-anchor="middle" fill="#14201E">score</text>
+<rect x="489.4" y="628.0" width="47.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="513.0" y="640.0" font-size="12" text-anchor="middle" fill="#14201E">action</text>
+<rect x="486.4" y="748.0" width="53.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="513.0" y="760.0" font-size="12" text-anchor="middle" fill="#14201E">produce</text>
+<rect x="278.8" y="208.0" width="88.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="323.0" y="220.0" font-size="12" text-anchor="middle" fill="#5C6B67">cannot decide</text>
+<rect x="252.3" y="328.0" width="141.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="323.0" y="340.0" font-size="12" text-anchor="middle" fill="#5C6B67">slices between batches</text>
+<rect x="641.1" y="448.0" width="123.7" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="703.0" y="460.0" font-size="12" text-anchor="middle" fill="#14201E">read on every event</text>
+<rect x="676.4" y="568.0" width="53.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="703.0" y="580.0" font-size="12" text-anchor="middle" fill="#5C6B67">timings</text>
+<rect x="302.3" y="688.0" width="41.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="323.0" y="700.0" font-size="12" text-anchor="middle" fill="#14201E">stage</text>
+<path d="M 28 880 L 56 880" stroke="#14201E" stroke-width="1.4" fill="none" marker-end="url(#arrow)"/>
+<text x="64" y="884" font-size="11" fill="#5C6B67">the decision path</text>
+<path d="M 181.63 880 L 209.63 880" stroke="#14201E" stroke-width="1.4" fill="none" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<text x="217.63" y="884" font-size="11" fill="#5C6B67">beside the path</text>
+<path d="M 324.5 879.0 a 13.0 7 0 0 1 26.0 0 L 350.5 881.0 a 13.0 7 0 0 1 -26.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 324.5 879.0 a 13.0 7 0 0 0 26.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="358.48" y="884" font-size="11" fill="#5C6B67">data at rest</text>
+</svg>
