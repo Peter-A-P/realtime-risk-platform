@@ -58,27 +58,27 @@
 <text x="133.0" y="691.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">History staging</text>
 <text x="133.0" y="707.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">decision with its features</text>
 <text x="133.0" y="724.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.history</text>
-<rect x="486.4" y="148.0" width="53.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="489.0" y="148.0" width="48.0" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="513.0" y="160.0" font-size="12" text-anchor="middle" fill="#14201E">a batch</text>
-<rect x="480.5" y="268.0" width="64.9" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="481.7" y="268.0" width="62.7" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="513.0" y="280.0" font-size="12" text-anchor="middle" fill="#14201E">new event</text>
-<rect x="465.8" y="388.0" width="94.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="472.0" y="388.0" width="82.0" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="513.0" y="400.0" font-size="12" text-anchor="middle" fill="#14201E">feature vector</text>
-<rect x="492.3" y="508.0" width="41.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="494.0" y="508.0" width="38.0" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="513.0" y="520.0" font-size="12" text-anchor="middle" fill="#14201E">score</text>
-<rect x="489.4" y="628.0" width="47.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="492.7" y="628.0" width="40.7" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="513.0" y="640.0" font-size="12" text-anchor="middle" fill="#14201E">action</text>
-<rect x="486.4" y="748.0" width="53.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="487.0" y="748.0" width="52.0" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="513.0" y="760.0" font-size="12" text-anchor="middle" fill="#14201E">produce</text>
-<rect x="278.8" y="208.0" width="88.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="281.0" y="208.0" width="84.1" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="323.0" y="220.0" font-size="12" text-anchor="middle" fill="#5C6B67">cannot decide</text>
-<rect x="252.3" y="328.0" width="141.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="256.3" y="328.0" width="133.4" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="323.0" y="340.0" font-size="12" text-anchor="middle" fill="#5C6B67">slices between batches</text>
-<rect x="641.1" y="448.0" width="123.7" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="646.0" y="448.0" width="114.1" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="703.0" y="460.0" font-size="12" text-anchor="middle" fill="#14201E">read on every event</text>
-<rect x="676.4" y="568.0" width="53.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="680.0" y="568.0" width="46.0" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="703.0" y="580.0" font-size="12" text-anchor="middle" fill="#5C6B67">timings</text>
-<rect x="302.3" y="688.0" width="41.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="304.3" y="688.0" width="37.4" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="323.0" y="700.0" font-size="12" text-anchor="middle" fill="#14201E">stage</text>
 <path d="M 28 880 L 56 880" stroke="#14201E" stroke-width="1.4" fill="none" marker-end="url(#arrow)"/>
 <text x="64" y="884" font-size="11" fill="#5C6B67">the decision path</text>

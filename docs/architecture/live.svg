@@ -52,27 +52,27 @@
 <rect x="358.0" y="462.0" width="216.0" height="64.0" rx="32.0" fill="#F2F4F3" stroke="#14201E" stroke-width="1.1"/>
 <text x="466.0" y="490.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Peter</text>
 <text x="466.0" y="506.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">merges, closes, reads alerts</text>
-<rect x="265.6" y="112.0" width="70.8" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="266.0" y="112.0" width="70.0" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="301.0" y="124.0" font-size="12" text-anchor="middle" fill="#14201E">push image</text>
-<rect x="199.8" y="236.0" width="94.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="208.0" y="236.0" width="78.0" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="247.0" y="248.0" font-size="12" text-anchor="middle" fill="#14201E">apply, go live</text>
-<rect x="624.1" y="112.0" width="82.6" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="632.0" y="112.0" width="66.7" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="665.3" y="124.0" font-size="12" text-anchor="middle" fill="#14201E">pull at boot</text>
-<rect x="584.7" y="236.0" width="82.6" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="586.6" y="236.0" width="78.7" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="626.0" y="248.0" font-size="12" text-anchor="middle" fill="#14201E">new instance</text>
-<rect x="900.1" y="112.0" width="53.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="903.0" y="112.0" width="47.3" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="926.7" y="124.0" font-size="12" text-anchor="middle" fill="#14201E">metrics</text>
-<rect x="1093.5" y="174.0" width="64.9" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="1093.7" y="174.0" width="64.7" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="1126.0" y="186.0" font-size="12" text-anchor="middle" fill="#14201E">dashboard</text>
-<rect x="868.8" y="360.0" width="135.5" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="878.2" y="360.0" width="116.7" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="936.5" y="372.0" font-size="12" text-anchor="middle" fill="#14201E">writes, restores from</text>
-<rect x="631.9" y="360.0" width="47.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="636.8" y="360.0" width="37.3" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="655.5" y="372.0" font-size="12" text-anchor="middle" fill="#14201E">alerts</text>
-<rect x="445.3" y="422.0" width="41.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="447.7" y="422.0" width="36.7" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="466.0" y="434.0" font-size="12" text-anchor="middle" fill="#14201E">email</text>
-<rect x="734.1" y="374.0" width="123.7" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="740.0" y="374.0" width="112.1" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="796.0" y="386.0" font-size="12" text-anchor="middle" fill="#14201E">opens pull requests</text>
-<rect x="583.8" y="484.0" width="94.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="587.0" y="484.0" width="88.0" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="631.0" y="496.0" font-size="12" text-anchor="middle" fill="#14201E">merge or close</text>
 <rect x="28" y="548" width="26" height="16" rx="3" fill="#FFFFFF" stroke="#0E6E60" stroke-width="1.6"/>
 <text x="62" y="560" font-size="11" fill="#5C6B67">the platform</text>

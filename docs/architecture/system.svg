@@ -76,33 +76,33 @@
 <rect x="408.0" y="786.0" width="230.0" height="62.0" rx="4" fill="#F2F4F3" stroke="#5C6B67" stroke-width="1.1" stroke-dasharray="5 3"/>
 <text x="523.0" y="813.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">GitHub pull requests</text>
 <text x="523.0" y="829.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">a person merges or closes</text>
-<rect x="51.7" y="146.5" width="182.5" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="52.0" y="146.5" width="182.1" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="143.0" y="158.5" font-size="12" text-anchor="middle" fill="#14201E">mapped onto events, schema v2</text>
-<rect x="452.3" y="147.0" width="141.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="455.3" y="147.0" width="135.4" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="523.0" y="159.0" font-size="12" text-anchor="middle" fill="#14201E">sealed regime schedule</text>
-<rect x="95.8" y="327.0" width="94.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="105.0" y="327.0" width="76.0" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="143.0" y="339.0" font-size="12" text-anchor="middle" fill="#14201E">offline replay</text>
-<rect x="449.4" y="267.0" width="147.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="452.3" y="267.0" width="141.4" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="523.0" y="279.0" font-size="12" text-anchor="middle" fill="#14201E">produce, 1,000 a second</text>
-<rect x="464.1" y="387.0" width="117.8" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="465.0" y="387.0" width="116.1" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="523.0" y="399.0" font-size="12" text-anchor="middle" fill="#14201E">consume in batches</text>
-<rect x="297.6" y="447.0" width="70.8" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="299.3" y="447.0" width="67.4" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="333.0" y="459.0" font-size="12" text-anchor="middle" fill="#14201E">each event</text>
-<rect x="66.4" y="504.5" width="153.1" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="75.3" y="504.5" width="135.4" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="143.0" y="516.5" font-size="12" text-anchor="middle" fill="#14201E">writes once, both stores</text>
-<rect x="651.1" y="441.7" width="123.7" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="654.6" y="441.7" width="116.7" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="713.0" y="453.7" font-size="12" text-anchor="middle" fill="#14201E">champion by pointer</text>
-<rect x="440.6" y="504.5" width="164.9" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="453.3" y="504.5" width="139.4" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="523.0" y="516.5" font-size="12" text-anchor="middle" fill="#14201E">decision with its features</text>
-<rect x="757.9" y="507.0" width="100.2" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="762.3" y="507.0" width="91.4" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="808.0" y="519.0" font-size="12" text-anchor="middle" fill="#14201E">metrics per hop</text>
-<rect x="467.0" y="629.5" width="112.0" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="472.0" y="629.5" width="102.1" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="523.0" y="641.5" font-size="12" text-anchor="middle" fill="#14201E">each finished day</text>
-<rect x="193.8" y="627.0" width="88.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="199.0" y="627.0" width="78.0" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="238.0" y="639.0" font-size="12" text-anchor="middle" fill="#14201E">labelled rows</text>
-<rect x="425.9" y="747.5" width="194.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="434.3" y="747.5" width="177.4" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="523.0" y="759.5" font-size="12" text-anchor="middle" fill="#14201E">retrain or promote, never merge</text>
-<rect x="855.8" y="627.0" width="94.3" height="20.0" rx="3" fill="#FFFFFF"/>
+<rect x="871.0" y="627.0" width="64.0" height="20.0" rx="3" fill="#FFFFFF"/>
 <text x="903.0" y="639.0" font-size="12" text-anchor="middle" fill="#14201E">its first link</text>
 <rect x="28" y="870" width="26" height="16" rx="3" fill="#FFFFFF" stroke="#0E6E60" stroke-width="1.6"/>
 <text x="62" y="882" font-size="11" fill="#5C6B67">the core, built here</text>
