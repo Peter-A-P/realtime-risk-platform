@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it's built: Real-Time Fraud and Risk Decisioning Platform</title>
+<meta name="description" content="How the real-time fraud decisioning platform behind this page is built and measured, in four diagrams.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <a class="brand" href="https://peterparker.ca"><span class="mono-mark" aria-hidden="true">P</span>Peter Parker</a>
+    <p class="top-nav"><a href="https://peterparker.ca/projects/realtime-risk-platform/">Project 09: Real-Time Fraud and Risk Decisioning Platform</a></p>
+  </div>
+</header>
+<nav class="tabs" aria-label="This site">
+  <div class="tabs-inner">
+    <a href="index.html">Overview</a>
+    <a href="index.html#pipeline-panel">The pipeline</a>
+    <a href="index.html#load-panel">Speed</a>
+    <a href="index.html#drift-panel">Drift</a>
+    <a href="index.html#retrain-panel">Retraining</a>
+    <a href="index.html#live-panel">The live model</a>
+    <a href="index.html#queue-panel">The queue</a>
+    <a href="index.html#dashboard-guide">The dashboard</a>
+    <a href="architecture.html" aria-current="page">How it's built</a>
+  </div>
+</nav>
+<main>
+
+  <header class="hero">
+    <p class="eyebrow">Architecture</p>
+    <h1>How it's built</h1>
+    <p class="lead">
+      How the real-time fraud decisioning platform behind this page is built and measured, in four pictures. Select a diagram to open it full size.
+    </p>
+    <p class="hero-note"><a href="index.html">Back to the overview</a></p>
+  </header>
+
+  <section class="section" id="the-platform">
+    <h2>The platform</h2>
+    <figure class="arch-figure">
+      <a href="architecture/system.svg"><img src="architecture/system.svg" width="1046" height="906" alt="Public competition data replayed offline and a synthetic generator played live both reach one stream consumer, which serves features computed once, scores with the champion while a challenger shadows it, and keeps every decision for the queue, the drift monitors and the dashboard."></a>
+    </figure>
+    <div class="prose">
+      <p>Two sources of transactions feed one platform.</p>
+      <p>On the left is real data, replayed. A public fraud competition dataset is converted into the platform's own event format and replayed in time order. Each transaction is given its features before the platform learns anything from it, and every feature value is computed once and written to both the fast store used while scoring and the history store used for training.</p>
+      <p>In the middle is live traffic, made up. A generator plays a schedule of changing fraud patterns, sealed in advance so nobody can tune to it. Transactions arrive now and their fraud labels a week later, the way they do in a real bank, all through a message stream.</p>
+      <p>The scorer reads the stream in batches. The current model, the champion, makes the decisions, and a challenger scores the same transactions quietly beside it. Every decision is kept with the features it was made on. From that history, the analysts' review queue is ranked by expected loss, and each finished day is checked for drift. Drift checks and a models job can open retraining and promotion pull requests, but never merge them. A person does.</p>
+      <p>The scorer's timings go to a public monitoring dashboard, which is the first link on this site.</p>
+      <p class="where">Where it lives: <code>verdict.events</code>, <code>verdict.features.engine</code>, <code>verdict.store</code>, <code>verdict.live.feed</code>, <code>verdict.stream</code>, <code>verdict.scoring</code>, <code>verdict.models</code>, <code>verdict.history</code>, <code>verdict.review_queue</code>, <code>verdict.drift</code>, <code>verdict.observe</code> and <code>verdict.publish</code>.</p>
+    </div>
+  </section>
+
+  <section class="section" id="one-transaction-through-the-scorer">
+    <h2>One transaction through the scorer</h2>
+    <figure class="arch-figure">
+      <a href="architecture/scoring-path.svg"><img src="architecture/scoring-path.svg" width="1026" height="908" alt="A transaction is consumed in a batch, deduplicated, served its features before it is observed, scored by the champion with the challenger in shadow, decided, persisted and checkpointed only after its decision is on the stream; the p99 per hop is from the published load test on the live instance."></a>
+    </figure>
+    <div class="prose">
+      <p>The decision path runs from top to bottom.</p>
+      <p>A batch is read from the stream, and a ledger drops any transaction already seen. The feature engine gives the transaction its features before it learns from it. The champion model scores it while the challenger scores it in the background, and simple rules turn the score into an action that names the model responsible. The decision is saved, written back to the stream, and only then is the batch marked done, so stopping the scorer can never leave half a batch decided.</p>
+      <p>The times under each step are the slowest 1 percent from the published load test on the live machine at a thousand transactions a second. End to end that comes to 8.4 milliseconds, against a 50 millisecond budget.</p>
+      <p>Beside the path, a record the scorer cannot read goes to a separate queue with its bytes untouched. The feature state is saved a slice at a time between batches, so a replacement machine restores it rather than rebuilding it. The pointer to the champion is read on every transaction, which is what makes a rollback take effect on the very next one. And the timing of every step is exported for monitoring.</p>
+      <p class="where">Where it lives: <code>verdict.scoring</code>, <code>verdict.scoring.recovery</code>, <code>verdict.scoring.flags</code> and <code>verdict.observe.metrics</code>.</p>
+    </div>
+  </section>
+
+  <section class="section" id="how-the-published-numbers-are-produced">
+    <h2>How the published numbers are produced</h2>
+    <figure class="arch-figure">
+      <a href="architecture/measurement.svg"><img src="architecture/measurement.svg" width="922" height="1052" alt="The real-data track replays the competition data offline for the leakage test, the training sets, the promotion gate and the queue evaluation; the synthetic track plays a sealed regime schedule at a fixed rate on the live instance for latency, throughput and drift; every table in the README is written from a committed report."></a>
+    </figure>
+    <div class="prose">
+      <p>Every number in the README comes from one of two tracks, and each table says which.</p>
+      <p>The real-data track, on the left, runs offline. The competition data becomes events with nothing invented to fill gaps. A leakage test recomputes every feature from the raw log and fails on any value a transaction could not have known at the time. Training sets are cut at a date and hold only the fraud labels that had arrived by then. The promotion gate compares champion and challenger on the same transactions and writes its verdict into a pull request. The queue evaluation compares ranking by expected loss with ranking by score, one day at a time.</p>
+      <p>The synthetic track, on the right, runs live and under load. The generator's schedule is sealed by published fingerprints, and the secret is revealed after the window closes. The load test sends transactions at fixed rates and times every step over five runs. Checks hold the fast store to the history store, and the streaming results to a run without the stream. Drift is judged each day against the window's own first days.</p>
+      <p>Both tracks end in committed reports with 95% intervals, and one command writes the README's tables from them.</p>
+      <p class="where">Where it lives: <code>verdict.store.leakage</code>, <code>verdict.models.dataset</code>, <code>verdict.models.promote</code>, <code>verdict.review_queue.evaluate</code>, <code>verdict.scoring.loadtest</code>, <code>verdict.stream.parity</code> and <code>verdict.drift</code>.</p>
+    </div>
+  </section>
+
+  <section class="section" id="the-live-window">
+    <h2>The live window</h2>
+    <figure class="arch-figure">
+      <a href="architecture/live.svg"><img src="architecture/live.svg" width="1262" height="584" alt="Terraform from the laptop stands up an auto-scaling group of one in AWS ca-central-1 that boots the pushed image, keeps history and saved feature state on an EBS volume, serves the dashboard through a Cloudflare tunnel, emails alerts through SNS and opens its retraining and promotion verdicts as pull requests a person merges."></a>
+    </figure>
+    <div class="prose">
+      <p>The live stack is one machine in one AWS region in Canada, with no inbound port open.</p>
+      <p>From a laptop, one script pushes a single container image and Terraform stands up a group that always keeps exactly one machine running. When that machine boots, it reads its secrets from AWS's parameter store and pulls the image. Everything runs on it under Docker Compose: the message stream, the scorer, the two traffic feeds, and the jobs that handle labels, storage, models and alerts.</p>
+      <p>The decision history and the scorer's saved state live on a disk that survives a replacement machine. The public dashboard leaves through a Cloudflare tunnel, which is the only way out. Alerts, such as a day that did not finish or a history that was not sealed, are emailed through AWS. The models job opens retraining and promotion pull requests on GitHub, and a person merges or closes them. A teardown script removes the stack and checks with the cloud itself, not with Terraform's records, what is left.</p>
+      <p class="where">Where it lives: <code>deploy/push-image.sh</code>, <code>deploy/terraform</code>, <code>deploy/go-live.sh</code>, <code>deploy/live/compose.yml</code> and <code>deploy/down.sh</code>.</p>
+    </div>
+  </section>
+
+</main>
+<footer class="foot">
+  <div class="foot-inner">
+    <p>
+      The same four diagrams are in the repository's docs/architecture.md. Source, method
+      and every measurement: <a href="https://github.com/Peter-A-P/realtime-risk-platform">github.com/Peter-A-P/realtime-risk-platform</a>
+    </p>
+    <ul>
+      <li>Type: Newsreader and Inter, SIL Open Font License, served from this host</li>
+    </ul>
+  </div>
+</footer>
+</body>
+</html>

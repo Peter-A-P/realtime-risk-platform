@@ -187,3 +187,29 @@ def test_the_page_shows_only_approved_promotions_and_reads_their_data(tmp_path: 
     assert shown["judged_on"] == "2026-10-12"
     assert shown["challenger_pr_auc"] == 0.45
     assert shown["difference"] == {"value": 0.39, "low": 0.37, "high": 0.4}
+
+
+def test_the_architecture_page_is_in_the_menu_and_linked_from_the_top() -> None:
+    """From the menu, and from a text link in the hero for a reader who never looks up."""
+    page = (SITE / "index.html").read_text(encoding="utf-8")
+    menu = page.partition('<nav class="tabs"')[2].partition("</nav>")[0]
+    assert 'href="architecture.html"' in menu
+    hero = page.partition('<header class="hero"')[2].partition("</header>")[0]
+    assert 'href="architecture.html"' in hero
+    for anchor in re.findall(r'href="#([^"]+)"', menu):
+        assert f'id="{anchor}"' in page, anchor
+
+
+def test_the_diagrams_it_shows_are_the_ones_in_docs() -> None:
+    """The diagrams shown are the committed ones in docs/, byte for byte.
+
+    The site is deployed on its own, so the diagrams are copied into it. A copy that drifted
+    from docs/architecture/ would show a stale system to every visitor.
+    """
+    page = (SITE / "architecture.html").read_text(encoding="utf-8")
+    shown = set(re.findall(r'<img\b[^>]*\ssrc="([^"]+)"', page))
+    docs = SITE.parent / "docs"
+    assert shown == {f"architecture/{p.name}" for p in (docs / "architecture").glob("*.svg")}
+    for target in shown:
+        assert (SITE / target).read_bytes() == (docs / target).read_bytes(), target
+    assert not re.search(r"<script|<style|\sstyle=", page)

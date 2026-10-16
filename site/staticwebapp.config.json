@@ -13,7 +13,8 @@
     ".css": "text/css",
     ".html": "text/html",
     ".woff2": "font/woff2",
-    ".txt": "text/plain"
+    ".txt": "text/plain",
+    ".svg": "image/svg+xml"
   },
   "routes": [
     {
@@ -25,7 +26,13 @@
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/results.json", "/*.css", "/*.js", "/fonts/*"]
+    "exclude": [
+      "/results.json",
+      "/*.css",
+      "/*.js",
+      "/fonts/*",
+      "/architecture/*"
+    ]
   },
   "responseOverrides": {
     "404": {

@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1046" height="906" viewBox="0 0 1046 906" role="img" aria-label="Public competition data replayed offline and a synthetic generator played live both reach one stream consumer, which serves features computed once, scores with the champion while a challenger shadows it, and keeps every decision for the queue, the drift monitors and the dashboard." font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#14201E"/></marker><marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#0E6E60"/></marker><marker id="arrow-signal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#A64C1C"/></marker><marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 z" fill="#5C6B67"/></marker></defs>
+<rect width="1046" height="906" fill="#FFFFFF"/>
+<text x="28" y="42" font-size="16" font-weight="700" fill="#14201E">The platform: every component, and the two tracks that feed it</text>
+<path d="M 143.0 128.0 L 143.0 185.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 523.0 129.0 L 523.0 185.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 143.0 249.0 L 143.0 425.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 523.0 249.0 L 523.0 305.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 523.0 369.0 L 523.0 425.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 408.0 457.0 L 258.0 457.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<path d="M 143.0 489.0 L 143.0 540.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 788.0 451.7 L 638.0 451.7" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 523.0 489.0 L 523.0 540.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 638.0 467.7 L 707.0 467.7 Q 713.0 467.7 713.0 473.7 L 713.0 511.0 Q 713.0 517.0 719.0 517.0 L 897.0 517.0 Q 903.0 517.0 903.0 523.0 L 903.0 545.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 523.0 614.0 L 523.0 665.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 408.0 577.0 L 339.0 577.0 Q 333.0 577.0 333.0 583.0 L 333.0 631.0 Q 333.0 637.0 327.0 637.0 L 149.0 637.0 Q 143.0 637.0 143.0 643.0 L 143.0 665.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 523.0 729.0 L 523.0 786.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 903.0 609.0 L 903.0 665.0" fill="none" stroke="#14201E" stroke-width="1.4" marker-end="url(#arrow)"/>
+<rect x="28.0" y="66.0" width="230.0" height="62.0" rx="4" fill="#F2F4F3" stroke="#5C6B67" stroke-width="1.1" stroke-dasharray="5 3"/>
+<text x="143.0" y="93.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">IEEE-CIS competition data</text>
+<text x="143.0" y="109.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">590,540 transactions</text>
+<rect x="408.0" y="65.0" width="230.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="523.0" y="86.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Synthetic generator</text>
+<text x="523.0" y="102.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">entity graph, 3 fraud patterns</text>
+<text x="523.0" y="119.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.events.generator</text>
+<rect x="28.0" y="185.0" width="230.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="143.0" y="206.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Replay, in time order</text>
+<text x="143.0" y="222.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">raw log keeps the label out</text>
+<text x="143.0" y="239.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.events</text>
+<rect x="408.0" y="185.0" width="230.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="523.0" y="206.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Live feeds</text>
+<text x="523.0" y="222.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">labels follow a week later</text>
+<text x="523.0" y="239.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.live.feed</text>
+<rect x="408.0" y="305.0" width="230.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="523.0" y="326.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Stream: Redpanda</text>
+<text x="523.0" y="342.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">three topics, checkpoints</text>
+<text x="523.0" y="359.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.stream</text>
+<rect x="28.0" y="425.0" width="230.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#0E6E60" stroke-width="1.6"/>
+<rect x="28.0" y="425.0" width="5" height="64.0" rx="2" fill="#0E6E60"/>
+<text x="143.0" y="446.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Feature engine</text>
+<text x="143.0" y="462.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">serve first, then observe</text>
+<text x="143.0" y="479.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.features.engine</text>
+<rect x="408.0" y="425.0" width="230.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#0E6E60" stroke-width="1.6"/>
+<rect x="408.0" y="425.0" width="5" height="64.0" rx="2" fill="#0E6E60"/>
+<text x="523.0" y="446.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Scorer, a stream consumer</text>
+<text x="523.0" y="462.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">ONNX champion, shadow challenger</text>
+<text x="523.0" y="479.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.scoring</text>
+<path d="M 788.0 427.0 a 115.0 7 0 0 1 230.0 0 L 1018.0 487.0 a 115.0 7 0 0 1 -230.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 788.0 427.0 a 115.0 7 0 0 0 230.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="903.0" y="450.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Models and champion pointer</text>
+<text x="903.0" y="466.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">champion, challenger, flag</text>
+<text x="903.0" y="483.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.models</text>
+<path d="M 28.0 547.0 a 115.0 7 0 0 1 230.0 0 L 258.0 607.0 a 115.0 7 0 0 1 -230.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 28.0 547.0 a 115.0 7 0 0 0 230.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="143.0" y="570.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Feature store: Feast</text>
+<text x="143.0" y="586.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">online and offline, one write</text>
+<text x="143.0" y="603.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.store</text>
+<path d="M 408.0 547.0 a 115.0 7 0 0 1 230.0 0 L 638.0 607.0 a 115.0 7 0 0 1 -230.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 408.0 547.0 a 115.0 7 0 0 0 230.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="523.0" y="570.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">History</text>
+<text x="523.0" y="586.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">decisions with their features</text>
+<text x="523.0" y="603.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.history</text>
+<rect x="788.0" y="545.0" width="230.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="903.0" y="566.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Prometheus and Grafana</text>
+<text x="903.0" y="582.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">public read-only dashboard</text>
+<text x="903.0" y="599.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.observe</text>
+<rect x="28.0" y="665.0" width="230.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="143.0" y="686.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Review queue</text>
+<text x="143.0" y="702.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">ranked by expected loss</text>
+<text x="143.0" y="719.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.review_queue</text>
+<rect x="408.0" y="665.0" width="230.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="523.0" y="686.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">Drift monitors and models job</text>
+<text x="523.0" y="702.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">PSI, KS, retrain, promotion gate</text>
+<text x="523.0" y="719.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.drift, verdict.live</text>
+<rect x="788.0" y="665.0" width="230.0" height="64.0" rx="4" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/>
+<text x="903.0" y="686.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">fraud.peterparker.ca</text>
+<text x="903.0" y="702.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">static page, committed reports</text>
+<text x="903.0" y="719.0" font-size="11" font-family="Consolas, Menlo, 'DejaVu Sans Mono', monospace" text-anchor="middle" fill="#5C6B67">verdict.publish, site/</text>
+<rect x="408.0" y="786.0" width="230.0" height="62.0" rx="4" fill="#F2F4F3" stroke="#5C6B67" stroke-width="1.1" stroke-dasharray="5 3"/>
+<text x="523.0" y="813.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">GitHub pull requests</text>
+<text x="523.0" y="829.0" font-size="13" font-weight="500" text-anchor="middle" fill="#14201E">a person merges or closes</text>
+<rect x="52.0" y="146.5" width="182.1" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="143.0" y="158.5" font-size="12" text-anchor="middle" fill="#14201E">mapped onto events, schema v2</text>
+<rect x="455.3" y="147.0" width="135.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="523.0" y="159.0" font-size="12" text-anchor="middle" fill="#14201E">sealed regime schedule</text>
+<rect x="105.0" y="327.0" width="76.0" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="143.0" y="339.0" font-size="12" text-anchor="middle" fill="#14201E">offline replay</text>
+<rect x="452.3" y="267.0" width="141.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="523.0" y="279.0" font-size="12" text-anchor="middle" fill="#14201E">produce, 1,000 a second</text>
+<rect x="465.0" y="387.0" width="116.1" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="523.0" y="399.0" font-size="12" text-anchor="middle" fill="#14201E">consume in batches</text>
+<rect x="299.3" y="447.0" width="67.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="333.0" y="459.0" font-size="12" text-anchor="middle" fill="#14201E">each event</text>
+<rect x="75.3" y="504.5" width="135.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="143.0" y="516.5" font-size="12" text-anchor="middle" fill="#14201E">writes once, both stores</text>
+<rect x="654.6" y="441.7" width="116.7" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="713.0" y="453.7" font-size="12" text-anchor="middle" fill="#14201E">champion by pointer</text>
+<rect x="453.3" y="504.5" width="139.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="523.0" y="516.5" font-size="12" text-anchor="middle" fill="#14201E">decision with its features</text>
+<rect x="762.3" y="507.0" width="91.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="808.0" y="519.0" font-size="12" text-anchor="middle" fill="#14201E">metrics per hop</text>
+<rect x="472.0" y="629.5" width="102.1" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="523.0" y="641.5" font-size="12" text-anchor="middle" fill="#14201E">each finished day</text>
+<rect x="199.0" y="627.0" width="78.0" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="238.0" y="639.0" font-size="12" text-anchor="middle" fill="#14201E">labelled rows</text>
+<rect x="434.3" y="747.5" width="177.4" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="523.0" y="759.5" font-size="12" text-anchor="middle" fill="#14201E">retrain or promote, never merge</text>
+<rect x="871.0" y="627.0" width="64.0" height="20.0" rx="3" fill="#FFFFFF"/>
+<text x="903.0" y="639.0" font-size="12" text-anchor="middle" fill="#14201E">its first link</text>
+<rect x="28" y="870" width="26" height="16" rx="3" fill="#FFFFFF" stroke="#0E6E60" stroke-width="1.6"/>
+<text x="62" y="882" font-size="11" fill="#5C6B67">the core, built here</text>
+<rect x="195.8" y="870" width="26" height="16" rx="3" fill="#F2F4F3" stroke="#5C6B67" stroke-dasharray="4 3"/>
+<text x="229.8" y="882" font-size="11" fill="#5C6B67">public data or GitHub</text>
+<path d="M 369.0 877.0 a 13.0 7 0 0 1 26.0 0 L 395.0 879.0 a 13.0 7 0 0 1 -26.0 0 Z" fill="#FFFFFF" stroke="#14201E" stroke-width="1.1"/><path d="M 369.0 877.0 a 13.0 7 0 0 0 26.0 0" fill="none" stroke="#14201E" stroke-width="1.1"/>
+<text x="402.99" y="882" font-size="11" fill="#5C6B67">data at rest</text>
+</svg>
