@@ -213,3 +213,5 @@ def test_the_diagrams_it_shows_are_the_ones_in_docs() -> None:
     for target in shown:
         assert (SITE / target).read_bytes() == (docs / target).read_bytes(), target
     assert not re.search(r"<script|<style|\sstyle=", page)
+    # A way back at the bottom, for a reader who has scrolled past every diagram.
+    assert page.rindex('<p class="arch-back"><a href="index.html">') > page.rindex("<img ")

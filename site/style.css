@@ -984,3 +984,4 @@ tbody tr.reference { background: var(--accent-soft); }
   border-radius: 8px;
 }
 .prose .where { font-size: 0.86rem; color: var(--ink-faint); }
+.arch-back { margin: 0; font-size: 0.95rem; }
