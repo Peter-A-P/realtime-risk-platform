@@ -43,6 +43,19 @@ a good record resetting the count. `tests/test_stream_parity.py` holds a
 reordering stream to the reference and reports the late events as missing
 decisions.
 
+**Exercised end to end, 2026-10-17** (`verdict chaos capture`,
+`docs/chaos-capture.md`; local stack, 90,000 transactions at 1,000 a second,
+five runs each). Corrupted and renamed-field records (shares 0.002 to 0.5)
+were set aside as `undecodable`, exactly as many as were sent, with every
+other transaction decided once and no stop. Records reversed within blocks of
+0.2 to 5 seconds stopped the scorer as designed, on fifty late records in a
+row, and because the restart reads the same reversed block, it stopped again
+on every restart: about ten thousand decided and the rest undecided when each
+run ended, the permanent stop the run limit chooses over setting a stream
+aside quietly. Event times moved by -300 seconds to +1 day stopped it once;
+its cold restart then decided the rest. On the live stack `ScorerStopped`
+pages within twenty minutes of such a stop.
+
 **Still open.** Replaying the dead-letter topic once a fault is fixed is a
 manual step with no tool yet, and nothing alarms on the dead-letter count.
 Both belong with the dashboards and alarms, on the live stack.

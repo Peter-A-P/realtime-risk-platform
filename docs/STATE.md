@@ -144,6 +144,15 @@ on `62849fc09bd2`. **Waiting on Peter: close #5.** Day so far (00:00 to 22:25Z):
 decisions, all by `candidate-2026-10-09-1`; mean 9.9 ms; over 25 ms 2.8%, over 50 ms
 0.52% (0.34 to 0.37% on the two days before; today includes the 00:00 to 00:50Z fits);
 approve 99.24%, review 0.63%, decline 0.13%; every target up all day.
+**2026-10-17, chaos captures for project 10 (`203907a`, `docs/chaos-capture.md`).** At
+Peter's request via project 10's session: five data faults added to the chaos harness, and
+`verdict chaos capture` made 42 local runs (8 faults x 5, 2 controls), all completed, kept
+under `chaos-captures/2026-10-17/` (309 MB, gitignored) with logs, 1 s Prometheus series and
+a separate ground-truth manifest each; project 10 told the location. Finding, now in
+`failure-modes.md`: a reversed block of the stream stops the scorer on 50 late records and
+every restart stops on the same block (by design; `ScorerStopped` pages). The venv had
+numpy, confluent-kafka and verdict's metadata damaged, likely by the C: drive filling on
+2026-10-14; those three were reinstalled.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
