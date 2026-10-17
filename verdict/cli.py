@@ -2080,7 +2080,13 @@ app.add_typer(chaos_app)
 
 @chaos_app.command("run")
 def chaos_run(
-    fault: Annotated[str, typer.Option(help="pause, throttle or scorer-stall.")],
+    fault: Annotated[
+        str,
+        typer.Option(
+            help="none, pause, throttle, scorer-stall, duplicates, out-of-order, poison, "
+            "schema-change or clock-skew."
+        ),
+    ],
     seconds: Annotated[float, typer.Option(help="How long the fault lasts.")],
     rate: Annotated[float, typer.Option(help="Transactions a second.")] = 1_000.0,
     count: Annotated[int, typer.Option(help="Transactions in all.")] = 90_000,
@@ -2089,6 +2095,13 @@ def chaos_run(
         bool, typer.Option(help="Begin inside a scorer batch, before its flush.")
     ] = True,
     out: Annotated[Path | None, typer.Option(help="Write the report here as JSON.")] = None,
+    intensity: Annotated[
+        float | None, typer.Option(help="A data fault's intensity (verdict/chaos/faults.py).")
+    ] = None,
+    metrics_port: Annotated[
+        int, typer.Option(help="Serve the scorer's metrics here; 0 for nowhere.")
+    ] = 0,
+    quiet: Annotated[bool, typer.Option(help="Do not print the report.")] = False,
 ) -> None:
     """Do one fault while the scorer decides, and report what it did.
 
@@ -2104,6 +2117,10 @@ def chaos_run(
         container: The broker's container.
         mid_batch: Begin it from inside a batch.
         out: Where to write the report.
+        intensity: A data fault's intensity.
+        metrics_port: Where to serve the scorer's metrics.
+        quiet: Leave the report out of the output, for a capture whose output
+            is the signal and whose report is the label.
     """
     from verdict.chaos.faults import as_dict, run_fault
 
@@ -2115,13 +2132,42 @@ def chaos_run(
             count=count,
             container=container,
             mid_batch=mid_batch,
+            intensity=intensity,
+            metrics_port=metrics_port,
         )
     )
     text = json.dumps(report, indent=2)
     if out is not None:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text + "\n", encoding="utf-8")
-    typer.echo(text)
+    if not quiet:
+        typer.echo(text)
+
+
+@chaos_app.command("capture")
+def chaos_capture(
+    out: Annotated[Path, typer.Option(help="Where the runs go, one directory each.")],
+    repeats: Annotated[int, typer.Option(help="Runs per fault.")] = 5,
+    controls: Annotated[int, typer.Option(help="Runs with nothing done.")] = 2,
+    only: Annotated[
+        str | None, typer.Option(help="Comma-separated faults, to limit a trial.")
+    ] = None,
+) -> None:
+    """Make every chaos run and keep its raw signals, the label apart (verdict/chaos/capture.py).
+
+    Needs the local stack (deploy/compose) and Docker; starts a Prometheus of
+    its own. Never touches the live stack.
+
+    Args:
+        out: The campaign's directory.
+        repeats: Runs per fault.
+        controls: Control runs.
+        only: Limit to these faults.
+    """
+    from verdict.chaos.capture import campaign
+
+    runs = campaign(out, repeats=repeats, controls=controls, only=only.split(",") if only else None)
+    typer.echo(f"{len(runs)} runs in {out}")
 
 
 observe_app = typer.Typer(

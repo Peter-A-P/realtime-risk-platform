@@ -16,6 +16,20 @@ waits for everything sent to be decided. The faults:
   batch, while the stream keeps arriving: consumer lag, as a long pause in
   the process or a slow model would make it.
 
+And the faults that come in the data, done by the instrument's producer to
+what it sends while the fault lasts (2026-10-17, for every scenario in
+PLAN.md's chaos list to have a run behind it, not only a unit test):
+
+- **`duplicates`**: a share of the records sent twice (`intensity`, 0 to 1).
+- **`out-of-order`**: the records sent in reverse order within blocks of
+  `intensity` seconds of stream.
+- **`poison`**: a share of the records sent as JSON cut off mid-object.
+- **`schema-change`**: a share of the records sent with `amount_cents`
+  renamed `amount`, as an upstream that changed its schema would.
+- **`clock-skew`**: the records' event times moved `intensity` seconds ahead,
+  as a producer whose clock jumped would stamp them.
+- **`none`**: nothing at all, the control run.
+
 Each can come at a wall-clock moment, or from inside a scorer batch after a
 transaction is decided and before its decision is flushed (`mid_batch`),
 the moment an outage is worst for the scorer. `scorer-stall` is always the
@@ -38,9 +52,12 @@ import contextlib
 import datetime as dt
 import json
 import platform
+import random
 import subprocess
+import sys
 import threading
 import time
+import traceback
 import uuid
 from collections import Counter
 from collections.abc import Callable
@@ -57,7 +74,17 @@ from verdict.scoring.model import FixedModel, StandInModel
 from verdict.scoring.timing import HopSample
 from verdict.stream.redpanda import DEFAULT_BOOTSTRAP, RedpandaStream
 
-FAULTS: Final = ("pause", "throttle", "scorer-stall")
+CONTAINER_FAULTS: Final = ("pause", "throttle")
+DATA_FAULTS: Final = ("duplicates", "out-of-order", "poison", "schema-change", "clock-skew")
+FAULTS: Final = ("none", *CONTAINER_FAULTS, "scorer-stall", *DATA_FAULTS)
+DEFAULT_INTENSITY: Final = {
+    "duplicates": 1.0,
+    "out-of-order": 2.0,
+    "poison": 0.01,
+    "schema-change": 0.01,
+    "clock-skew": 300.0,
+}
+"""Each data fault's intensity when none is given: its unit is in the module docstring."""
 INSTRUMENT_FLUSH_SECONDS: Final = 900.0
 """How long the instrument's own producer waits for the broker: past any fault tried."""
 THROTTLED_CPUS: Final = 0.05
@@ -95,6 +122,9 @@ class FaultReport:
         fault_at_s: When the fault began, from the start.
         fault_seconds: For how long.
         mid_batch: Whether it began inside a scorer's batch.
+        intensity: A data fault's intensity; None for the others.
+        fault_began_utc: When the fault began, by the wall clock.
+        fault_ended_utc: When it ended.
         scorers: Each scorer process, in order; more than one is a restart.
         restarted_cold: Whether a restart threw away the feature windows.
         max_behind_s: The furthest a decision fell behind its send.
@@ -114,6 +144,9 @@ class FaultReport:
     fault_at_s: float
     fault_seconds: float
     mid_batch: bool
+    intensity: float | None = None
+    fault_began_utc: str | None = None
+    fault_ended_utc: str | None = None
     scorers: list[ScorerLife] = field(default_factory=list)
     restarted_cold: bool = False
     max_behind_s: float = 0.0
@@ -161,7 +194,106 @@ def container_fault(
     raise ValueError(msg)
 
 
-def _send(bootstrap: str, topic: str, events: list[TransactionEvent], rate: float) -> None:
+Payloads = Callable[[int, TransactionEvent], list[bytes]]
+"""What the producer sends for the event at a position in the stream."""
+
+
+def _as_sent(index: int, event: TransactionEvent) -> list[bytes]:
+    del index
+    return [event.to_json().encode("utf-8")]
+
+
+def data_fault(fault: str, *, intensity: float, window: range, seed: int = 20271017) -> Payloads:
+    """What a data fault makes of each record the producer sends.
+
+    `out-of-order` changes the order instead (`reverse_in_blocks`), and sends
+    each record as it is.
+
+    Args:
+        fault: One of `DATA_FAULTS`.
+        intensity: The fault's intensity (the module docstring gives its unit).
+        window: The positions in the stream the fault covers.
+        seed: For the share of records a fault touches.
+
+    Returns:
+        What to send for the event at each position.
+
+    Raises:
+        ValueError: For a fault that is not a data fault.
+    """
+    draw = random.Random(seed)
+
+    def touched(index: int) -> bool:
+        return index in window and draw.random() < intensity
+
+    if fault == "duplicates":
+
+        def twice(index: int, event: TransactionEvent) -> list[bytes]:
+            once = _as_sent(index, event)
+            return once * 2 if touched(index) else once
+
+        return twice
+    if fault == "poison":
+
+        def cut(index: int, event: TransactionEvent) -> list[bytes]:
+            whole = _as_sent(index, event)
+            return [whole[0][: len(whole[0]) // 2]] if touched(index) else whole
+
+        return cut
+    if fault == "schema-change":
+
+        def renamed(index: int, event: TransactionEvent) -> list[bytes]:
+            if not touched(index):
+                return _as_sent(index, event)
+            item = json.loads(event.to_json())
+            item["amount"] = item.pop("amount_cents")
+            return [json.dumps(item).encode("utf-8")]
+
+        return renamed
+    if fault == "clock-skew":
+
+        def skewed(index: int, event: TransactionEvent) -> list[bytes]:
+            if index not in window:
+                return _as_sent(index, event)
+            ahead = event.model_copy(
+                update={"event_time": event.event_time + dt.timedelta(seconds=intensity)}
+            )
+            return _as_sent(index, ahead)
+
+        return skewed
+    if fault == "out-of-order":
+        return _as_sent
+    msg = f"{fault} is not a data fault"
+    raise ValueError(msg)
+
+
+def reverse_in_blocks(
+    events: list[TransactionEvent], window: range, block: int
+) -> list[TransactionEvent]:
+    """The events with each block of `block` positions inside `window` reversed.
+
+    Args:
+        events: The stream, in order.
+        window: The positions the fault covers.
+        block: Records per block.
+
+    Returns:
+        The stream as it will be sent.
+    """
+    out = list(events)
+    for start in range(window.start, window.stop, block):
+        stop = min(start + block, window.stop, len(out))
+        out[start:stop] = out[start:stop][::-1]
+    return out
+
+
+def _send(
+    bootstrap: str,
+    topic: str,
+    events: list[TransactionEvent],
+    rate: float,
+    payloads: Payloads = _as_sent,
+) -> None:
     """Send at a steady rate, waiting out the broker rather than failing."""
     stream = RedpandaStream(bootstrap)
     started = time.monotonic()
@@ -170,7 +302,8 @@ def _send(bootstrap: str, topic: str, events: list[TransactionEvent], rate: floa
             ahead = started + index / rate - time.monotonic()
             if ahead > 0:
                 time.sleep(ahead)
-            stream.produce(topic, event.card_id, event.to_json().encode("utf-8"))
+            for value in payloads(index, event):
+                stream.produce(topic, event.card_id, value)
         stream.flush(INSTRUMENT_FLUSH_SECONDS)
     finally:
         stream.close()
@@ -204,6 +337,8 @@ def run_fault(
     container: str = "verdict-redpanda",
     settle_seconds: float = 120.0,
     mid_batch: bool = True,
+    intensity: float | None = None,
+    metrics_port: int = 0,
 ) -> FaultReport:
     """Do one fault while the scorer decides a steady stream.
 
@@ -218,7 +353,11 @@ def run_fault(
         settle_seconds: After the last send, how long the scorer has to
             finish before it is stopped.
         mid_batch: Begin inside a scorer batch rather than at a wall-clock
-            moment. Always so for `scorer-stall`.
+            moment. Always so for `scorer-stall`; never for a data fault or
+            the control, which have no moment inside a batch.
+        intensity: A data fault's intensity; its default if None.
+        metrics_port: Serve the scorer's metrics here, as the live scorer
+            does, for a run whose signals are kept; 0 for nowhere.
 
     Returns:
         The report.
@@ -230,8 +369,13 @@ def run_fault(
         msg = f"unknown fault {fault}; one of {', '.join(FAULTS)}"
         raise ValueError(msg)
     stall = fault == "scorer-stall"
-    mid_batch = mid_batch or stall
-    begin, end = (_nothing, _nothing) if stall else container_fault(fault, container)
+    in_data = fault in DATA_FAULTS
+    mid_batch = (mid_batch or stall) and fault in (*CONTAINER_FAULTS, "scorer-stall")
+    begin, end = (
+        container_fault(fault, container) if fault in CONTAINER_FAULTS else (_nothing, _nothing)
+    )
+    if in_data and intensity is None:
+        intensity = DEFAULT_INTENSITY[fault]
 
     admin = RedpandaStream(bootstrap)
     suffix = uuid.uuid4().hex[:8]
@@ -244,6 +388,13 @@ def run_fault(
     for topic, partitions in names.values():
         admin.create_topic(topic, partitions)
     events = generate_events(count, rate=rate)
+    payloads: Payloads = _as_sent
+    window = range(int(at_seconds * rate), int((at_seconds + seconds) * rate))
+    if in_data:
+        assert intensity is not None
+        payloads = data_fault(fault, intensity=intensity, window=window)
+        if fault == "out-of-order":
+            events = reverse_in_blocks(events, window, max(2, int(intensity * rate)))
     index = {event.event_id: i for i, event in enumerate(events)}
     report = FaultReport(
         measured_at=dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
@@ -254,7 +405,16 @@ def run_fault(
         fault_at_s=at_seconds,
         fault_seconds=seconds,
         mid_batch=mid_batch,
+        intensity=intensity,
     )
+    metrics = None
+    if metrics_port:
+        from prometheus_client import start_http_server
+
+        from verdict.observe.metrics import ScorerMetrics
+
+        metrics = ScorerMetrics()
+        start_http_server(metrics_port, registry=metrics.registry)
     started = time.monotonic()
     begun = threading.Event()
     ended_at: list[float] = []
@@ -262,11 +422,16 @@ def run_fault(
     decided_ids: set[str] = set()
     stop = threading.Event()
 
+    def now_utc() -> str:
+        return dt.datetime.now(dt.UTC).isoformat(timespec="milliseconds")
+
     def the_fault() -> None:
         begin()
+        report.fault_began_utc = now_utc()
         begun.set()
         time.sleep(seconds)
         end()
+        report.fault_ended_utc = now_utc()
         ended_at.append(time.monotonic() - started)
 
     def on_decided(event: TransactionEvent, decision: DecisionEvent, sample: HopSample) -> None:
@@ -277,8 +442,10 @@ def run_fault(
         if mid_batch and not begun.is_set() and now >= at_seconds:
             # Inside the batch: this decision is made and not yet flushed.
             if stall:
+                report.fault_began_utc = now_utc()
                 begun.set()
                 time.sleep(seconds)
+                report.fault_ended_utc = now_utc()
                 ended_at.append(time.monotonic() - started)
             else:
                 threading.Thread(target=the_fault).start()
@@ -301,8 +468,10 @@ def run_fault(
             on_decided=on_decided,
         )
         try:
-            service.run(scorer, stop=stop)
+            service.run(scorer, stop=stop, metrics=metrics)
         except Exception as error:  # recording why, as a supervisor would
+            # What the process would print as it died, before the restart.
+            traceback.print_exc(file=sys.stderr)
             life.stopped_s = round(time.monotonic() - started, 2)
             life.error = f"{type(error).__name__}: {error}"
         finally:
@@ -321,7 +490,7 @@ def run_fault(
                 time.sleep(1.0)
 
     sending = threading.Thread(
-        target=_send, args=(bootstrap, names["transactions"][0], events, rate)
+        target=_send, args=(bootstrap, names["transactions"][0], events, rate, payloads)
     )
     scoring = threading.Thread(target=supervised)
     scoring.start()

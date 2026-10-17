@@ -51,3 +51,6 @@ loadtest/results/raw/
 Thumbs.db
 .vscode/
 .idea/
+
+# Raw chaos captures for project 10 (verdict chaos capture): large, kept locally.
+chaos-captures/
