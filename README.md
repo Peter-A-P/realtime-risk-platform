@@ -422,7 +422,13 @@ causal inference, retrieval, fine-tuning and compliance.
 
 ## How this was built
 
-Design, methodology, evaluation choices and judgement are Peter Parker's. AI coding
-assistants (Claude Code) were used for implementation and drafting, the way a senior
+The design, the methods, the evaluation and the judgement calls are mine, built from public
+data and public problem statements. I treated it as a platform rather than a fraud model, and
+most of my decisions are about the parts around the model: scoring from the stream rather than
+behind an HTTP endpoint, a feature engine written here so that training and serving cannot
+disagree, and a promotion gate that judges a challenger on its interval rather than its point
+estimate and only ever opens a pull request for a person to merge.
+
+I used AI coding assistants (Claude Code) for implementation and drafting, the way a senior
 engineer uses them in 2026. Every number in the results tables is reproducible from this
 repository with one command, and that reproducibility is the evidence that matters.
