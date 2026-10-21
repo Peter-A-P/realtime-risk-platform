@@ -1,0 +1,97 @@
+{
+  "beats_incumbent": true,
+  "comparison": {
+    "challenger": "candidate-2026-10-12-1-eabf45c88f9e",
+    "challenger_minus_champion": {
+      "frauds": 15607,
+      "high": 0.04365475197662124,
+      "low": 0.01682057648270279,
+      "resamples": 1000,
+      "rows": 153499,
+      "value": 0.02993870679954365
+    },
+    "challenger_pr_auc": {
+      "frauds": 15607,
+      "high": 0.15866429997783948,
+      "low": 0.13114153742507503,
+      "resamples": 1000,
+      "rows": 153499,
+      "value": 0.14303318262330925
+    },
+    "champion": "champion-3f05ac05258b",
+    "champion_pr_auc": {
+      "frauds": 15607,
+      "high": 0.12685885534513527,
+      "low": 0.10433497664401634,
+      "resamples": 1000,
+      "rows": 153499,
+      "value": 0.1130944758237656
+    },
+    "cutoff": "2026-10-18T23:59:59.798007+00:00",
+    "model_hop_ms": {
+      "calls": 5000.0,
+      "p50": 0.0274535,
+      "p99": 0.052426150000000026
+    },
+    "test": {
+      "frauds": 15607,
+      "rows": 153499
+    },
+    "track": "synthetic, offline replay"
+  },
+  "cutoff": "2026-10-18T23:59:59.798007+00:00",
+  "drifted_days_in_training": {
+    "covers_the_drift": true,
+    "days_short": 0,
+    "first_drifted_day": "2026-10-10",
+    "last_day_trained_on": "2026-10-11",
+    "training_cutoff": "2026-10-18T23:59:59.798007+00:00"
+  },
+  "fit": {
+    "params": {
+      "colsample_bytree": 0.8,
+      "eta": 0.05,
+      "eval_metric": "aucpr",
+      "lambda": 1.0,
+      "max_depth": 6,
+      "min_child_weight": 1.0,
+      "nthread": 1,
+      "objective": "binary:logistic",
+      "seed": 20270405,
+      "subsample": 0.8,
+      "tree_method": "hist"
+    },
+    "seconds": 66.8,
+    "trees": 183
+  },
+  "fitted_on_days": [
+    "2026-09-29",
+    "2026-10-12"
+  ],
+  "opened_by": {
+    "by_hand": true,
+    "days_of_evidence": 2,
+    "drift_on": "2026-10-12",
+    "quantities": [
+      "card_amount_max_24h",
+      "card_amount_mean_24h",
+      "device_amount_mean_1h",
+      "device_distinct_cards_24h",
+      "merchant_amount_mean_1h"
+    ],
+    "reason": "The amount means per card, device and merchant drifted from 2026-10-10 (PSI 0.43 to 0.80 on 2026-10-10 and 11, synthetic live). The request the monitors opened closed on a candidate that never saw the drift (#3, closed unmerged), and the promotion at 2026-10-12T21:18Z rebuilt the drift reference inside the drift (ADR 29), so the monitors can no longer see it. Opened by hand with those days as evidence, Peter Parker decision, ADR 34."
+  },
+  "promoted": false,
+  "request": "answered",
+  "table_share_kept": {
+    "fraud": 0.031531243915455275,
+    "legit": 0.01000157809900035
+  },
+  "track": "synthetic live, finalised history",
+  "train": {
+    "excluded_unarrived_labels": 0,
+    "frauds": 384985,
+    "rows": 2244887
+  },
+  "train_share": 0.9242543068288175
+}
