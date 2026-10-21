@@ -153,6 +153,16 @@ a separate ground-truth manifest each; project 10 told the location. Finding, no
 every restart stops on the same block (by design; `ScorerStopped` pages). The venv had
 numpy, confluent-kafka and verdict's metadata damaged, likely by the C: drive filling on
 2026-10-14; those three were reinstalled.
+**2026-10-21 23:15Z, #6 merged and rolled.** `candidate-2026-10-12-1` (fitted to
+2026-10-11, the drift's first two days; 183 trees; in-table test 2026-10-12 PR-AUC 0.1131
+champion, 0.1430 candidate, +0.0299, CI +0.0168 to +0.0437, unweighted) is the shadow
+model on image `f012a8fb094c` (all our services; compose kept as `compose.yml.62849fc.*`);
+launch template matches. The scorer restored and replayed 6.5M records in 388 s, so
+decisions paused about 6.5 minutes at the evening peak and the backlog cleared by 23:29Z.
+The replayed verdict reads 2026-10-13 and 14, due once 14 is finalised (about
+2026-10-22T06:00Z). Evening tail rising with traffic (peak 1,333/s on 10-21, over 50 ms
+2.3% in that hour, the instance's 4 vCPU saturated); a second drift began 2026-10-20 (eight
+quantities and the score).
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
