@@ -163,6 +163,17 @@ The replayed verdict reads 2026-10-13 and 14, due once 14 is finalised (about
 2026-10-22T06:00Z). Evening tail rising with traffic (peak 1,333/s on 10-21, over 50 ms
 2.3% in that hour, the instance's 4 vCPU saturated); a second drift began 2026-10-20 (eight
 quantities and the score).
+**2026-10-22 23:04Z, #7 merged and `candidate-2026-10-12-1-eabf45c88f9e` is champion**
+(`verdict flag set` in the scorer; previous `candidate-2026-10-09-1-3f05ac05258b`). The
+replayed verdict, weighted, on 2026-10-13 and 14: PR-AUC 0.1069 champion, 0.1279
+candidate, +0.0210, CI +0.0193 to +0.0230; decision cost unchanged (+$77.6k, CI -$52.9k to
++$199.1k, on $150.4M). Within a minute every decision carried the new version; the site was
+redeployed with both promotions. The shadow is now the champion itself, scored twice, until
+a new candidate ships. CI failed on #7 first because `site/results.json` was stale (each
+verdict record changes it); re-exported on the branch. The models job could commit the
+export with its verdict, not done yet. The monitors opened the second drift request on
+2026-10-21; its candidate is due about 2026-10-30, after the window. Peak tail: 3.0% over
+50 ms in the ten minutes after the switch, at 1,278/s.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
