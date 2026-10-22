@@ -281,6 +281,31 @@ of the window; `data_volume_gb` says 200. The rates are unchanged: the
 acted stratum is kept whole by design, and sampling it would weaken the
 evidence the promotion gate reads.
 
+## Addendum, 2026-10-22: the compactor runs at the lowest CPU priority
+
+At the evening peak the live scorer shares four saturated cores with the
+feeds, the broker and the compactor. The feeds and the models job already
+run at nice 19; the compactor ran at nice 0, beside the scorer. Over four
+hours on 2026-10-22 (about 1,325 decisions a second, synthetic live), in
+30-second windows: 8.2% of decisions over 50 ms while a seal ran (33
+windows), 1.3% while none did (920 windows). A seal runs every five minutes
+for up to a minute, so it accounts for about a sixth of the slow decisions;
+the rest are the cores being full, which this does not change.
+
+The compactor's parent now calls `os.nice(19)`, which every seal and
+finalise run inherits; it is called before the loops' threads start, since
+Linux sets the priority per thread and a run inherits its thread's. On the
+instance, before the image carried it, `renice` of the parent's process ID
+alone left the runs at nice 0; every thread of it was reniced at 23:37Z the
+same day, and the next seal ran at 19. What it risks is time, not
+correctness: a seal has taken at most 58 s this week against a 1,800 s
+limit, a finalise at most 28 minutes against 7,200 s, and nothing reads
+either in real time. A finalise starved past an hour fires
+`DayNotFinalised` and delays the drift monitors and the models job, not
+decisions. Disk priority was not lowered: the volume's I/O scheduler is
+`none`, under which `ionice` has no effect. The test of it is the same
+comparison after the change, not the day's tail, which traffic growth moves.
+
 ## Sources
 
 - Horvitz and Thompson (1952), "A generalization of sampling without

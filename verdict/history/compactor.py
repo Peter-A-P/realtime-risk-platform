@@ -21,6 +21,10 @@ stopped with it; and a run that never ends is never counted as failed, so
 - **How long the current run has taken is a metric**, so a run that cannot
   even be killed (blocked in the kernel) is still seen.
 
+Since 2026-10-22 the parent runs at the lowest CPU priority, and so every
+run it starts: at the evening peak a seal competed with the scorer for the
+instance's four cores (ADR 18's fourth addendum).
+
 The parent serves:
 
 - `verdict_history_unsealed_age_seconds{spool}`: how long ago the oldest
