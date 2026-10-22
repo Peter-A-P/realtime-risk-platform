@@ -1118,6 +1118,26 @@
    "replayed": true,
    "rows": 599079,
    "source": "docs/live/replayed-verdict-candidate-2026-10-09-1-3f05ac05258b-2026-10-12.json"
+  },
+  {
+   "challenger": "candidate-2026-10-12-1-eabf45c88f9e",
+   "challenger_pr_auc": 0.12792418643190914,
+   "champion": "candidate-2026-10-09-1-3f05ac05258b",
+   "champion_pr_auc": 0.10690960157911494,
+   "days": [
+    "2026-10-13",
+    "2026-10-14"
+   ],
+   "difference": {
+    "high": 0.022975222902652418,
+    "low": 0.01929300053011356,
+    "value": 0.0210145848527942
+   },
+   "frauds": 199586,
+   "judged_on": "2026-10-22",
+   "replayed": true,
+   "rows": 599639,
+   "source": "docs/live/replayed-verdict-candidate-2026-10-12-1-eabf45c88f9e-2026-10-22.json"
   }
  ],
  "queue": {
@@ -1221,6 +1241,7 @@
   "docs/challenger-real.json",
   "docs/sealed-schedule.json",
   "docs/week1-measurement.json",
-  "docs/live/replayed-verdict-candidate-2026-10-09-1-3f05ac05258b-2026-10-12.json"
+  "docs/live/replayed-verdict-candidate-2026-10-09-1-3f05ac05258b-2026-10-12.json",
+  "docs/live/replayed-verdict-candidate-2026-10-12-1-eabf45c88f9e-2026-10-22.json"
  ]
 }
