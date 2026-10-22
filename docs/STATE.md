@@ -173,7 +173,12 @@ a new candidate ships. CI failed on #7 first because `site/results.json` was sta
 verdict record changes it); re-exported on the branch. The models job could commit the
 export with its verdict, not done yet. The monitors opened the second drift request on
 2026-10-21; its candidate is due about 2026-10-30, after the window. Peak tail: 3.0% over
-50 ms in the ten minutes after the switch, at 1,278/s.
+50 ms in the ten minutes after the switch, at 1,278/s. The shadow scores only kept rows
+(about a seventh, `--shadow-kept-only`), so it costs under 1% of a core; the compactor ran
+at nice 0 and a seal took the tail from 1.3% to 8.2% over 50 ms. Every compactor thread
+reniced to 19 at 23:37Z (the parent's PID alone did not reach the runs, which start from its
+threads); #8 makes it permanent (ADR 18 addendum). Judge it by the same seal-versus-idle
+comparison, and watch the next finalise (about 08:00Z) against `DayNotFinalised`.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
