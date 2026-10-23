@@ -1058,6 +1058,7 @@ def history_compactor(
         metrics_port: Where to serve metrics, or 0 for nowhere.
         metrics_host: The interface metrics listen on.
     """
+    import os
     import signal
     import threading
 
@@ -1066,6 +1067,11 @@ def history_compactor(
     from verdict.history.compact import HistoryPaths
     from verdict.history.compactor import CompactorMetrics, Step, compact_command, run_forever
 
+    # Lowest CPU priority, inherited by every run: a seal took the scorer's
+    # tail from 1.3% to 8.2% over 50 ms at the peak (ADR 18, 2026-10-22).
+    nice = getattr(os, "nice", None)
+    if nice is not None:
+        nice(19)
     limits = {Step.SEAL: seal_timeout, Step.FINALISE: finalise_timeout}
     metrics = CompactorMetrics(HistoryPaths(root), limits=limits)
     if metrics_port:
