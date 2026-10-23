@@ -118,6 +118,11 @@ services:
       # The feature state, saved as it runs, so a replacement starts from it
       # and replays what came after rather than from empty windows (ADR 27).
       - --engine-snapshot=/data/engine
+      # A pass starts every hour, not every fifteen minutes: a pass takes
+      # about twelve, and while one runs the tail over 50 ms is three times
+      # what it is without (ADR 27, 2026-10-23). EngineSnapshotStale waits
+      # 45 minutes past the hour, longer than a pass.
+      - --snapshot-every=3600
     depends_on:
       redpanda:
         condition: service_healthy
