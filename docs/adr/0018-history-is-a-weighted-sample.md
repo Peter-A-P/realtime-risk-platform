@@ -306,6 +306,19 @@ decisions. Disk priority was not lowered: the volume's I/O scheduler is
 `none`, under which `ionice` has no effect. The test of it is the same
 comparison after the change, not the day's tail, which traffic growth moves.
 
+**It made no difference.** The same comparison over six hours on 2026-10-23,
+the compactor at nice 19 throughout (about 1,305 decisions a second): 9.3%
+over 50 ms while a seal ran (47 windows), 1.8% while none did (1,382). Not
+the disk either: during a seal the data volume wrote 10 to 38 MB/s and the
+kernel's I/O pressure stayed at 0.1%. The instance's four vCPUs are two
+physical cores with two threads each, so a seal on the scorer's sibling
+thread slows it whatever its priority, which only decides who gets a
+thread, not how fast the core runs for the other. Keeping the scorer's
+sibling free would leave the rest of the stack two threads at the peak.
+The priority stays: the finalise of 2026-10-15 took 950 s at nice 19 and
+nothing timed out. The seal accounts for about a sixth of the slow
+decisions; the rest is the cores being full.
+
 ## Sources
 
 - Horvitz and Thompson (1952), "A generalization of sampling without

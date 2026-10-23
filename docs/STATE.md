@@ -179,6 +179,14 @@ at nice 0 and a seal took the tail from 1.3% to 8.2% over 50 ms. Every compactor
 reniced to 19 at 23:37Z (the parent's PID alone did not reach the runs, which start from its
 threads); #8 makes it permanent (ADR 18 addendum). Judge it by the same seal-versus-idle
 comparison, and watch the next finalise (about 08:00Z) against `DayNotFinalised`.
+**2026-10-23: the renice did nothing for the tail** (seal 9.3%, idle 1.8% over 50 ms, six
+hours at about 1,305/s): not the disk (I/O pressure 0.1%), most likely the seal on the
+scorer's hyperthread sibling (four vCPUs are two cores); ADR 18 records it. The finalise
+of 10-15 took 950 s at nice 19, all runs ok. 87.3M decisions on 10-23 by 22:40Z, mean
+13.6 ms, 1.06% over 50 ms, all on the new champion, no alerts. The drift monitors say "no
+reference yet" by design (ADR 29): after a promotion the reference is the two whole days
+after it, 10-23 and 10-24, built about 2026-10-25T03:00Z; the first day judged against it
+is 10-25. The open drift request stays open meanwhile.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
