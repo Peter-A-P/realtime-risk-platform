@@ -218,10 +218,11 @@ small throughout (p99: features 0.8 ms, model 2.4 ms); the wait is behind
 the slices, on a machine with two physical cores.
 
 The live scorer now runs with `--snapshot-every=3600`, so a pass runs about
-a fifth of the time. A restore replays from the start of the last complete
-pass: at most about 72 minutes of records rather than 27, inside the
-topics' 24 h, and the same features, since replay is exact. A replacement's
-pause grows by about three minutes. `EngineSnapshotStale` (an hour since
+a fifth of the time. A restore replays from an hour (`REPLAY_REACH`) before
+the start of the last complete pass: at most about 2 h 12 min of records
+rather than 1 h 27 min, inside the topics' 24 h, and the same features,
+since replay is exact. A replacement's pause grows by up to about three
+minutes: the restart that applied this replayed 5,222,677 records in 295 s. `EngineSnapshotStale` (an hour since
 the last complete pass, for 45 minutes) still fires only on a missed pass:
 the age passes an hour for about one pass's length each cycle. The default
 stays 900 s, which is what the local stack and the tests use.
