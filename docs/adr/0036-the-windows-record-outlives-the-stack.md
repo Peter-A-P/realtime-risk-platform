@@ -52,6 +52,9 @@ Three things, so the window can be seen after the stack is gone.
 
 ## Consequences
 
+- The deploy identity needs the bucket too: `deploy/aws/iam/archive-policy.json`, a
+  policy of its own because the deploy policy is within 60 characters of IAM's
+  6,144 limit, attached by Peter as the other two were.
 - One more resource in the account while the stack runs. It holds data
   only between a fetch's upload and its download, a few hours at most.
 - The archived dashboard is local, not public. The public record is the

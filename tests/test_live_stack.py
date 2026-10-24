@@ -34,6 +34,8 @@ LIVE_COMPOSE = ROOT / "deploy" / "live" / "compose.yml"
 TERRAFORM = ROOT / "deploy" / "terraform"
 DEPLOY_POLICY = ROOT / "deploy" / "aws" / "iam" / "deploy-policy.json"
 BOOTSTRAP_POLICY = ROOT / "deploy" / "aws" / "iam" / "bootstrap-policy.json"
+# The archive bucket (ADR 36), apart so the deploy policy stays under IAM's size limit.
+ARCHIVE_POLICY = ROOT / "deploy" / "aws" / "iam" / "archive-policy.json"
 
 _ENSURE = re.compile(r"^\s*ensure ([a-z-]+) (\d+) (\d+)\s*$", re.MULTILINE)
 
@@ -101,6 +103,8 @@ def test_what_an_autoscaling_group_launches_is_tagged() -> None:
         ROOT / "deploy" / "up.sh",
         ROOT / "deploy" / "down.sh",
         ROOT / "deploy" / "push-image.sh",
+        ROOT / "deploy" / "archive" / "fetch.sh",
+        ROOT / "deploy" / "archive" / "serve.sh",
     ],
 )
 def test_files_that_run_on_linux_have_no_carriage_returns(path: Path) -> None:
@@ -114,7 +118,7 @@ def _statements(path: Path) -> list[dict[str, Any]]:
     return statements
 
 
-@pytest.mark.parametrize("path", [DEPLOY_POLICY, BOOTSTRAP_POLICY])
+@pytest.mark.parametrize("path", [DEPLOY_POLICY, BOOTSTRAP_POLICY, ARCHIVE_POLICY])
 def test_every_policy_fits_what_iam_accepts(path: Path) -> None:
     """IAM refuses a managed policy over 6,144 characters, whitespace not counted.
 
@@ -124,7 +128,7 @@ def test_every_policy_fits_what_iam_accepts(path: Path) -> None:
     assert len(re.sub(r"\s", "", path.read_text(encoding="utf-8"))) <= 6_144
 
 
-@pytest.mark.parametrize("path", [DEPLOY_POLICY, BOOTSTRAP_POLICY])
+@pytest.mark.parametrize("path", [DEPLOY_POLICY, BOOTSTRAP_POLICY, ARCHIVE_POLICY])
 def test_no_policy_grants_a_whole_service(path: Path) -> None:
     for statement in _statements(path):
         actions = statement["Action"]
