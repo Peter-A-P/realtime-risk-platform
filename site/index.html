@@ -186,6 +186,29 @@
     </div>
   </section>
 
+  <section class="section" id="window-panel">
+    <h2>The live window, day by day</h2>
+    <p class="section-lead">
+      Every decision of the live window, counted from the metrics the stack kept. Each bar is one
+      UTC day, and its height is the share of that day's decisions that took longer than the
+      50 ms budget, from the moment a transaction was sent to the moment its decision was on the
+      stream. Below the dashed line, the day's p99 was inside the budget. Point at a day to read it.
+    </p>
+    <figure class="chart-figure">
+      <div id="window-chart" class="chart"></div>
+      <p class="readout" id="window-readout"></p>
+      <div class="legend" id="window-legend"></div>
+      <figcaption id="window-caption"></figcaption>
+    </figure>
+    <div class="verdict">
+      <p id="window-verdict"></p>
+    </div>
+    <details class="disclose">
+      <summary>Every day as a table</summary>
+      <div class="table-wrap"><table id="window-table"></table></div>
+    </details>
+  </section>
+
   <section class="section" id="drift-panel">
     <h2>Fraud changes. Does anyone notice?</h2>
     <p class="section-lead" id="drift-lede">

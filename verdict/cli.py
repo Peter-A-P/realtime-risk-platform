@@ -2188,16 +2188,36 @@ def observe_grafana(
     mounted_at: Annotated[
         str, typer.Option(help="Where Grafana sees that directory.")
     ] = "/etc/grafana/verdict",
+    window_start: Annotated[
+        str | None,
+        typer.Option(help="For the archive: the live window's start, ISO 8601 with a zone."),
+    ] = None,
+    window_end: Annotated[
+        str | None,
+        typer.Option(help="For the archive: the live window's end, ISO 8601 with a zone."),
+    ] = None,
 ) -> None:
     """Write the public dashboard and its data source for Grafana to load.
+
+    Given the window, it writes the archive's dashboard instead (deploy/archive):
+    the whole window on opening, no refresh, rates over Grafana's interval.
 
     Args:
         out: The directory to write.
         mounted_at: Its path inside the Grafana container.
+        window_start: The window's start, for the archive.
+        window_end: The window's end, for the archive.
+
+    Raises:
+        typer.BadParameter: If only one end of the window is given.
     """
     from verdict.observe.dashboard import write_files
 
-    for path in write_files(out, mounted_at=mounted_at):
+    if (window_start is None) != (window_end is None):
+        msg = "give both --window-start and --window-end, or neither"
+        raise typer.BadParameter(msg)
+    window = None if window_start is None or window_end is None else (window_start, window_end)
+    for path in write_files(out, mounted_at=mounted_at, window=window):
         typer.echo(f"wrote {path}")
 
 
@@ -2284,6 +2304,44 @@ def observe_report(
         f"{len(availability['spot_reclaims'])} spot reclaims, "
         f"{len(availability['other_stops'])} other stops"
     )
+
+
+@observe_app.command("daily")
+def observe_daily(
+    start: Annotated[str, typer.Option(help="The window's start, ISO 8601 with a zone.")],
+    end: Annotated[
+        str | None,
+        typer.Option(help="Where the rows stop, ISO 8601 with a zone; now if not given."),
+    ] = None,
+    prometheus: Annotated[str, typer.Option(help="Prometheus base URL.")] = (
+        "http://prometheus:9090"
+    ),
+    out: Annotated[Path | None, typer.Option(help="Write the report here as JSON.")] = None,
+) -> None:
+    """The live window day by day: decisions, latency, actions and models (ADR 36).
+
+    One row a UTC day, for `docs/live/daily.json` and the demo site, which
+    outlive the stack and its dashboard. Without `--out` it prints the JSON.
+
+    Args:
+        start: The window's start.
+        end: Where the rows stop.
+        prometheus: Where the live stack's metrics are.
+        out: Where to write the report.
+    """
+    from verdict.observe import daily
+
+    first = dt.datetime.fromisoformat(start.replace("Z", "+00:00")).astimezone(dt.UTC)
+    last = (
+        dt.datetime.now(dt.UTC).replace(second=0, microsecond=0)
+        if end is None
+        else dt.datetime.fromisoformat(end.replace("Z", "+00:00")).astimezone(dt.UTC)
+    )
+    text = json.dumps(daily.report(daily.prometheus(prometheus), first, last), indent=1) + "\n"
+    if out is None:
+        typer.echo(text, nl=False)
+    else:
+        out.write_text(text, encoding="utf-8")
 
 
 flag_app = typer.Typer(

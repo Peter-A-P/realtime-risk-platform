@@ -1,0 +1,662 @@
+{
+ "track": "synthetic live",
+ "source": "the live stack's Prometheus (ADR 36)",
+ "budget_ms": 50.0,
+ "note": "Every decision of each UTC day is counted, not sampled. Percentiles are interpolated within the scorer's latency buckets; p99_bucket_ms is the bucket the p99 fell in. The first and last days are partial.",
+ "start": "2026-09-29T19:11:00Z",
+ "end": "2026-10-24T00:00:00Z",
+ "days": [
+  {
+   "day": "2026-09-29",
+   "from": "2026-09-29T19:11:00Z",
+   "to": "2026-09-30T00:00:00Z",
+   "decisions": 21708795,
+   "peak_per_second": 1292,
+   "mean_ms": 8.32,
+   "p50_ms": 7.94,
+   "p99_ms": 24.5,
+   "p999_ms": 44.28,
+   "p99_bucket_ms": [
+    10.0,
+    25.0
+   ],
+   "over_budget_share": 0.00068,
+   "actions": {
+    "approve": 18302748,
+    "decline": 1883779,
+    "review": 1522268
+   },
+   "models": {
+    "champion-8d960d985749": 21708795
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-09-30",
+   "from": "2026-09-30T00:00:00Z",
+   "to": "2026-10-01T00:00:00Z",
+   "decisions": 88140394,
+   "peak_per_second": 1307,
+   "mean_ms": 7.96,
+   "p50_ms": 7.6,
+   "p99_ms": 24.51,
+   "p999_ms": 49.1,
+   "p99_bucket_ms": [
+    10.0,
+    25.0
+   ],
+   "over_budget_share": 0.00092,
+   "actions": {
+    "approve": 70692129,
+    "decline": 9482635,
+    "review": 7965630
+   },
+   "models": {
+    "champion-8d960d985749": 88140394
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-01",
+   "from": "2026-10-01T00:00:00Z",
+   "to": "2026-10-02T00:00:00Z",
+   "decisions": 89304376,
+   "peak_per_second": 1328,
+   "mean_ms": 8.43,
+   "p50_ms": 7.84,
+   "p99_ms": 24.75,
+   "p999_ms": 80.04,
+   "p99_bucket_ms": [
+    10.0,
+    25.0
+   ],
+   "over_budget_share": 0.00173,
+   "actions": {
+    "approve": 74169623,
+    "decline": 8078566,
+    "review": 7056188
+   },
+   "models": {
+    "champion-8d960d985749": 89304376
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-02",
+   "from": "2026-10-02T00:00:00Z",
+   "to": "2026-10-03T00:00:00Z",
+   "decisions": 89379967,
+   "peak_per_second": 1355,
+   "mean_ms": 8.65,
+   "p50_ms": 7.98,
+   "p99_ms": 24.82,
+   "p999_ms": 77.25,
+   "p99_bucket_ms": [
+    10.0,
+    25.0
+   ],
+   "over_budget_share": 0.00163,
+   "actions": {
+    "approve": 74312305,
+    "decline": 8030561,
+    "review": 7037101
+   },
+   "models": {
+    "champion-8d960d985749": 89379967
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-03",
+   "from": "2026-10-03T00:00:00Z",
+   "to": "2026-10-04T00:00:00Z",
+   "decisions": 90113502,
+   "peak_per_second": 1337,
+   "mean_ms": 8.2,
+   "p50_ms": 7.68,
+   "p99_ms": 24.71,
+   "p999_ms": 81.5,
+   "p99_bucket_ms": [
+    10.0,
+    25.0
+   ],
+   "over_budget_share": 0.00185,
+   "actions": {
+    "approve": 74977161,
+    "decline": 8091184,
+    "review": 7045157
+   },
+   "models": {
+    "champion-8d960d985749": 90113502
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-04",
+   "from": "2026-10-04T00:00:00Z",
+   "to": "2026-10-05T00:00:00Z",
+   "decisions": 88743534,
+   "peak_per_second": 1330,
+   "mean_ms": 7.84,
+   "p50_ms": 7.47,
+   "p99_ms": 24.57,
+   "p999_ms": 79.2,
+   "p99_bucket_ms": [
+    10.0,
+    25.0
+   ],
+   "over_budget_share": 0.00178,
+   "actions": {
+    "approve": 73811450,
+    "decline": 7959356,
+    "review": 6972728
+   },
+   "models": {
+    "champion-8d960d985749": 88743534
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-05",
+   "from": "2026-10-05T00:00:00Z",
+   "to": "2026-10-06T00:00:00Z",
+   "decisions": 88852137,
+   "peak_per_second": 1345,
+   "mean_ms": 9.1,
+   "p50_ms": 8.21,
+   "p99_ms": 24.95,
+   "p999_ms": 79.23,
+   "p99_bucket_ms": [
+    10.0,
+    25.0
+   ],
+   "over_budget_share": 0.0017,
+   "actions": {
+    "approve": 73712546,
+    "decline": 8085229,
+    "review": 7054362
+   },
+   "models": {
+    "champion-8d960d985749": 88852137
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-06",
+   "from": "2026-10-06T00:00:00Z",
+   "to": "2026-10-07T00:00:00Z",
+   "decisions": 88602409,
+   "peak_per_second": 1325,
+   "mean_ms": 9.83,
+   "p50_ms": 8.36,
+   "p99_ms": 44.16,
+   "p999_ms": 98.89,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00454,
+   "actions": {
+    "approve": 73645384,
+    "decline": 7960267,
+    "review": 6996759
+   },
+   "models": {
+    "champion-8d960d985749": 88602409
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-07",
+   "from": "2026-10-07T00:00:00Z",
+   "to": "2026-10-08T00:00:00Z",
+   "decisions": 89352980,
+   "peak_per_second": 1379,
+   "mean_ms": 12.55,
+   "p50_ms": 12.56,
+   "p99_ms": 44.2,
+   "p999_ms": 96.81,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00338,
+   "actions": {
+    "approve": 74276886,
+    "decline": 8042614,
+    "review": 7033479
+   },
+   "models": {
+    "champion-8d960d985749": 89352980
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-08",
+   "from": "2026-10-08T00:00:00Z",
+   "to": "2026-10-09T00:00:00Z",
+   "decisions": 89005595,
+   "peak_per_second": 1334,
+   "mean_ms": 12.26,
+   "p50_ms": 12.02,
+   "p99_ms": 43.37,
+   "p999_ms": 89.06,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00235,
+   "actions": {
+    "approve": 73976904,
+    "decline": 8032089,
+    "review": 6996602
+   },
+   "models": {
+    "champion-8d960d985749": 89005595
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-09",
+   "from": "2026-10-09T00:00:00Z",
+   "to": "2026-10-10T00:00:00Z",
+   "decisions": 89278682,
+   "peak_per_second": 1297,
+   "mean_ms": 12.21,
+   "p50_ms": 11.83,
+   "p99_ms": 43.85,
+   "p999_ms": 89.86,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00262,
+   "actions": {
+    "approve": 73976677,
+    "decline": 8372964,
+    "review": 6929041
+   },
+   "models": {
+    "champion-8d960d985749": 89278682
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-10",
+   "from": "2026-10-10T00:00:00Z",
+   "to": "2026-10-11T00:00:00Z",
+   "decisions": 87302919,
+   "peak_per_second": 2011,
+   "mean_ms": 760.6,
+   "p50_ms": 9.34,
+   "p99_ms": 48.72,
+   "p999_ms": 238557.87,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.009,
+   "actions": {
+    "approve": 72018437,
+    "decline": 9091685,
+    "review": 6192796
+   },
+   "models": {
+    "champion-8d960d985749": 87302919
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 5
+  },
+  {
+   "day": "2026-10-11",
+   "from": "2026-10-11T00:00:00Z",
+   "to": "2026-10-12T00:00:00Z",
+   "decisions": 89101042,
+   "peak_per_second": 1306,
+   "mean_ms": 10.98,
+   "p50_ms": 9.52,
+   "p99_ms": 41.61,
+   "p999_ms": 127.5,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.0036,
+   "actions": {
+    "approve": 73492232,
+    "decline": 9418683,
+    "review": 6190127
+   },
+   "models": {
+    "champion-8d960d985749": 89101042
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-12",
+   "from": "2026-10-12T00:00:00Z",
+   "to": "2026-10-13T00:00:00Z",
+   "decisions": 87961482,
+   "peak_per_second": 1323,
+   "mean_ms": 11.27,
+   "p50_ms": 9.54,
+   "p99_ms": 45.92,
+   "p999_ms": 99.0,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00523,
+   "actions": {
+    "approve": 74462509,
+    "decline": 8077740,
+    "review": 5421233
+   },
+   "models": {
+    "candidate-2026-10-09-1-3f05ac05258b": 11953879,
+    "champion-8d960d985749": 76007602
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-13",
+   "from": "2026-10-13T00:00:00Z",
+   "to": "2026-10-14T00:00:00Z",
+   "decisions": 86073690,
+   "peak_per_second": 1261,
+   "mean_ms": 9.85,
+   "p50_ms": 8.41,
+   "p99_ms": 44.21,
+   "p999_ms": 107.07,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00493,
+   "actions": {
+    "approve": 85426184,
+    "decline": 112482,
+    "review": 535025
+   },
+   "models": {
+    "candidate-2026-10-09-1-3f05ac05258b": 86073690
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-14",
+   "from": "2026-10-14T00:00:00Z",
+   "to": "2026-10-15T00:00:00Z",
+   "decisions": 87951241,
+   "peak_per_second": 1339,
+   "mean_ms": 9.25,
+   "p50_ms": 8.3,
+   "p99_ms": 32.45,
+   "p999_ms": 82.82,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00197,
+   "actions": {
+    "approve": 87307430,
+    "decline": 103714,
+    "review": 540098
+   },
+   "models": {
+    "candidate-2026-10-09-1-3f05ac05258b": 87951241
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-15",
+   "from": "2026-10-15T00:00:00Z",
+   "to": "2026-10-16T00:00:00Z",
+   "decisions": 86982638,
+   "peak_per_second": 1292,
+   "mean_ms": 9.24,
+   "p50_ms": 8.28,
+   "p99_ms": 31.54,
+   "p999_ms": 88.76,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00214,
+   "actions": {
+    "approve": 86322694,
+    "decline": 108344,
+    "review": 551601
+   },
+   "models": {
+    "candidate-2026-10-09-1-3f05ac05258b": 86982638
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-16",
+   "from": "2026-10-16T00:00:00Z",
+   "to": "2026-10-17T00:00:00Z",
+   "decisions": 88128763,
+   "peak_per_second": 1286,
+   "mean_ms": 9.25,
+   "p50_ms": 8.29,
+   "p99_ms": 32.4,
+   "p999_ms": 85.8,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00211,
+   "actions": {
+    "approve": 87483416,
+    "decline": 106172,
+    "review": 539175
+   },
+   "models": {
+    "candidate-2026-10-09-1-3f05ac05258b": 88128763
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-17",
+   "from": "2026-10-17T00:00:00Z",
+   "to": "2026-10-18T00:00:00Z",
+   "decisions": 86276877,
+   "peak_per_second": 1262,
+   "mean_ms": 8.51,
+   "p50_ms": 7.85,
+   "p99_ms": 24.95,
+   "p999_ms": 77.09,
+   "p99_bucket_ms": [
+    10.0,
+    25.0
+   ],
+   "over_budget_share": 0.00161,
+   "actions": {
+    "approve": 85584539,
+    "decline": 122147,
+    "review": 570190
+   },
+   "models": {
+    "candidate-2026-10-09-1-3f05ac05258b": 86276877
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-18",
+   "from": "2026-10-18T00:00:00Z",
+   "to": "2026-10-19T00:00:00Z",
+   "decisions": 86937516,
+   "peak_per_second": 1294,
+   "mean_ms": 8.57,
+   "p50_ms": 7.85,
+   "p99_ms": 25.5,
+   "p999_ms": 82.07,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00183,
+   "actions": {
+    "approve": 86298669,
+    "decline": 110828,
+    "review": 528019
+   },
+   "models": {
+    "candidate-2026-10-09-1-3f05ac05258b": 86937516
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-19",
+   "from": "2026-10-19T00:00:00Z",
+   "to": "2026-10-20T00:00:00Z",
+   "decisions": 88946926,
+   "peak_per_second": 1403,
+   "mean_ms": 10.22,
+   "p50_ms": 8.63,
+   "p99_ms": 41.2,
+   "p999_ms": 127.41,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00344,
+   "actions": {
+    "approve": 87391956,
+    "decline": 352033,
+    "review": 1202937
+   },
+   "models": {
+    "candidate-2026-10-09-1-3f05ac05258b": 88946926
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-20",
+   "from": "2026-10-20T00:00:00Z",
+   "to": "2026-10-21T00:00:00Z",
+   "decisions": 93436302,
+   "peak_per_second": 1356,
+   "mean_ms": 13.71,
+   "p50_ms": 10.85,
+   "p99_ms": 60.98,
+   "p999_ms": 249.37,
+   "p99_bucket_ms": [
+    50.0,
+    100.0
+   ],
+   "over_budget_share": 0.01187,
+   "actions": {
+    "approve": 89622749,
+    "decline": 977269,
+    "review": 2836284
+   },
+   "models": {
+    "candidate-2026-10-09-1-3f05ac05258b": 93436302
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-21",
+   "from": "2026-10-21T00:00:00Z",
+   "to": "2026-10-22T00:00:00Z",
+   "decisions": 93272384,
+   "peak_per_second": 3144,
+   "mean_ms": 2261.94,
+   "p50_ms": 12.45,
+   "p99_ms": 3938.42,
+   "p999_ms": 510195.3,
+   "p99_bucket_ms": [
+    1000.0,
+    5000.0
+   ],
+   "over_budget_share": 0.02248,
+   "actions": {
+    "approve": 88984479,
+    "decline": 1138527,
+    "review": 3149379
+   },
+   "models": {
+    "candidate-2026-10-09-1-3f05ac05258b": 93272384
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 6
+  },
+  {
+   "day": "2026-10-22",
+   "from": "2026-10-22T00:00:00Z",
+   "to": "2026-10-23T00:00:00Z",
+   "decisions": 93881116,
+   "peak_per_second": 1364,
+   "mean_ms": 13.97,
+   "p50_ms": 12.08,
+   "p99_ms": 49.87,
+   "p999_ms": 225.07,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00964,
+   "actions": {
+    "approve": 89598094,
+    "decline": 1153312,
+    "review": 3129710
+   },
+   "models": {
+    "candidate-2026-10-09-1-3f05ac05258b": 89623996,
+    "candidate-2026-10-12-1-eabf45c88f9e": 4257120
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
+  },
+  {
+   "day": "2026-10-23",
+   "from": "2026-10-23T00:00:00Z",
+   "to": "2026-10-24T00:00:00Z",
+   "decisions": 92994425,
+   "peak_per_second": 2464,
+   "mean_ms": 1171.59,
+   "p50_ms": 10.98,
+   "p99_ms": 97.73,
+   "p999_ms": 286828.7,
+   "p99_bucket_ms": [
+    50.0,
+    100.0
+   ],
+   "over_budget_share": 0.0171,
+   "actions": {
+    "approve": 90833544,
+    "decline": 396807,
+    "review": 1764074
+   },
+   "models": {
+    "candidate-2026-10-12-1-eabf45c88f9e": 92994425
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 5
+  }
+ ]
+}

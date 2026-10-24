@@ -16,6 +16,7 @@ track. It says so in its first panel.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Final
 
@@ -37,6 +38,20 @@ Everything here is the synthetic live track, measured on the one instance
 that runs it. No real payment data is involved. Method, code and every
 decision record: [{REPOSITORY}]({REPOSITORY}).
 """
+
+ARCHIVE_INTRODUCTION: Final = f"""\
+**Every card transaction scored before the money moves.** This is the record
+of the Real-Time Fraud and Risk Decisioning Platform's thirty-day live window,
+from the metrics the live stack kept: synthetic card transactions decided by a
+stream consumer serving point-in-time correct features, while the fraud
+patterns shifted on a schedule sealed before the window opened.
+
+The stack that produced it has been torn down; this is its Prometheus data,
+served again unchanged. Everything here is the synthetic live track. Method,
+code and every decision record: [{REPOSITORY}]({REPOSITORY}).
+"""
+
+_FIXED_WINDOW: Final = re.compile(r"\[[0-9]+m\]")
 
 
 def _target(expr: str, legend: str) -> dict[str, Any]:
@@ -91,12 +106,34 @@ def _mean(metric: str) -> str:
     return f"sum(rate({metric}_sum[5m])) / sum(rate({metric}_count[5m]))"
 
 
-def dashboard() -> dict[str, Any]:
+def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
     """The dashboard model Grafana loads.
+
+    Args:
+        window: For the archive, the live window's first and last moments (ISO
+            8601). The dashboard then opens on the whole window, never
+            refreshes, and every rate is taken over Grafana's own interval,
+            since a five-minute rate drawn at a thirty-day zoom shows one
+            five-minute sample of each step and not the step.
 
     Returns:
         The dashboard, as Grafana's JSON model.
     """
+    model = _live_dashboard()
+    if window is None:
+        return model
+    for panel in model["panels"]:
+        if panel["type"] == "text":
+            panel["options"]["content"] = ARCHIVE_INTRODUCTION
+        for target in panel.get("targets", []):
+            target["expr"] = _FIXED_WINDOW.sub("[$__rate_interval]", target["expr"])
+    model["title"] = "Verdict: the thirty-day live window"
+    model["refresh"] = ""
+    model["time"] = {"from": window[0], "to": window[1]}
+    return model
+
+
+def _live_dashboard() -> dict[str, Any]:
     age = "verdict_event_to_decision_seconds"
     panels: list[dict[str, Any]] = [
         {
@@ -319,12 +356,18 @@ def provider(dashboards: str) -> dict[str, Any]:
     }
 
 
-def write_files(out: Path, *, mounted_at: str = "/etc/grafana/verdict") -> list[Path]:
+def write_files(
+    out: Path,
+    *,
+    mounted_at: str = "/etc/grafana/verdict",
+    window: tuple[str, str] | None = None,
+) -> list[Path]:
     """Write everything Grafana is provisioned from.
 
     Args:
         out: The directory to write, mounted into Grafana at `mounted_at`.
         mounted_at: Where Grafana sees `out`.
+        window: For the archive, the live window it shows (see `dashboard`).
 
     Returns:
         The files written.
@@ -336,7 +379,7 @@ def write_files(out: Path, *, mounted_at: str = "/etc/grafana/verdict") -> list[
         out / "provisioning" / "dashboards" / "verdict.yaml": yaml.safe_dump(
             provider(f"{mounted_at}/dashboards"), sort_keys=False
         ),
-        out / "dashboards" / "verdict.json": json.dumps(dashboard(), indent=2) + "\n",
+        out / "dashboards" / "verdict.json": json.dumps(dashboard(window), indent=2) + "\n",
     }
     for path, text in files.items():
         path.parent.mkdir(parents=True, exist_ok=True)

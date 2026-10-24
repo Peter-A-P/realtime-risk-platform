@@ -187,6 +187,21 @@ of 10-15 took 950 s at nice 19, all runs ok. 87.3M decisions on 10-23 by 22:40Z,
 reference yet" by design (ADR 29): after a promotion the reference is the two whole days
 after it, 10-23 and 10-24, built about 2026-10-25T03:00Z; the first day judged against it
 is 10-25. The open drift request stays open meanwhile.
+**2026-10-23 23:19Z, the scorer saves its state hourly** (#9, ADR 27 addendum): a save took
+11 to 13 min and ran about 80% of the time; tail 0.6% over 50 ms with none running, 2.0%
+during one, 10.1% during one and a seal. Restarted alone, seconds after a save completed:
+restored and replayed 5,222,677 records in 295 s, deciding again 23:24Z. The restart at the
+evening peak took 10-23 from 1.06% to 1.71% over 50 ms. Judge the change by the same window
+comparison after a day. **ADR 36, the window's record outlives the stack** (branch
+`archive`, wait for #9 to merge first, since the launch template carries the compose file):
+an archive bucket (Terraform, needs Peter's apply: the session's apply was refused by the
+permission classifier), `deploy/archive/fetch.sh` and `serve.sh` for the dashboard from the
+archived Prometheus, `verdict observe daily` writing `docs/live/daily.json` (through
+2026-10-23, run on the instance with the module copied into the models container) and a
+day-by-day chart on the demo site. Peter wants all three, and as much data as possible
+(2026-10-23); whether the stack runs a week past the window for the last labels is still his.
+The build machine's C: had 25 GB free: Docker's disk is 20 GB for 6 GB of images (compact
+it), temp 13 GB.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
