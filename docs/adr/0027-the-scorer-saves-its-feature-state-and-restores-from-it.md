@@ -204,3 +204,29 @@ restores, and how it grows with the replayed stretch, is still to be
 measured; that is the fix that makes the swap unnecessary. Peter decided the
 same day to stay on spot and accept the reclaims rather than move to
 on-demand.
+
+## Addendum, 2026-10-23: a pass starts every hour on the live stack
+
+By the fourth week the engine had grown to a 2.4 GB snapshot, and a pass,
+pickling in 2 ms slices at most every 10 ms, took 641 to 761 s (25 passes
+over six hours on 2026-10-23). Starting every 900 s, a pass was running
+about 80% of the time. In 30-second windows over those six hours (about
+1,305 decisions a second, synthetic live): 0.6% of decisions over 50 ms
+with no pass and no seal running (225 windows), 2.0% during a pass (1,167),
+10.1% during a pass and a seal at once (44). The scorer's own hops stay
+small throughout (p99: features 0.8 ms, model 2.4 ms); the wait is behind
+the slices, on a machine with two physical cores.
+
+The live scorer now runs with `--snapshot-every=3600`, so a pass runs about
+a fifth of the time. A restore replays from an hour (`REPLAY_REACH`) before
+the start of the last complete pass: at most about 2 h 12 min of records
+rather than 1 h 27 min, inside the topics' 24 h, and the same features,
+since replay is exact. A replacement's pause grows by up to about three
+minutes: the restart that applied this replayed 5,222,677 records in 295 s. `EngineSnapshotStale` (an hour since
+the last complete pass, for 45 minutes) still fires only on a missed pass:
+the age passes an hour for about one pass's length each cycle. The default
+stays 900 s, which is what the local stack and the tests use.
+
+Applied by restarting the scorer alone at 23:19Z, a few seconds after a
+pass completed; its restore and replay are in the scorer's starts record.
+The test is the same window comparison after the change.
