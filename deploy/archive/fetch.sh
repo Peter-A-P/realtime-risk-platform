@@ -2,7 +2,7 @@
 # Move the live window's record from the instance to this machine, before
 # teardown destroys the data volume it lives on (ADR 36):
 #
-#   deploy/archive/fetch.sh --to DIR [--final]
+#   deploy/archive/fetch.sh --to DIR [--final] [--metrics-only]
 #
 # Three files go through the archive bucket, streamed from the volume so the
 # instance needs no room for them, and come down under DIR/<when>/:
@@ -17,7 +17,8 @@
 # copy is taken while Prometheus runs, and its last few minutes may need the
 # write-ahead log repaired when the archive is served (deploy/archive/serve.sh
 # lets Prometheus do that). The bucket's copies are removed once the files are
-# down and their checksums match.
+# down and their checksums match. --metrics-only leaves out kept.tar, for a
+# dashboard refresh or a trial: minutes rather than the history's hour.
 set -euo pipefail
 cd "$(dirname "$0")/../terraform"
 
@@ -26,14 +27,16 @@ region="ca-central-1"
 export MSYS_NO_PATHCONV=1
 to=""
 final=0
+kept=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --to) to="${2:?--to needs a directory}"; shift 2 ;;
     --final) final=1; shift ;;
+    --metrics-only) kept=0; shift ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
-[ -n "$to" ] || { echo "usage: deploy/archive/fetch.sh --to DIR [--final]" >&2; exit 2; }
+[ -n "$to" ] || { echo "usage: deploy/archive/fetch.sh --to DIR [--final] [--metrics-only]" >&2; exit 2; }
 
 bucket=$(terraform output -raw archive_bucket)
 instance=$(aws autoscaling describe-auto-scaling-groups --profile "$profile" --region "$region" \
@@ -47,7 +50,8 @@ prefix="s3://$bucket/$when"
 # printed when it ends. An hour is enough for the three streams.
 on_instance() {
   local params id status
-  params=$(mktemp)
+  # Relative: with MSYS_NO_PATHCONV, a /tmp path means nothing to a Windows aws.
+  params="archive-params-$$.json"
   python -c 'import json,sys; print(json.dumps({"commands": [sys.argv[1]], "executionTimeout": ["3600"]}))' \
     "$1" > "$params"
   id=$(aws ssm send-command --profile "$profile" --region "$region" --instance-ids "$instance" \
@@ -67,20 +71,33 @@ on_instance() {
 }
 
 stop_prometheus=""
+kept_stream="tar -C /data/history -cf - kept | up kept.tar"
+[ "$kept" = 1 ] || kept_stream=":"
+files="prometheus state"
+[ "$kept" = 1 ] && files="prometheus kept state"
 [ "$final" = 1 ] && stop_prometheus="docker stop verdict-prometheus >/dev/null"
 echo "streaming the record to $prefix"
 on_instance "set -euo pipefail
 $stop_prometheus
 up() { aws s3 cp - '$prefix/'\$1 --region $region --checksum-algorithm SHA256 --only-show-errors; }
 tar -C /data -cf - prometheus | up prometheus.tar
-tar -C /data/history -cf - kept | up kept.tar
+$kept_stream
 tar -C /data -cf - window-start models flags engine/starts.jsonl interruptions alerts | up state.tar
-aws s3 ls '$prefix/' --region $region"
+echo streamed"
 
 mkdir -p "$to/$when"
-aws s3 cp "$prefix/" "$to/$when/" --recursive --profile "$profile" --region "$region" \
-  --checksum-mode ENABLED --only-show-errors
-for f in prometheus kept state; do
+# A Windows aws needs a Windows path; elsewhere cygpath is absent and the path stands.
+native() { cygpath -w "$1" 2>/dev/null || echo "$1"; }
+for f in $files; do
+  # One file at a time, three tries each: a long download over a home line can
+  # drop, and a retry starts that file again rather than the whole archive.
+  for attempt in 1 2 3; do
+    aws s3 cp "$prefix/$f.tar" "$(native "$to/$when/$f.tar")" --profile "$profile" --region "$region" \
+      --checksum-mode ENABLED --only-show-errors && break
+    [ "$attempt" = 3 ] && { echo "could not download $f.tar; it stays in $prefix" >&2; exit 1; }
+  done
+done
+for f in $files; do
   tar -tf "$to/$when/$f.tar" >/dev/null
 done
 mkdir -p "$to/$when/data"
