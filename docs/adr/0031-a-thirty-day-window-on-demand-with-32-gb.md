@@ -85,6 +85,27 @@ set outside Terraform, will be exceeded and should be raised to match.
   in the new window rather than found by the next outage.
 - `PLAN.md`'s sixty days, the README and the demo site now say thirty.
 
+## Addendum, 2026-10-24: the stack runs a week past the window
+
+Labels arrive a week after their transactions, and a day is finalised only
+once all of its labels are in (ADR 18), so the window's last seven days would
+end with no labels and no model quality measured on them, and a drift
+request opened on 2026-10-21 would have no candidate. Peter decided on
+2026-10-24 to keep the stack running past the thirtieth day until the
+window's last day, 2026-10-29, is finalised: its labels are all in by
+2026-11-05T24:00Z and it finalises about 08:00Z on 2026-11-06. The archive
+(ADR 36) and teardown follow that day.
+
+- **The window is still the thirty days.** Its report covers 2026-09-29T19:11Z
+  to 2026-10-29T19:11Z; the days after it are reported apart, as the run-on.
+- **The secret is revealed the day after the run-on ends,** not after the
+  thirty days. The stream keeps following the sealed schedule, which was
+  derived for sixty days, and nothing about the days still running is
+  revealed while they run.
+- **About CA$80 more**: eight days of r6i.xlarge on demand and the volume.
+- **The move to OVH is unchanged as a choice**; it is made at the run-on's
+  end instead of the window's.
+
 ## Sources
 
 - Amazon EC2 Auto Scaling, instances distribution and on-demand allocation:

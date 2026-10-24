@@ -202,6 +202,14 @@ day-by-day chart on the demo site. Peter wants all three, and as much data as po
 (2026-10-23); whether the stack runs a week past the window for the last labels is still his.
 The build machine's C: had 25 GB free: Docker's disk is 20 GB for 6 GB of images (compact
 it), temp 13 GB.
+**2026-10-24: #9 and #10 merged; the stack runs on past the window** (Peter, ADR 31
+addendum): until 2026-10-29 is finalised, about 08:00Z on 2026-11-06, so the last week's
+labels arrive and the 2026-10-21 drift request gets its candidate and verdict. The window's
+report still covers the thirty days; the run-on is reported apart. The secret is revealed
+the day after the run-on, about 2026-11-07, not on 2026-10-30. About CA$80 more. Then:
+`fetch.sh --final` (to another disk; C: is short), `observe report`, `observe daily`,
+teardown, reveal. The archive bucket waits on Peter's `terraform apply`. Site redeployed
+with the day-by-day chart and the run-on dates.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%

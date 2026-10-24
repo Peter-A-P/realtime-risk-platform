@@ -50,8 +50,8 @@ without updating it is a week whose context lives only in one session's memory.
 - **The leakage test is never weakened to pass.** A failing leakage test means the
   feature is wrong.
 - **The regime schedule is sealed.** `events/generator/regimes.py` is hashed before go-live
-  and not edited until the secret is revealed, the day after the live window (thirty days
-  from the restart, ADR 31).
+  and not edited until the secret is revealed, the day after the stack's run-on past the
+  thirty-day window ends (about 2026-11-07, ADR 31 and its addendum of 2026-10-24).
 - **Nothing promotes itself.** A model reaches production only by a merged pull request
   that carries the shadow evidence.
 - **Teardown is part of done.** `down.sh` must leave nothing billable; the test asserts it

@@ -6,7 +6,8 @@ production mismatch that quietly breaks most deployed models. The platform aroun
 model is what organisations are actually missing, and this one runs live behind a
 public dashboard.
 
-**Status: live, 2026-09-29 to 2026-10-29.** A first window, begun on 2026-09-28 on a spot
+**Status: live, 2026-09-29 to 2026-10-29, and running on to 2026-11-06 so the window's last
+week of labels arrives.** A first window, begun on 2026-09-28 on a spot
 instance, failed on its second day: the instance was reclaimed thirteen times in 28 hours,
 and the last replacement's restore outgrew the machine and a hard stop left two state files
 empty. The window restarted for thirty days on an on-demand machine with 32 GB, on the same

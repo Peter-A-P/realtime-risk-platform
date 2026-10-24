@@ -38,6 +38,11 @@ LIVE_WINDOW_DAYS: Final = 30
 """The window's length (ADR 31). The sealed schedule was derived for sixty days,
 of which the window runs the first thirty."""
 
+LIVE_RUNS_UNTIL: Final = "2026-11-06T12:00:00Z"
+"""The stack runs on past the window until the window's last day is finalised,
+a week of labels later (ADR 31's addendum of 2026-10-24). The schedule is
+revealed the day after this, not after the thirty days."""
+
 LOAD_RATES: Final[tuple[int, ...]] = (1000, 2000, 3000, 4000)
 
 STANDING_QUEUE_MS: Final = 5.0
@@ -321,6 +326,7 @@ def site_data(docs: Path) -> dict[str, Any]:
         "live": {
             "start": LIVE_WINDOW_START,
             "days": LIVE_WINDOW_DAYS,
+            "runs_until": LIVE_RUNS_UNTIL,
             "schedule_sha256": sealed["schedule_sha256"],
             "secret_sha256": sealed["secret_sha256"],
             "source_sha256": sealed["source_sha256"],

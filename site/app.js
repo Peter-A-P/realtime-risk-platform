@@ -120,7 +120,8 @@ function liveStrip(data) {
   const start = new Date(data.live.start);
   const days = data.live.days;
   const end = new Date(start.getTime() + days * 86400000);
-  const reveal = new Date(end.getTime() + 86400000);
+  const runsUntil = new Date(data.live.runs_until || end);
+  const reveal = new Date(Math.max(end, runsUntil) + 86400000);
   const now = new Date();
   const dateFormat = { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" };
   const endText = end.toLocaleDateString("en-GB", dateFormat);
@@ -130,7 +131,9 @@ function liveStrip(data) {
     text.textContent = `The live window opens on ${start.toLocaleDateString("en-GB", dateFormat)}`;
   } else if (now < end) {
     const day = Math.floor((now - start) / 86400000) + 1;
-    text.textContent = `Live now: day ${day} of ${days}, until ${endText}. The fraud schedule is revealed on ${revealText}.`;
+    text.textContent = `Live now: day ${day} of ${days}, until ${endText}. The stack runs on until ${runsUntil.toLocaleDateString("en-GB", dateFormat)} so the last week's labels arrive, and the fraud schedule is revealed on ${revealText}.`;
+  } else if (now < runsUntil) {
+    text.textContent = `The ${days}-day live window ended on ${endText}. The stack runs on until ${runsUntil.toLocaleDateString("en-GB", dateFormat)} so the last week's labels arrive, and the fraud schedule is revealed on ${revealText}.`;
   } else {
     $("live-strip").classList.add("ended");
     text.textContent = `The ${days}-day live window ran from ${start.toLocaleDateString("en-GB", dateFormat)} to ${endText}.`;
