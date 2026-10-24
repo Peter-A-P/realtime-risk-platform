@@ -321,6 +321,130 @@ function loadChart(data) {
   ]);
 }
 
+/* ---------------------------------------------------------------- the window, day by day */
+
+function windowChart(data) {
+  const daily = data.daily;
+  if (!daily || !daily.days.length) {
+    $("window-panel").hidden = true;
+    return;
+  }
+  const rows = daily.days;
+  const W = 760, H = 300, L = 56, R = 18, T = 18, B = 62;
+  const pct = (row) => 100 * row.over_budget_share;
+  const top = niceMax(Math.max(1.25, ...rows.map(pct)));
+  const slot = (W - L - R) / rows.length;
+  const x = (i) => L + slot * i;
+  const y = (v) => T + (H - T - B) * (1 - v / top);
+  const svg = svgRoot(W, H, "The share of each day's decisions over the 50 ms budget, through the live window");
+  const day = { day: "numeric", month: "short", timeZone: "UTC" };
+  const label = (row) => new Date(`${row.day}T00:00:00Z`).toLocaleDateString("en-GB", day);
+  const p99 = (row) => (row.p99_ms >= 1000 ? `${fmt(row.p99_ms / 1000, 1)} s` : ms(row.p99_ms));
+
+  for (let v = 0; v <= top + 1e-9; v += top / 5) {
+    svg.append(sv("line", { class: "gridline", x1: L, x2: W - R, y1: y(v), y2: y(v) }));
+    svg.append(sv("text", { class: "tick", x: L - 8, y: y(v) + 4, "text-anchor": "end" }, `${fmt(v, 1)}%`));
+  }
+  svg.append(sv("text", { class: "axis-title", x: 14, y: T + (H - T - B) / 2, transform: `rotate(-90 14 ${T + (H - T - B) / 2})`, "text-anchor": "middle" }, "over 50 ms"));
+
+  const hits = [];
+  rows.forEach((row, i) => {
+    const hit = sv("rect", { class: "column-hit", x: x(i), y: T, width: slot, height: H - T - B });
+    svg.append(hit);
+    hits.push(hit);
+    const h = Math.max(1, (H - T - B) * (pct(row) / top));
+    svg.append(sv("rect", { class: "bar day-bar", x: x(i) + 1, y: H - B - h, width: Math.max(1, slot - 2), height: h, rx: Math.min(2, slot / 4) }));
+    if (i === 0 || new Date(`${row.day}T00:00:00Z`).getUTCDay() === 1) {
+      svg.append(sv("text", { class: "tick", x: x(i) + slot / 2, y: H - B + 16, "text-anchor": "middle" }, label(row)));
+    }
+    const cx = x(i) + slot / 2;
+    if (row.minutes_without_decisions > 0) {
+      svg.append(sv("circle", { class: "day-mark restart", cx, cy: H - B + 30, r: 4 }));
+    }
+    if (Object.keys(row.models).length > 1) {
+      svg.append(sv("rect", { class: "day-mark model", x: cx - 3.5, y: H - B + 40, width: 7, height: 7, transform: `rotate(45 ${cx} ${H - B + 43.5})` }));
+    }
+  });
+  svg.append(sv("line", { class: "axis-line", x1: L, x2: W - R, y1: H - B, y2: H - B }));
+  svg.append(sv("line", { class: "budget", x1: L, x2: W - R, y1: y(1), y2: y(1) }));
+  svg.append(sv("text", { class: "budget-label", x: L + 6, y: y(1) - 6, "text-anchor": "start" }, "ONE IN A HUNDRED: THE P99 AT 50 MS"));
+  $("window-chart").append(svg);
+
+  const readout = $("window-readout");
+  function pair(key, text) {
+    const node = el("span", { class: "pair" });
+    node.append(el("span", { class: "key" }, `${key} `), document.createTextNode(text));
+    readout.append(node);
+  }
+  function show(i) {
+    hits.forEach((h, j) => h.classList.toggle("on", i === j));
+    const row = rows[i];
+    readout.textContent = "";
+    readout.append(el("span", { class: "when" }, new Date(`${row.day}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "long", timeZone: "UTC" })));
+    pair("decisions", number.format(row.decisions));
+    pair("over 50 ms", `${fmt(pct(row), 2)}%`);
+    pair("p50", ms(row.p50_ms));
+    pair("p99", p99(row));
+    pair("busiest", `${number.format(row.peak_per_second)} a second`);
+    if (row.minutes_without_decisions > 0) pair("paused", `${row.minutes_without_decisions} min, a scorer restart`);
+    const models = Object.keys(row.models);
+    pair(models.length > 1 ? "models" : "model", models.join(", then "));
+  }
+  hits.forEach((hit, i) => {
+    hit.addEventListener("mouseenter", () => show(i));
+    hit.addEventListener("click", () => show(i));
+  });
+  show(rows.length - 1);
+
+  legend($("window-legend"), [
+    ["sw-accent", "share of the day's decisions over 50 ms"],
+    ["sw-warn", "one in a hundred, where the p99 meets the budget", "dashed"],
+    ["sw-ink", "a scorer restart that day", "dot"],
+    ["sw-faint", "the champion changed that day", "diamond"],
+  ]);
+
+  const total = rows.reduce((sum, row) => sum + row.decisions, 0);
+  const inside = rows.filter((row) => row.over_budget_share <= 0.01).length;
+  const restarts = rows.filter((row) => row.minutes_without_decisions > 0);
+  const quiet = rows.filter((row) => row.minutes_without_decisions === 0);
+  const worstQuiet = quiet.reduce((a, b) => (b.over_budget_share > a.over_budget_share ? b : a), quiet[0]);
+  $("window-caption").textContent = `Synthetic live track, ${label(rows[0])} to ${label(rows[rows.length - 1])}, ${number.format(total)} decisions. Every decision is counted, not sampled; percentiles are read from the scorer's latency buckets. The first day starts when the window opened. Source: docs/live/daily.json.`;
+  const pauseRange = (days) => {
+    const minutes = days.map((row) => row.minutes_without_decisions);
+    const low = Math.min(...minutes), high = Math.max(...minutes);
+    return low === high ? `${low}` : `${low} to ${high}`;
+  };
+  const parts = [strong(`The day's p99 was inside the budget on ${inside} of ${rows.length} days.`)];
+  if (restarts.length) {
+    parts.push(` The scorer was restarted on ${restarts.length === 1 ? "one day" : `${restarts.length} days`} (${restarts.map(label).join(", ")}), and a restart stops it for ${pauseRange(restarts)} minutes while it restores its state: everything that arrives meanwhile is decided late, and counts.`);
+  }
+  parts.push(` Without a restart the worst day was ${label(worstQuiet)}, ${fmt(100 * worstQuiet.over_budget_share, 2)}% over, as the stream grew on the same four virtual CPUs.`);
+  fill($("window-verdict"), parts);
+
+  const table = $("window-table");
+  const thead = el("thead");
+  const head = el("tr");
+  for (const name of ["Day", "Decisions", "Busiest a second", "p50", "p99", "Over 50 ms", "Paused", "Model"]) head.append(el("th", { scope: "col" }, name));
+  thead.append(head);
+  const body = el("tbody");
+  for (const row of rows) {
+    const tr = el("tr");
+    const cells = [
+      row.day,
+      number.format(row.decisions),
+      number.format(row.peak_per_second),
+      ms(row.p50_ms),
+      p99(row),
+      `${fmt(pct(row), 2)}%`,
+      row.minutes_without_decisions ? `${row.minutes_without_decisions} min` : "",
+      Object.keys(row.models).join(", then "),
+    ];
+    for (const text of cells) tr.append(el("td", {}, text));
+    body.append(tr);
+  }
+  table.append(thead, body);
+}
+
 /* ---------------------------------------------------------------- spot reclaims */
 
 function spotChart(data) {
@@ -659,6 +783,7 @@ async function main() {
     pipeline(data);
     loadChart(data);
     spotChart(data);
+    windowChart(data);
     driftChart(data);
     retrainChart(data);
     live(data);

@@ -17,3 +17,8 @@ output "alerts_topic" {
   description = "Where alerts are published (ADR 26)."
   value       = aws_sns_topic.alerts.arn
 }
+
+output "archive_bucket" {
+  description = "Where deploy/archive/fetch.sh moves the window's record through."
+  value       = aws_s3_bucket.archive.bucket
+}

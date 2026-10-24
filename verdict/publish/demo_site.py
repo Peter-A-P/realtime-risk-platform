@@ -64,6 +64,9 @@ REPORTS: Final[tuple[str, ...]] = (
 """Every report the page reads, in `docs/`."""
 
 
+DAILY: Final = "live/daily.json"
+
+
 def _load(docs: Path, name: str) -> dict[str, Any]:
     loaded: dict[str, Any] = json.loads((docs / name).read_text(encoding="utf-8"))
     return loaded
@@ -304,10 +307,15 @@ def site_data(docs: Path) -> dict[str, Any]:
     generator = _load(docs, "week1-measurement.json")
     rules = DecisionRules()
     promotions = _promotions(docs)
+    # The window day by day (ADR 36), once `verdict observe daily` has written it.
+    daily = _load(docs, DAILY) if (docs / DAILY).exists() else None
     return {
-        "sources": [f"docs/{name}" for name in REPORTS] + [p["source"] for p in promotions],
+        "sources": [f"docs/{name}" for name in REPORTS]
+        + [p["source"] for p in promotions]
+        + ([f"docs/{DAILY}"] if daily else []),
         "adr_count": len(list((docs / "adr").glob("[0-9][0-9][0-9][0-9]-*.md"))),
         "promotions": promotions,
+        "daily": daily,
         "repository": REPOSITORY,
         "dashboard": DASHBOARD,
         "live": {

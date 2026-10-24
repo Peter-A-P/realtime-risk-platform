@@ -985,3 +985,11 @@ tbody tr.reference { background: var(--accent-soft); }
 }
 .prose .where { font-size: 0.86rem; color: var(--ink-faint); }
 .arch-back { margin: 0; font-size: 0.95rem; }
+
+/* The window, day by day: one series, so one fill; the marks under the axis are events, in
+   ink, not more series. */
+.bar.day-bar { fill: var(--accent); }
+.day-mark.restart { fill: var(--ink); }
+.day-mark.model { fill: var(--ink-faint); }
+.swatch.dot { border-radius: 50%; width: 0.6rem; height: 0.6rem; }
+.swatch.diamond { transform: rotate(45deg); width: 0.55rem; height: 0.55rem; }

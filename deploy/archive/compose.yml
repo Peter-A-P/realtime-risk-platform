@@ -1,0 +1,46 @@
+# The live window's dashboard, served again from its archived metrics on the
+# build machine (ADR 36). Started by deploy/archive/serve.sh, which writes the
+# Grafana files and sets ARCHIVE; nothing here scrapes anything, so the data
+# is exactly what the live Prometheus kept.
+name: verdict-archive
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Retention is measured back from the newest block, which is the end of
+      # the window; a century keeps every block whatever the date today.
+      - --storage.tsdb.retention.time=100y
+    configs:
+      - source: no-scrapes
+        target: /etc/prometheus/prometheus.yml
+    volumes:
+      - ${ARCHIVE:?serve.sh sets it}/data/prometheus:/prometheus
+
+  grafana:
+    image: grafana/grafana:13.2.2
+    environment:
+      GF_PATHS_PROVISIONING: /etc/grafana/verdict/provisioning
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/verdict/dashboards/verdict.json
+    volumes:
+      - ${ARCHIVE:?serve.sh sets it}/grafana:/etc/grafana/verdict:ro
+    ports:
+      - "127.0.0.1:${ARCHIVE_PORT:-3300}:3000"
+    depends_on:
+      - prometheus
+
+configs:
+  no-scrapes:
+    content: |
+      global:
+        scrape_interval: 1h
+      scrape_configs: []

@@ -1,6 +1,6 @@
 # The instance's own identity. It can read its parameters, attach its one data
-# volume, pull its one image, publish to its alerts topic, and be reached
-# through Session Manager. Nothing else: it cannot create resources, read
+# volume, pull its one image, publish to its alerts topic, write to its
+# archive bucket, and be reached through Session Manager. Nothing else: it cannot create resources, read
 # other parameters, or touch project 04's.
 
 data "aws_iam_policy_document" "assume_ec2" {
@@ -75,6 +75,12 @@ data "aws_iam_policy_document" "instance" {
       "ecr:GetDownloadUrlForLayer",
     ]
     resources = [aws_ecr_repository.verdict.arn]
+  }
+
+  statement {
+    sid       = "WriteTheArchive"
+    actions   = ["s3:PutObject", "s3:AbortMultipartUpload"]
+    resources = ["${aws_s3_bucket.archive.arn}/*"]
   }
 }
 
