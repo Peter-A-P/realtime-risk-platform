@@ -655,9 +655,35 @@
     "p99_ms": 97.73,
     "peak_per_second": 2464,
     "to": "2026-10-24T00:00:00Z"
+   },
+   {
+    "actions": {
+     "approve": 89866354,
+     "decline": 398707,
+     "review": 1736981
+    },
+    "day": "2026-10-24",
+    "dead_letters": null,
+    "decisions": 92002042,
+    "from": "2026-10-24T00:00:00Z",
+    "mean_ms": 10.81,
+    "minutes_without_decisions": 0,
+    "models": {
+     "candidate-2026-10-12-1-eabf45c88f9e": 92002042
+    },
+    "over_budget_share": 0.00532,
+    "p50_ms": 8.64,
+    "p999_ms": 213.44,
+    "p99_bucket_ms": [
+     25.0,
+     50.0
+    ],
+    "p99_ms": 45.79,
+    "peak_per_second": 1383,
+    "to": "2026-10-25T00:00:00Z"
    }
   ],
-  "end": "2026-10-24T00:00:00Z",
+  "end": "2026-10-25T00:00:00Z",
   "note": "Every decision of each UTC day is counted, not sampled. Percentiles are interpolated within the scorer's latency buckets; p99_bucket_ms is the bucket the p99 fell in. The first and last days are partial.",
   "source": "the live stack's Prometheus (ADR 36)",
   "start": "2026-09-29T19:11:00Z",

@@ -4,7 +4,7 @@
  "budget_ms": 50.0,
  "note": "Every decision of each UTC day is counted, not sampled. Percentiles are interpolated within the scorer's latency buckets; p99_bucket_ms is the bucket the p99 fell in. The first and last days are partial.",
  "start": "2026-09-29T19:11:00Z",
- "end": "2026-10-24T00:00:00Z",
+ "end": "2026-10-25T00:00:00Z",
  "days": [
   {
    "day": "2026-09-29",
@@ -657,6 +657,32 @@
    },
    "dead_letters": null,
    "minutes_without_decisions": 5
+  },
+  {
+   "day": "2026-10-24",
+   "from": "2026-10-24T00:00:00Z",
+   "to": "2026-10-25T00:00:00Z",
+   "decisions": 92002042,
+   "peak_per_second": 1383,
+   "mean_ms": 10.81,
+   "p50_ms": 8.64,
+   "p99_ms": 45.79,
+   "p999_ms": 213.44,
+   "p99_bucket_ms": [
+    25.0,
+    50.0
+   ],
+   "over_budget_share": 0.00532,
+   "actions": {
+    "approve": 89866354,
+    "decline": 398707,
+    "review": 1736981
+   },
+   "models": {
+    "candidate-2026-10-12-1-eabf45c88f9e": 92002042
+   },
+   "dead_letters": null,
+   "minutes_without_decisions": 0
   }
  ]
 }

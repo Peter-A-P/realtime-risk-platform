@@ -210,6 +210,14 @@ the day after the run-on, about 2026-11-07, not on 2026-10-30. About CA$80 more.
 `fetch.sh --final` (to another disk; C: is short), `observe report`, `observe daily`,
 teardown, reveal. The archive bucket waits on Peter's `terraform apply`. Site redeployed
 with the day-by-day chart and the run-on dates.
+**2026-10-24/25.** Peter attached `archive-policy.json` (inline, `verdict-archive`) and the
+apply made the bucket and the role's write. A `--metrics-only` trial fetch served the whole
+window locally at :3300 (fetch.sh fixed for Windows paths, per-file retries, no instance
+listing). **Hourly saves worked:** 10-24 had 0.53% over 50 ms, p99 45.8 ms, against 0.96 to
+1.19% on 10-20 and 10-22, the last days without a restart. At the 10-24 evening peak
+(18:00 to 02:00Z): 0.70% over with nothing running, 0.58% during a save, 5.06% during a
+seal, which is now about a fifth of the slow decisions. The drift reference for the new
+champion was built from 10-23 and 10-24 at 03:54Z on 10-25; judging resumes with 10-25.
 Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
