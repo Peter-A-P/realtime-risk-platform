@@ -222,6 +222,24 @@ Latency for the record: since the labels feed began on
 2026-10-06 at 19:11Z, decisions over 25 ms rose from about 0.4% to 1.7% and
 the mean from 7 to 9 ms to 11 to 14 ms; over 50 ms stayed at 0.1 to 0.2%
 apart from the five-hour finalise.
+**2026-10-31, the dashboard opens on six headline numbers** (ADR 14 addendum, Peter's
+request): two stat panels across the top, "Event to decision, last 30 days" and "last 7
+days", each with median, p95 and p99 (a left sidebar was considered and rejected: on a
+phone Grafana shuffles it in among the charts); the introduction is one paragraph, four
+rows. A rule group `verdict-dashboard` records the bucket counts once a minute (0.33 s
+and 0.08 s a pass), so viewers cost nothing extra. A first version with four single
+panels (`6ae067d`) was rolled at 13:53Z: on the instance `compose.yml` and `stack.env`
+replaced (previous kept as `*.f012a8f.20261031T1353Z`), **Prometheus force-recreated**
+for the rules, Grafana restarted; the scorer and every other service untouched and
+still on `f012a8fb094c`; launch template version 35 carries `6ae067dd4624` and the
+compose. **The six-number layout (`c1e145e`) is live but not in an image:** its
+`verdict.json` was generated on the build machine and written to
+`/data/grafana/dashboards/` over SSM, Grafana restarted. Its image build failed when the
+build machine's C: filled (0.06 GB free at about 15:00Z, Docker Desktop stopped; its
+disk had grown to 21.4 GB). Until an image from `c1e145e` or later is pushed, named in
+`stack.env` and the launch template, and `grafana-files` run, a replacement or a rerun of
+`grafana-files` brings back the four-panel version. At the change: 9.0, 24.4
+and 46.6 ms over 30 days, 9.2, 24.9 and 49.4 ms over 7, all targets up, no alerts.
 
 **2026-10-08, the compactor fix is on the instance, and the data volume is
 200 GB.** 2026-09-30 stalled at 06:00Z the same way; the run was killed at
