@@ -241,8 +241,9 @@ axis with a dashed 50 ms line; Peter wanted them back behind the numbers. So
 each trend's query is cut at 100 ms with `clamp_max`, which pins the range at
 0 to 100 ms and puts the budget halfway up, except at its last point (the
 query's step that ends at Grafana's `$__to`), so the number shown is never cut.
-A sparkline draws no threshold line, which the source shows (Sources): the
-budget is shown instead by the trend's fill and line turning red above 50 ms.
+A sparkline draws no threshold line (Sources), and the stat panel paints it in
+its value's colour, so a threshold gradient does not show either: the budget is
+the trend's halfway mark, and the value turns red above it.
 
 The thirty- and seven-day recordings of the first version stay alongside, so
 the dashboard that version's image writes still has its data if a

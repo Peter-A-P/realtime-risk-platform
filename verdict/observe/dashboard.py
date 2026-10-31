@@ -167,8 +167,8 @@ def _headline(window: str, days: int, x: int) -> dict[str, Any]:
             "scorer's histogram buckets: so far a median within 5 to 10 ms, a p95 within "
             "10 to 25 ms and a p99 within 25 to 50 ms. Green inside the 50 ms budget "
             f"(ADR 9). Behind each, how that figure moved over the last {days} days, "
-            "drawn from 0 to 100 ms so that the budget is halfway up and red above it; "
-            "anything slower is drawn at the top. Synthetic live track."
+            "drawn from 0 to 100 ms, so that the budget is halfway up; anything slower "
+            "is drawn at the top. Synthetic live track."
         ),
     )
     panel["timeFrom"] = window
@@ -183,9 +183,6 @@ def _headline(window: str, days: int, x: int) -> dict[str, Any]:
             "mode": "absolute",
             "steps": [{"color": "green", "value": None}, {"color": "red", "value": BUDGET_SECONDS}],
         },
-        # A sparkline draws no threshold line, so the budget shows as the
-        # trend turning red where it crosses it.
-        "custom": {"gradientMode": "scheme", "fillOpacity": 25, "lineWidth": 1},
     }
     panel["options"] = {
         "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
