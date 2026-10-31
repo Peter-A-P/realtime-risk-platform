@@ -454,13 +454,18 @@ configs:
               for: 10m
               annotations:
                 summary: A service Prometheus scrapes has been unreachable for ten minutes.
-        # The dashboard's headline: every decision's event-to-decision bucket
-        # counts over thirty and seven days. Each reads up to a month of
-        # samples, so it is computed here once a minute, not once per viewer
-        # per refresh on a public page (verdict/observe/dashboard.py).
+        # The dashboard's headline: each hour's event-to-decision bucket
+        # counts. Summed over thirty days they are a thirty-day quantile at a
+        # few thousand samples, where the raw buckets are 3.3 million, so a
+        # public page's viewers cost Prometheus next to nothing. Backfilled
+        # with promtool on 2026-10-31 (verdict/observe/dashboard.py, ADR 14).
         - name: verdict-dashboard
           interval: 1m
           rules:
+            - record: le:verdict_event_to_decision_seconds_bucket:increase1h
+              expr: sum by (le) (increase(verdict_event_to_decision_seconds_bucket[1h]))
+            # What the image 6ae067d's dashboard reads, kept until every image
+            # that writes that dashboard is gone (a replacement would run it).
             - record: le:verdict_event_to_decision_seconds_bucket:increase30d
               expr: sum by (le) (increase(verdict_event_to_decision_seconds_bucket[30d]))
             - record: le:verdict_event_to_decision_seconds_bucket:increase7d

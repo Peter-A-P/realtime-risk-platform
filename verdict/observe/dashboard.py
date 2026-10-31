@@ -52,14 +52,16 @@ _FIXED_WINDOW: Final = re.compile(r"\[[0-9]+m\]")
 
 AGE: Final = "verdict_event_to_decision_seconds"
 
-KPI_HEIGHT: Final = 4
+KPI_HEIGHT: Final = 5
 """The headline row's height: it sits above everything else."""
 
 INTRODUCTION_HEIGHT: Final = 4
 """Rows for the introduction: its one paragraph at laptop width, no blank below."""
 
-_RECORDED: Final = re.compile(r"le:(verdict_[a-z_]+_bucket):increase([0-9]+d)")
-"""A recording rule's bucket counts over a window (`deploy/live/compose.yml`)."""
+HOURLY: Final = f"le:{AGE}_bucket:increase1h"
+"""Each hour's event-to-decision bucket counts: recorded once a minute on the live
+stack (`deploy/live/compose.yml`), backfilled hourly from 2026-09-01, and so also in
+the archive, whose Prometheus runs no rules (ADR 14's addendum of 2026-10-31)."""
 
 
 def _target(expr: str, legend: str) -> dict[str, Any]:
@@ -114,29 +116,34 @@ def _mean(metric: str) -> str:
     return f"sum(rate({metric}_sum[5m])) / sum(rate({metric}_count[5m]))"
 
 
-def recorded(window: str) -> str:
-    """Every decision's event-to-decision bucket counts over a window, as recorded.
+def trailing(q: float, window: str) -> str:
+    """A quantile of every decision over a trailing window, from the hourly recording.
 
-    Over thirty days the counts are a month of samples, so Prometheus computes
-    them once a minute in a recording rule rather than once per viewer per
-    refresh. The archive, which has no rules running, reads them raw.
+    On each hour the subquery takes the newest count of the hour before it
+    (the backfill's samples are a few minutes past the hour, the live rule's
+    each minute), and the counts are summed: under a million samples a point,
+    where the raw buckets over thirty days are 3.3 million. Drawn over the
+    window, the series is how the window's figure moved; its last point is the
+    figure now.
 
     Args:
-        window: A Prometheus duration in days, such as `30d`.
+        q: The quantile.
+        window: A Prometheus duration, such as `30d`.
 
     Returns:
-        The recorded series' name.
+        The PromQL.
     """
-    return f"le:{AGE}_bucket:increase{window}"
+    hours = f"sum_over_time(last_over_time({HOURLY}[1h])[{window}:1h])"
+    return f"histogram_quantile({q}, sum by (le) ({hours}))"
 
 
 def _headline(window: str, days: int, x: int) -> dict[str, Any]:
-    """One window's median, p95 and p99 under one title, read at one moment."""
+    """One window's median, p95 and p99 under one title, each over its own trend."""
     panel = _panel(
         f"Event to decision, last {days} days",
         "stat",
         [
-            (f"histogram_quantile({q}, {recorded(window)})", name)
+            (trailing(q, window), name)
             for q, name in ((0.50, "median"), (0.95, "p95"), (0.99, "p99"))
         ],
         (x, 0, 12, KPI_HEIGHT),
@@ -146,12 +153,21 @@ def _headline(window: str, days: int, x: int) -> dict[str, Any]:
             "to its decision, catch-ups after a restart included. Estimated within the "
             "scorer's histogram buckets: so far a median within 5 to 10 ms, a p95 within "
             "10 to 25 ms and a p99 within 25 to 50 ms. Green inside the 50 ms budget "
-            "(ADR 9). Synthetic live track; recomputed every minute."
+            f"(ADR 9). Behind each, how that figure moved over the last {days} days, "
+            "drawn from 0 to 100 ms (off the top while the trailing window still held "
+            "the failed first window's catch-ups). "
+            "Synthetic live track."
         ),
     )
-    for target in panel["targets"]:
-        target["instant"] = True
+    panel["timeFrom"] = window
+    panel["hideTimeOverride"] = True
+    panel["interval"] = "6h" if days > 7 else "1h"
     panel["fieldConfig"]["defaults"] |= {
+        # The trend is drawn from 0 to twice the budget. Until the failed first
+        # window (ADR 31) left the trailing thirty days, their p99 was minutes,
+        # and on its own scale that would flatten everything since.
+        "min": 0,
+        "max": 0.1,
         "decimals": 1,
         "color": {"mode": "thresholds"},
         "thresholds": {
@@ -162,8 +178,9 @@ def _headline(window: str, days: int, x: int) -> dict[str, Any]:
     panel["options"] = {
         "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "textMode": "value_and_name",
+        "text": {"titleSize": 14, "valueSize": 44},
         "justifyMode": "center",
         "orientation": "vertical",
     }
@@ -179,7 +196,7 @@ def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
             refreshes, and every rate is taken over Grafana's own interval,
             since a five-minute rate drawn at a thirty-day zoom shows one
             five-minute sample of each step and not the step. The headline
-            numbers are taken at the window's end, from the raw buckets.
+            numbers are drawn over the whole window and end at its end.
 
     Returns:
         The dashboard, as Grafana's JSON model.
@@ -190,9 +207,9 @@ def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
     for panel in model["panels"]:
         if panel["type"] == "text":
             panel["options"]["content"] = ARCHIVE_INTRODUCTION
+        panel.pop("timeFrom", None)
         for target in panel.get("targets", []):
             target["expr"] = _FIXED_WINDOW.sub("[$__rate_interval]", target["expr"])
-            target["expr"] = _RECORDED.sub(r"sum by (le) (increase(\1[\2]))", target["expr"])
     model["title"] = "Verdict: the thirty-day live window"
     model["refresh"] = ""
     model["time"] = {"from": window[0], "to": window[1]}

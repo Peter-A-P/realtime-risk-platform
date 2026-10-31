@@ -201,26 +201,40 @@ days" and "last 7 days", each with its median, p95 and p99. Every decision count
 catch-ups included, so these are the numbers a stranger can hold the 50 ms
 budget against; the five-minute panels below stay for watching the stack.
 
-**At the top, not in a left sidebar.** Grafana's grid has no fixed column: on a phone it lays panels
-out one under another by position, so a sidebar's numbers would be shuffled in
-among the charts, and on a desktop it narrows every chart beside it. A full-width
-row is the first thing seen on any screen and keeps its order. The first
-version had four numbers, one panel each, and they were larger than they needed
-to be; Peter asked the same day for six, grouped under one title per window.
-The introduction below them was cut to one paragraph and four rows, which fits
-at 1280 and 1600 pixels wide without the blank it left before.
+**At the top, not in a left sidebar.** Grafana's grid has no fixed column: on a
+phone it lays panels out one under another by position, so a sidebar's numbers
+would be shuffled in among the charts, and on a desktop it narrows every chart
+beside it. A full-width row is the first thing seen on any screen and keeps its
+order. The first version had four numbers, one panel each; Peter asked the same
+day for six grouped under one title per window, values larger than the stat
+panels below them, and a trend behind each value as those panels have. The
+introduction below them was cut to one paragraph and four rows, which fits at
+1280 and 1600 pixels wide without the blank it left before.
 
-**Recorded, not queried per viewer.** Measured on the live Prometheus on
-2026-10-31: one thirty-day quantile reads 3.3 million samples in about 0.45 s,
-a seven-day one 0.77 million in 0.17 s. Six such queries on every 30-second
-refresh of every open tab would put Prometheus's CPU beside the scorer's on an
-instance that saturates its four vCPUs at the evening peak. So a rule group
+**Recorded hourly and backfilled, not queried raw per viewer.** Measured on
+the live Prometheus on 2026-10-31: one thirty-day quantile from the raw
+buckets reads 3.3 million samples in about 0.45 s, a seven-day one 0.77
+million in 0.17 s, and a trend needs that at every point. So a rule group
 (`verdict-dashboard`, once a minute, in `deploy/live/compose.yml`) records each
-window's bucket counts by `le`, and the panels take `histogram_quantile` over
-those nineteen series: the cost is fixed at about 0.6 s a minute whatever the
-audience. The archive (ADR 36) runs no rules and may hold none of their output
-for the window it shows, so there the same panels read the raw buckets at the
-window's end.
+hour's bucket counts by `le`, and each panel sums the hours of its trailing
+window: `histogram_quantile(q, sum by (le) (sum_over_time(last_over_time(H[1h])[30d:1h])))`.
+Drawn over the window, that is how the window's figure moved, and its last
+point is the figure now. A thirty-day trend at six-hour steps reads 1.2 million
+samples in 0.17 s, a seven-day one at hourly steps 0.54 million in 0.13 s, and
+both agree with the raw buckets to 0.1 ms. The hours before the rule existed
+were backfilled with `promtool tsdb create-blocks-from rules` from 2026-09-01,
+at the hour plus about three minutes (promtool's own offset, which is why each
+point takes the newest count in the hour before it); the hour in which the
+backfill met the live rule is short by its last 56 minutes, under 0.2% of
+thirty days. Because the series is in the TSDB, the archive (ADR 36), which
+runs no rules, reads the same queries.
+
+The trend is drawn from 0 to 100 ms whatever it holds. Until the failed first
+window (ADR 31) left the trailing thirty days, their p99 was minutes, and on
+its own scale that would have flattened everything since; the panel says so.
+The thirty- and seven-day recordings of the first version stay alongside, so
+the dashboard that version's image writes still has its data if a
+replacement instance runs it.
 
 The values are interpolated within the scorer's buckets (5 to 10 ms for the
 median, 10 to 25 ms for the p95, 25 to 50 ms for the p99), as every percentile

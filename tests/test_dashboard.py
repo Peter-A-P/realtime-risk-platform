@@ -19,10 +19,10 @@ from verdict.history.labels import CollectorMetrics
 from verdict.live.feed import Feed, FeedMetrics
 from verdict.observe.dashboard import (
     DATASOURCE_UID,
+    HOURLY,
     KPI_HEIGHT,
     dashboard,
     datasource,
-    recorded,
     write_files,
 )
 from verdict.observe.metrics import ScorerMetrics
@@ -67,29 +67,29 @@ def recordings() -> dict[str, dict[str, object]]:
 
 def test_every_recorded_series_the_dashboard_reads_is_recorded_on_the_live_stack() -> None:
     wanted = {name for expr in queries() for name in re.findall(r"le:verdict_[a-z_]+:\w+", expr)}
-    assert wanted == {recorded("30d"), recorded("7d")}
+    assert wanted == {HOURLY}
     assert wanted <= set(recordings()), wanted - set(recordings())
 
 
-def test_a_recording_counts_the_window_its_name_says() -> None:
-    for window in ("30d", "7d"):
-        rule = recordings()[recorded(window)]
-        assert rule["expr"] == (
-            f"sum by (le) (increase(verdict_event_to_decision_seconds_bucket[{window}]))"
-        )
-        assert rule["interval"] == "1m"
+def test_the_recording_counts_each_hour_once_a_minute() -> None:
+    rule = recordings()[HOURLY]
+    assert rule["expr"] == "sum by (le) (increase(verdict_event_to_decision_seconds_bucket[1h]))"
+    assert rule["interval"] == "1m"
 
 
-def test_the_headline_is_the_top_row_and_is_read_at_one_moment() -> None:
+def test_the_headline_is_the_top_row_and_ends_at_its_window_now() -> None:
     panels = dashboard()["panels"]
     top = [p for p in panels if p["gridPos"]["y"] == 0]
     assert [p["title"] for p in top] == [
         "Event to decision, last 30 days",
         "Event to decision, last 7 days",
     ]
-    for panel in top:
+    for panel, window in zip(top, ("30d", "7d"), strict=True):
         assert [t["legendFormat"] for t in panel["targets"]] == ["median", "p95", "p99"]
-        assert all(t["instant"] for t in panel["targets"])
+        assert all(f"[{window}:1h]" in t["expr"] for t in panel["targets"])
+        assert panel["timeFrom"] == window
+        assert panel["options"]["graphMode"] == "area"
+        assert panel["options"]["reduceOptions"]["calcs"] == ["lastNotNull"]
     assert sum(p["gridPos"]["w"] for p in top) == 24
     assert all(p["gridPos"]["y"] >= KPI_HEIGHT for p in panels if p not in top)
 
@@ -137,26 +137,15 @@ def test_the_archive_takes_every_rate_over_grafanas_interval() -> None:
     assert len(archived) == len(live)
     assert any("[5m]" in expr for expr in live)
     assert not any(re.search(r"\[[0-9]+m\]", expr) for expr in archived)
-    raw = r"sum by (le) (increase(\1[\2]))"
     assert all(
-        re.sub(
-            r"le:(verdict_[a-z_]+_bucket):increase(\w+)",
-            raw,
-            re.sub(r"\[[0-9]+m\]", "[$__rate_interval]", a),
-        )
-        == b
+        re.sub(r"\[[0-9]+m\]", "[$__rate_interval]", a) == b
         for a, b in zip(live, archived, strict=True)
     )
 
 
-def test_the_archive_reads_its_headline_from_the_raw_buckets() -> None:
-    """The archive's Prometheus runs no rules, and may hold none of their output."""
-    archived = [t["expr"] for p in dashboard(WINDOW)["panels"] for t in p.get("targets", [])]
-    assert not any("le:verdict" in expr for expr in archived)
-    assert (
-        "histogram_quantile(0.99, sum by (le) "
-        "(increase(verdict_event_to_decision_seconds_bucket[30d])))" in archived
-    )
+def test_the_archive_draws_its_headline_over_its_own_window() -> None:
+    """Its window ended long before anyone opens it, so no panel is pinned to now."""
+    assert not any("timeFrom" in p for p in dashboard(WINDOW)["panels"])
 
 
 def test_the_archive_says_the_stack_is_gone_in_plain_punctuation() -> None:
