@@ -53,6 +53,14 @@ code and every decision record: [{REPOSITORY}]({REPOSITORY}).
 
 _FIXED_WINDOW: Final = re.compile(r"\[[0-9]+m\]")
 
+AGE: Final = "verdict_event_to_decision_seconds"
+
+KPI_HEIGHT: Final = 5
+"""The headline row's height: it sits above everything else."""
+
+_RECORDED: Final = re.compile(r"le:(verdict_[a-z_]+_bucket):increase([0-9]+d)")
+"""A recording rule's bucket counts over a window (`deploy/live/compose.yml`)."""
+
 
 def _target(expr: str, legend: str) -> dict[str, Any]:
     return {
@@ -106,6 +114,56 @@ def _mean(metric: str) -> str:
     return f"sum(rate({metric}_sum[5m])) / sum(rate({metric}_count[5m]))"
 
 
+def recorded(window: str) -> str:
+    """Every decision's event-to-decision bucket counts over a window, as recorded.
+
+    Over thirty days the counts are a month of samples, so Prometheus computes
+    them once a minute in a recording rule rather than once per viewer per
+    refresh. The archive, which has no rules running, reads them raw.
+
+    Args:
+        window: A Prometheus duration in days, such as `30d`.
+
+    Returns:
+        The recorded series' name.
+    """
+    return f"le:{AGE}_bucket:increase{window}"
+
+
+def _kpi(quantile: float, name: str, window: str, days: int, x: int) -> dict[str, Any]:
+    panel = _panel(
+        f"Event to decision, {name}, last {days} days",
+        "stat",
+        [(f"histogram_quantile({quantile}, {recorded(window)})", name)],
+        (x, 0, 6, KPI_HEIGHT),
+        unit="s",
+        description=(
+            f"Every decision of the last {days} days, from the transaction's event time "
+            "to its decision, catch-ups after a restart included. Estimated within the "
+            "scorer's histogram buckets: a median within 5 to 10 ms, a 99th percentile "
+            "within 25 to 50 ms. Green inside the 50 ms budget (ADR 9). Synthetic live "
+            "track; recomputed every minute."
+        ),
+    )
+    panel["targets"][0]["instant"] = True
+    panel["fieldConfig"]["defaults"] |= {
+        "decimals": 1,
+        "color": {"mode": "thresholds"},
+        "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "green", "value": None}, {"color": "red", "value": 0.05}],
+        },
+    }
+    panel["options"] = {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+    }
+    return panel
+
+
 def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
     """The dashboard model Grafana loads.
 
@@ -114,7 +172,8 @@ def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
             8601). The dashboard then opens on the whole window, never
             refreshes, and every rate is taken over Grafana's own interval,
             since a five-minute rate drawn at a thirty-day zoom shows one
-            five-minute sample of each step and not the step.
+            five-minute sample of each step and not the step. The headline
+            numbers are taken at the window's end, from the raw buckets.
 
     Returns:
         The dashboard, as Grafana's JSON model.
@@ -127,6 +186,7 @@ def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
             panel["options"]["content"] = ARCHIVE_INTRODUCTION
         for target in panel.get("targets", []):
             target["expr"] = _FIXED_WINDOW.sub("[$__rate_interval]", target["expr"])
+            target["expr"] = _RECORDED.sub(r"sum by (le) (increase(\1[\2]))", target["expr"])
     model["title"] = "Verdict: the thirty-day live window"
     model["refresh"] = ""
     model["time"] = {"from": window[0], "to": window[1]}
@@ -134,7 +194,12 @@ def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
 
 
 def _live_dashboard() -> dict[str, Any]:
-    age = "verdict_event_to_decision_seconds"
+    headline = [
+        _kpi(0.50, "median", "30d", 30, 0),
+        _kpi(0.99, "p99", "30d", 30, 6),
+        _kpi(0.50, "median", "7d", 7, 12),
+        _kpi(0.99, "p99", "7d", 7, 18),
+    ]
     panels: list[dict[str, Any]] = [
         {
             "type": "text",
@@ -150,9 +215,9 @@ def _live_dashboard() -> dict[str, Any]:
             unit="reqps",
         ),
         _panel(
-            "Event to decision, 99th percentile",
+            "Event to decision, p99, last five minutes",
             "stat",
-            [(_quantile(0.99, age), "p99")],
+            [(_quantile(0.99, AGE), "p99")],
             (6, 5, 6, 4),
             unit="s",
             description="Over the last five minutes. The budget is 50 ms (ADR 9).",
@@ -177,10 +242,10 @@ def _live_dashboard() -> dict[str, Any]:
             "Event to decision",
             "timeseries",
             [
-                (_quantile(0.50, age), "p50"),
-                (_quantile(0.95, age), "p95"),
-                (_quantile(0.99, age), "p99"),
-                (_mean(age), "mean (exact)"),
+                (_quantile(0.50, AGE), "p50"),
+                (_quantile(0.95, AGE), "p95"),
+                (_quantile(0.99, AGE), "p99"),
+                (_mean(AGE), "mean (exact)"),
             ],
             (0, 9, 12, 8),
             unit="s",
@@ -195,7 +260,7 @@ def _live_dashboard() -> dict[str, Any]:
         _panel(
             "Event to decision while caught up, 99th percentile",
             "timeseries",
-            [(f"{_quantile(0.99, age)} and on() {CAUGHT_UP}", "p99")],
+            [(f"{_quantile(0.99, AGE)} and on() {CAUGHT_UP}", "p99")],
             (0, 39, 24, 6),
             unit="s",
             description=(
@@ -296,6 +361,8 @@ def _live_dashboard() -> dict[str, Any]:
             ),
         ),
     ]
+    for panel in panels:
+        panel["gridPos"]["y"] += KPI_HEIGHT
     return {
         "uid": DASHBOARD_UID,
         "title": "Verdict: live fraud decisioning",
@@ -306,7 +373,7 @@ def _live_dashboard() -> dict[str, Any]:
         "editable": False,
         "graphTooltip": 1,
         "schemaVersion": 39,
-        "panels": panels,
+        "panels": headline + panels,
     }
 
 

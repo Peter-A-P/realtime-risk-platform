@@ -99,7 +99,7 @@ def test_every_rule_reads_a_metric_the_platform_exports(tmp_path: Path) -> None:
 def test_every_alert_says_what_it_means_and_where_to_look() -> None:
     """The message carries the summary and names a section of the runbook."""
     runbook = FAILURE_MODES.read_text(encoding="utf-8")
-    for rule in _rules():
+    for rule in [r for r in _rules() if "alert" in r]:  # not the dashboard's recordings
         assert rule["annotations"]["summary"], rule["alert"]
         assert f"### {rule['alert']}" in runbook, rule["alert"]
     assert f"### {UNREACHABLE}" in runbook
