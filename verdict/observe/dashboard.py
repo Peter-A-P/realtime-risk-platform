@@ -27,16 +27,13 @@ DATASOURCE_UID: Final = "prometheus"
 DASHBOARD_UID: Final = "verdict-live"
 
 INTRODUCTION: Final = f"""\
-**Every card transaction scored before the money moves.** This is the live
-window of the Real-Time Fraud and Risk Decisioning Platform: synthetic card
-transactions arriving at about 1,000 a second, each decided by a stream
-consumer that serves its features from a point-in-time correct feature
-engine. The fraud patterns shift on a schedule that was sealed before the
-window opened and is revealed after it closes.
-
-Everything here is the synthetic live track, measured on the one instance
-that runs it. No real payment data is involved. Method, code and every
-decision record: [{REPOSITORY}]({REPOSITORY}).
+**Every card transaction scored before the money moves.** The live window of the
+Real-Time Fraud and Risk Decisioning Platform: synthetic card transactions at about
+1,000 a second, each decided by a stream consumer serving point-in-time correct
+features, while the fraud patterns shift on a schedule sealed before the window
+opened. The synthetic live track, measured on the one instance that runs it; no real
+payment data is involved. Method, code and every decision record:
+[{REPOSITORY}]({REPOSITORY}).
 """
 
 ARCHIVE_INTRODUCTION: Final = f"""\
@@ -55,8 +52,11 @@ _FIXED_WINDOW: Final = re.compile(r"\[[0-9]+m\]")
 
 AGE: Final = "verdict_event_to_decision_seconds"
 
-KPI_HEIGHT: Final = 5
+KPI_HEIGHT: Final = 4
 """The headline row's height: it sits above everything else."""
+
+INTRODUCTION_HEIGHT: Final = 4
+"""Rows for the introduction: its one paragraph at laptop width, no blank below."""
 
 _RECORDED: Final = re.compile(r"le:(verdict_[a-z_]+_bucket):increase([0-9]+d)")
 """A recording rule's bucket counts over a window (`deploy/live/compose.yml`)."""
@@ -130,22 +130,27 @@ def recorded(window: str) -> str:
     return f"le:{AGE}_bucket:increase{window}"
 
 
-def _kpi(quantile: float, name: str, window: str, days: int, x: int) -> dict[str, Any]:
+def _headline(window: str, days: int, x: int) -> dict[str, Any]:
+    """One window's median, p95 and p99 under one title, read at one moment."""
     panel = _panel(
-        f"Event to decision, {name}, last {days} days",
+        f"Event to decision, last {days} days",
         "stat",
-        [(f"histogram_quantile({quantile}, {recorded(window)})", name)],
-        (x, 0, 6, KPI_HEIGHT),
+        [
+            (f"histogram_quantile({q}, {recorded(window)})", name)
+            for q, name in ((0.50, "median"), (0.95, "p95"), (0.99, "p99"))
+        ],
+        (x, 0, 12, KPI_HEIGHT),
         unit="s",
         description=(
             f"Every decision of the last {days} days, from the transaction's event time "
             "to its decision, catch-ups after a restart included. Estimated within the "
-            "scorer's histogram buckets: a median within 5 to 10 ms, a 99th percentile "
-            "within 25 to 50 ms. Green inside the 50 ms budget (ADR 9). Synthetic live "
-            "track; recomputed every minute."
+            "scorer's histogram buckets: so far a median within 5 to 10 ms, a p95 within "
+            "10 to 25 ms and a p99 within 25 to 50 ms. Green inside the 50 ms budget "
+            "(ADR 9). Synthetic live track; recomputed every minute."
         ),
     )
-    panel["targets"][0]["instant"] = True
+    for target in panel["targets"]:
+        target["instant"] = True
     panel["fieldConfig"]["defaults"] |= {
         "decimals": 1,
         "color": {"mode": "thresholds"},
@@ -158,8 +163,9 @@ def _kpi(quantile: float, name: str, window: str, days: int, x: int) -> dict[str
         "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
         "colorMode": "value",
         "graphMode": "none",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "justifyMode": "center",
+        "orientation": "vertical",
     }
     return panel
 
@@ -195,30 +201,28 @@ def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
 
 def _live_dashboard() -> dict[str, Any]:
     headline = [
-        _kpi(0.50, "median", "30d", 30, 0),
-        _kpi(0.99, "p99", "30d", 30, 6),
-        _kpi(0.50, "median", "7d", 7, 12),
-        _kpi(0.99, "p99", "7d", 7, 18),
+        _headline("30d", 30, 0),
+        _headline("7d", 7, 12),
     ]
     panels: list[dict[str, Any]] = [
         {
             "type": "text",
             "title": "What this is",
-            "gridPos": {"x": 0, "y": 0, "w": 24, "h": 5},
+            "gridPos": {"x": 0, "y": 0, "w": 24, "h": INTRODUCTION_HEIGHT},
             "options": {"mode": "markdown", "content": INTRODUCTION},
         },
         _panel(
             "Decisions a second",
             "stat",
             [("sum(rate(verdict_decisions_total[1m]))", "decisions")],
-            (0, 5, 6, 4),
+            (0, 4, 6, 4),
             unit="reqps",
         ),
         _panel(
             "Event to decision, p99, last five minutes",
             "stat",
             [(_quantile(0.99, AGE), "p99")],
-            (6, 5, 6, 4),
+            (6, 4, 6, 4),
             unit="s",
             description="Over the last five minutes. The budget is 50 ms (ADR 9).",
         ),
@@ -226,7 +230,7 @@ def _live_dashboard() -> dict[str, Any]:
             "Since the last decision",
             "stat",
             [("time() - verdict_last_decision_timestamp_seconds", "seconds")],
-            (12, 5, 6, 4),
+            (12, 4, 6, 4),
             unit="s",
             description="Grows if the scorer stops. A spot replacement shows here.",
         ),
@@ -234,7 +238,7 @@ def _live_dashboard() -> dict[str, Any]:
             "Feed behind its clock",
             "stat",
             [("max(verdict_feed_lag_seconds)", "lag")],
-            (18, 5, 6, 4),
+            (18, 4, 6, 4),
             unit="s",
             description="How late the feeds are sending. Large while one catches up.",
         ),
@@ -247,7 +251,7 @@ def _live_dashboard() -> dict[str, Any]:
                 (_quantile(0.99, AGE), "p99"),
                 (_mean(AGE), "mean (exact)"),
             ],
-            (0, 9, 12, 8),
+            (0, 8, 12, 8),
             unit="s",
             description=(
                 "From a transaction's event time, when the feed sends it, to its "
@@ -261,7 +265,7 @@ def _live_dashboard() -> dict[str, Any]:
             "Event to decision while caught up, 99th percentile",
             "timeseries",
             [(f"{_quantile(0.99, AGE)} and on() {CAUGHT_UP}", "p99")],
-            (0, 39, 24, 6),
+            (0, 38, 24, 6),
             unit="s",
             description=(
                 "Only the five-minute windows in which the platform was current: the "
@@ -275,7 +279,7 @@ def _live_dashboard() -> dict[str, Any]:
             "Scorer hops, 99th percentile",
             "timeseries",
             [(_quantile(0.99, "verdict_hop_seconds", "hop"), "{{hop}}")],
-            (12, 9, 12, 8),
+            (12, 8, 12, 8),
             unit="s",
             description="Features, model, rules and hand-off, as the scorer times them.",
         ),
@@ -283,14 +287,14 @@ def _live_dashboard() -> dict[str, Any]:
             "Decisions by action",
             "timeseries",
             [("sum by (action) (rate(verdict_decisions_total[5m]))", "{{action}}")],
-            (0, 17, 12, 8),
+            (0, 16, 12, 8),
             unit="reqps",
         ),
         _panel(
             "Flush and checkpoint per batch, 99th percentile",
             "timeseries",
             [(_quantile(0.99, "verdict_commit_seconds", "part"), "{{part}}")],
-            (12, 17, 12, 8),
+            (12, 16, 12, 8),
             unit="s",
             description="The platform's own per-batch cost (ADR 9).",
         ),
@@ -298,7 +302,7 @@ def _live_dashboard() -> dict[str, Any]:
             "Records sent by the feeds",
             "timeseries",
             [("sum by (feed) (rate(verdict_feed_records_total[1m]))", "{{feed}}")],
-            (0, 25, 12, 8),
+            (0, 24, 12, 8),
             unit="reqps",
             description="Labels begin seven days after transactions (ADR 10).",
         ),
@@ -309,7 +313,7 @@ def _live_dashboard() -> dict[str, Any]:
                 ("sum(rate(verdict_duplicates_total[5m]))", "duplicates"),
                 ("sum by (reason) (rate(verdict_dead_letters_total[5m]))", "{{reason}}"),
             ],
-            (12, 25, 12, 8),
+            (12, 24, 12, 8),
             unit="reqps",
             description="Redeliveries the ledger turned away, and dead letters by reason.",
         ),
@@ -317,7 +321,7 @@ def _live_dashboard() -> dict[str, Any]:
             "Scorer memory",
             "timeseries",
             [("max(verdict_scorer_resident_bytes)", "resident")],
-            (0, 51, 24, 6),
+            (0, 50, 24, 6),
             unit="bytes",
             description=(
                 "The scorer's resident memory, on a 32 GB machine (ADR 31). It grows "
@@ -328,7 +332,7 @@ def _live_dashboard() -> dict[str, Any]:
             "Model deciding",
             "timeseries",
             [("sum by (model_version) (rate(verdict_decisions_total[5m]))", "{{model_version}}")],
-            (0, 33, 24, 6),
+            (0, 32, 24, 6),
             unit="reqps",
             description="Which model version made the decisions. A rollback shows here.",
         ),
@@ -342,7 +346,7 @@ def _live_dashboard() -> dict[str, Any]:
                     "behind",
                 )
             ],
-            (0, 45, 12, 6),
+            (0, 44, 12, 6),
             unit="s",
             description=(
                 "How far the labels written to history trail the labels sent. The "
@@ -353,7 +357,7 @@ def _live_dashboard() -> dict[str, Any]:
             "Oldest unsealed hour of history",
             "timeseries",
             [("verdict_history_unsealed_age_seconds", "{{spool}}")],
-            (12, 45, 12, 6),
+            (12, 44, 12, 6),
             unit="s",
             description=(
                 "Time since the oldest hour not yet sealed ended. Minutes when the "

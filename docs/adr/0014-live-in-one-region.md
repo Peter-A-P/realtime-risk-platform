@@ -193,24 +193,26 @@ to decision because the feed sends each transaction at its event time.
   Windows checkout. A carriage return there is a boot that fails on AWS, and
   a test checks for one.
 
-## Addendum, 2026-10-31: the dashboard opens on four headline numbers
+## Addendum, 2026-10-31: the dashboard opens on six headline numbers
 
 Peter asked for the window's latency in the most prominent place on the
-dashboard. The top row is now four stat panels: event to decision, median and
-p99, over the last thirty days and the last seven. Every decision counts,
+dashboard. The top row is now two stat panels, "Event to decision, last 30
+days" and "last 7 days", each with its median, p95 and p99. Every decision counts,
 catch-ups included, so these are the numbers a stranger can hold the 50 ms
 budget against; the five-minute panels below stay for watching the stack.
 
-**At the top, not in a left sidebar.** A sidebar would have room for more (the
-p95s too), but Grafana's grid has no fixed column: on a phone it lays panels
+**At the top, not in a left sidebar.** Grafana's grid has no fixed column: on a phone it lays panels
 out one under another by position, so a sidebar's numbers would be shuffled in
 among the charts, and on a desktop it narrows every chart beside it. A full-width
-row is the first thing seen on any screen and keeps its order. Four numbers,
-then.
+row is the first thing seen on any screen and keeps its order. The first
+version had four numbers, one panel each, and they were larger than they needed
+to be; Peter asked the same day for six, grouped under one title per window.
+The introduction below them was cut to one paragraph and four rows, which fits
+at 1280 and 1600 pixels wide without the blank it left before.
 
 **Recorded, not queried per viewer.** Measured on the live Prometheus on
 2026-10-31: one thirty-day quantile reads 3.3 million samples in about 0.45 s,
-a seven-day one 0.77 million in 0.17 s. Four such queries on every 30-second
+a seven-day one 0.77 million in 0.17 s. Six such queries on every 30-second
 refresh of every open tab would put Prometheus's CPU beside the scorer's on an
 instance that saturates its four vCPUs at the evening peak. So a rule group
 (`verdict-dashboard`, once a minute, in `deploy/live/compose.yml`) records each
@@ -221,9 +223,10 @@ for the window it shows, so there the same panels read the raw buckets at the
 window's end.
 
 The values are interpolated within the scorer's buckets (5 to 10 ms for the
-median, 25 to 50 ms for the p99), as every percentile on the dashboard is, and
-each panel says so. Synthetic live track. At the change: median 9.0 ms and p99
-46.6 ms over thirty days, 9.2 ms and 49.4 ms over seven.
+median, 10 to 25 ms for the p95, 25 to 50 ms for the p99), as every percentile
+on the dashboard is, and each panel says so. Synthetic live track. At the
+change: median 9.0, p95 24.4, p99 46.6 ms over thirty days; 9.2, 24.9 and 49.4 ms
+over seven.
 
 ## Sources
 

@@ -84,13 +84,13 @@ def test_the_headline_is_the_top_row_and_is_read_at_one_moment() -> None:
     panels = dashboard()["panels"]
     top = [p for p in panels if p["gridPos"]["y"] == 0]
     assert [p["title"] for p in top] == [
-        "Event to decision, median, last 30 days",
-        "Event to decision, p99, last 30 days",
-        "Event to decision, median, last 7 days",
-        "Event to decision, p99, last 7 days",
+        "Event to decision, last 30 days",
+        "Event to decision, last 7 days",
     ]
+    for panel in top:
+        assert [t["legendFormat"] for t in panel["targets"]] == ["median", "p95", "p99"]
+        assert all(t["instant"] for t in panel["targets"])
     assert sum(p["gridPos"]["w"] for p in top) == 24
-    assert all(t["instant"] for p in top for t in p["targets"])
     assert all(p["gridPos"]["y"] >= KPI_HEIGHT for p in panels if p not in top)
 
 
