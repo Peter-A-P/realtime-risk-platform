@@ -229,18 +229,20 @@ backfill met the live rule is short by its last 56 minutes, under 0.2% of
 thirty days. Because the series is in the TSDB, the archive (ADR 36), which
 runs no rules, reads the same queries.
 
-**The trends are their own panels, each period on its own, on a log scale.**
-The first trends were sparklines behind the values, each the trailing-window
-figure over time, drawn from 0 to 100 ms. Peter found the p99 unreadable: until
-the failed first window (ADR 31) left the trailing thirty days on 2026-10-29,
-its p99 was minutes and sat off the scale for most of the chart. And a stat
-panel's sparkline cannot draw a reference line, which he also asked for. So
-under each pair of numbers there is now a time series of each day's (thirty
-days) or each six hours' (seven days) median, p95 and p99, from the same hourly
-recording summed over the period, on a log axis so that a 9 ms median and a
-slow day's seconds-long p99 (2026-10-22, the promotion's restart) both stay
-readable, with the 50 ms budget as a red dashed line. The numbers above them are
-read from the trailing window at one moment, as before.
+**The trends stay behind the values, cut at 100 ms.** The first trends were
+sparklines behind the values, each the trailing-window figure over time, given
+a 0 to 100 ms range. Peter found the p99 unreadable: until the failed first
+window (ADR 31) left the trailing thirty days on 2026-10-29, its p99 was
+minutes, and Grafana 13's sparkline takes a field's min and max only to widen
+its range, never to cut it, so those minutes set the scale and the rest of the
+line lay flat along the bottom. For a few hours the trends were their own time
+series panels under the values, each day's or six hours' quantiles on a log
+axis with a dashed 50 ms line; Peter wanted them back behind the numbers. So
+each trend's query is cut at 100 ms with `clamp_max`, which pins the range at
+0 to 100 ms and puts the budget halfway up, except at its last point (the
+query's step that ends at Grafana's `$__to`), so the number shown is never cut.
+A sparkline draws no threshold line, which the source shows (Sources): the
+budget is shown instead by the trend's fill and line turning red above 50 ms.
 
 The thirty- and seven-day recordings of the first version stay alongside, so
 the dashboard that version's image writes still has its data if a
@@ -275,3 +277,6 @@ over seven.
   https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/
 - Grafana dashboard JSON model, and how panels stack on small screens.
   https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/view-dashboard-json-model/
+- Grafana's sparkline, v13.2.2: its y range only widened by a field's min and
+  max, and no threshold line.
+  https://github.com/grafana/grafana/blob/v13.2.2/packages/grafana-ui/src/components/Sparkline/utils.ts

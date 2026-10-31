@@ -52,10 +52,8 @@ _FIXED_WINDOW: Final = re.compile(r"\[[0-9]+m\]")
 
 AGE: Final = "verdict_event_to_decision_seconds"
 
-STAT_HEIGHT: Final = 4
-TREND_HEIGHT: Final = 6
-KPI_HEIGHT: Final = STAT_HEIGHT + TREND_HEIGHT
-"""The headline's height, numbers over their trends: it sits above everything else."""
+KPI_HEIGHT: Final = 5
+"""The headline row's height, numbers over their trends: it sits above everything else."""
 
 BUDGET_SECONDS: Final = 0.05
 """The event-to-decision budget (ADR 9), drawn on the headline's trends."""
@@ -142,85 +140,63 @@ def trailing(q: float, window: str) -> str:
     return f"histogram_quantile({q}, sum by (le) ({hours}))"
 
 
-def _headline(window: str, days: int, x: int) -> list[dict[str, Any]]:
-    """One window's median, p95 and p99 under one title, and their trend below."""
-    stat = _panel(
+def _drawn(expr: str) -> str:
+    """A headline's trend cut at twice the budget, all but its last point.
+
+    A sparkline is scaled to its data and cannot be given a log axis or a
+    ceiling, so one slow stretch flattens the rest: the trailing thirty days
+    held the failed first window's minutes-long catch-ups (ADR 31) until
+    2026-10-29. Cut at 100 ms, the budget sits halfway up every trend. The
+    last point, the number shown, is never cut.
+    """
+    last = "on() (vector(time()) > ${__to:date:seconds} - ${__interval_ms} / 1000)"
+    return f"(clamp_max({expr}, {2 * BUDGET_SECONDS}) unless {last}) or ({expr} and {last})"
+
+
+def _headline(window: str, days: int, x: int) -> dict[str, Any]:
+    """One window's median, p95 and p99 under one title, each over its own trend."""
+    panel = _panel(
         f"Event to decision, last {days} days",
         "stat",
-        [(trailing(q, window), name) for q, name in _QUANTILES],
-        (x, 0, 12, STAT_HEIGHT),
+        [(_drawn(trailing(q, window)), name) for q, name in _QUANTILES],
+        (x, 0, 12, KPI_HEIGHT),
         unit="s",
         description=(
             f"Every decision of the last {days} days, from the transaction's event time "
             "to its decision, catch-ups after a restart included. Estimated within the "
             "scorer's histogram buckets: so far a median within 5 to 10 ms, a p95 within "
             "10 to 25 ms and a p99 within 25 to 50 ms. Green inside the 50 ms budget "
-            "(ADR 9). Synthetic live track."
+            f"(ADR 9). Behind each, how that figure moved over the last {days} days, "
+            "drawn from 0 to 100 ms so that the budget is halfway up and red above it; "
+            "anything slower is drawn at the top. Synthetic live track."
         ),
     )
-    for target in stat["targets"]:
-        target["instant"] = True
-    stat["fieldConfig"]["defaults"] |= {
+    panel["timeFrom"] = window
+    panel["hideTimeOverride"] = True
+    panel["interval"] = "6h" if days > 7 else "1h"
+    panel["fieldConfig"]["defaults"] |= {
+        "min": 0,
+        "max": 2 * BUDGET_SECONDS,
         "decimals": 1,
         "color": {"mode": "thresholds"},
         "thresholds": {
             "mode": "absolute",
             "steps": [{"color": "green", "value": None}, {"color": "red", "value": BUDGET_SECONDS}],
         },
+        # A sparkline draws no threshold line, so the budget shows as the
+        # trend turning red where it crosses it.
+        "custom": {"gradientMode": "scheme", "fillOpacity": 25, "lineWidth": 1},
     }
-    stat["options"] = {
+    panel["options"] = {
         "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "textMode": "value_and_name",
         "text": {"titleSize": 14, "valueSize": 44},
         "justifyMode": "center",
         "orientation": "vertical",
     }
-    # Each point is its own day (or six hours), not the trailing window: the
-    # trailing thirty days held the failed first window's minutes-long
-    # catch-ups (ADR 31) until 2026-10-29, and drawn that way the p99 sat off
-    # any scale that also showed the rest.
-    span, every = ("1d", "day") if days > 7 else ("6h", "six hours")
-    trend = _panel(
-        f"Event to decision, each {every}, last {days} days",
-        "timeseries",
-        [(trailing(q, span), name) for q, name in _QUANTILES],
-        (x, STAT_HEIGHT, 12, TREND_HEIGHT),
-        unit="s",
-        description=(
-            f"The median, p95 and p99 of each {every}'s decisions, on a log scale so "
-            "that the median and a slow day's p99 both stay readable. The red dashed "
-            "line is the 50 ms budget (ADR 9). Synthetic live track."
-        ),
-    )
-    trend["timeFrom"] = window
-    trend["hideTimeOverride"] = True
-    trend["interval"] = span
-    trend["fieldConfig"]["defaults"] |= {
-        "color": {"mode": "palette-classic"},
-        "thresholds": {
-            "mode": "absolute",
-            "steps": [
-                {"color": "transparent", "value": None},
-                {"color": "red", "value": BUDGET_SECONDS},
-            ],
-        },
-        "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "showPoints": "auto",
-            "scaleDistribution": {"type": "log", "log": 10},
-            "axisSoftMin": 0.005,
-            "axisSoftMax": 0.1,
-            "thresholdsStyle": {"mode": "dashed"},
-        },
-    }
-    trend["options"] = {
-        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
-        "tooltip": {"mode": "multi", "sort": "none"},
-    }
-    return [stat, trend]
+    return panel
 
 
 def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
@@ -232,8 +208,7 @@ def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
             refreshes, and every rate is taken over Grafana's own interval,
             since a five-minute rate drawn at a thirty-day zoom shows one
             five-minute sample of each step and not the step. The headline
-            numbers are read at the window's end and its trends drawn over the
-            whole window.
+            numbers are drawn over the whole window and end at its end.
 
     Returns:
         The dashboard, as Grafana's JSON model.
@@ -254,7 +229,7 @@ def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
 
 
 def _live_dashboard() -> dict[str, Any]:
-    headline = _headline("30d", 30, 0) + _headline("7d", 7, 12)
+    headline = [_headline("30d", 30, 0), _headline("7d", 7, 12)]
     panels: list[dict[str, Any]] = [
         {
             "type": "text",

@@ -22,7 +22,6 @@ from verdict.observe.dashboard import (
     DATASOURCE_UID,
     HOURLY,
     KPI_HEIGHT,
-    STAT_HEIGHT,
     dashboard,
     datasource,
     write_files,
@@ -79,7 +78,7 @@ def test_the_recording_counts_each_hour_once_a_minute() -> None:
     assert rule["interval"] == "1m"
 
 
-def test_the_headline_is_the_top_row_and_is_read_now() -> None:
+def test_the_headline_is_the_top_row_and_ends_at_its_window_now() -> None:
     panels = dashboard()["panels"]
     top = [p for p in panels if p["gridPos"]["y"] == 0]
     assert [p["title"] for p in top] == [
@@ -88,20 +87,25 @@ def test_the_headline_is_the_top_row_and_is_read_now() -> None:
     ]
     for panel, window in zip(top, ("30d", "7d"), strict=True):
         assert [t["legendFormat"] for t in panel["targets"]] == ["median", "p95", "p99"]
-        assert all(f"[{window}:1h]" in t["expr"] and t["instant"] for t in panel["targets"])
+        assert all(f"[{window}:1h]" in t["expr"] for t in panel["targets"])
+        assert panel["timeFrom"] == window
+        assert panel["options"]["graphMode"] == "area"
+        assert panel["options"]["reduceOptions"]["calcs"] == ["lastNotNull"]
     assert sum(p["gridPos"]["w"] for p in top) == 24
-    assert all(p["gridPos"]["y"] >= KPI_HEIGHT for p in panels if p["gridPos"]["y"] > STAT_HEIGHT)
+    assert all(p["gridPos"]["y"] >= KPI_HEIGHT for p in panels if p not in top)
 
 
-def test_each_trend_draws_its_own_periods_against_the_budget() -> None:
-    trends = [p for p in dashboard()["panels"] if p["gridPos"]["y"] == STAT_HEIGHT]
-    assert [(p["timeFrom"], p["interval"]) for p in trends] == [("30d", "1d"), ("7d", "6h")]
-    for panel in trends:
-        span = panel["interval"]
-        assert all(f"[{span}:1h]" in t["expr"] for t in panel["targets"])
+def test_each_trend_is_cut_at_twice_the_budget_but_not_its_number() -> None:
+    for panel in [p for p in dashboard()["panels"] if p["gridPos"]["y"] == 0]:
         defaults = panel["fieldConfig"]["defaults"]
-        assert defaults["custom"]["thresholdsStyle"] == {"mode": "dashed"}
+        assert (defaults["min"], defaults["max"]) == (0, 2 * BUDGET_SECONDS)
         assert {"color": "red", "value": BUDGET_SECONDS} in defaults["thresholds"]["steps"]
+        for target in panel["targets"]:
+            cut, last = target["expr"].split(" or ")
+            assert cut.startswith("(clamp_max(histogram_quantile(")
+            assert f", {2 * BUDGET_SECONDS}) unless " in cut
+            assert "clamp_max" not in last
+            assert "${__to:date:seconds}" in last
     assert BUDGET_SECONDS == 0.05
 
 
