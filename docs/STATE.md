@@ -233,13 +233,14 @@ rules (previous kept as `compose.yml.f012a8f.20261031T1353Z` and `.6ae067d.*`),
 Prometheus force-recreated at 13:53Z and 14:55Z, `increase1h` backfilled with promtool
 from 2026-09-01 to 14:00Z (blocks merged at 14:57Z), and the dashboard of `1f79cce`
 written straight to `/data/grafana/dashboards/verdict.json` with Grafana restarted.
-`stack.env` and launch template version 36 name image `6ae067dd4624` (the four-panel
-version), whose `grafana-files` would bring that version back on a replacement; it still
-works there. **Owed: an image from `1f79cce` or later**, pushed, named in `stack.env` and
-the launch template, `grafana-files` run. Its build failed twice on the build machine's
-full C: (0.06 GB free about 15:00Z; Docker Desktop stopped; pip, npm and Docker-update
-caches cleared for 1.3 GB, then other work took it back to 0.9 GB; the uv cache is 16 GB
-but was locked by another project). The scorer and every other service were untouched and
+**Finished at 16:07Z:** image `5f704cd33355` (main at `5f704cd`, the dashboard code of
+`1f79cce`) pushed; `stack.env` names it (previous kept as `stack.env.6ae067d.20261031T1607Z`),
+`grafana-files` run from it and Grafana restarted; launch template version 37 carries it
+and the compose (plan: 1 change). The first build had failed when the build machine's C:
+filled (0.06 GB free about 15:00Z), which also corrupted Docker Desktop's data disk
+(`docker_data.vhdx`, "corrupted and unreadable", 0x80070570). Peter freed space and chose
+to reset Docker's data: the disk was deleted, so **every local image, container and
+volume on the build machine is gone**, other projects' included. The scorer and every other service were untouched and
 still run `f012a8fb094c`. Decisions over 50 ms, five-minute windows: 0.1 to 0.4% before,
 0.93% at 13:55 (the first Prometheus recreate and image pull), 1.5 to 2.0% at 14:05 to
 14:10 and 1.3% at 15:00 (an hourly save, the backfill or both; not separated). At the
