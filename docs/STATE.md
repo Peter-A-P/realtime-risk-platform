@@ -240,7 +240,13 @@ and the compose (plan: 1 change). The first build had failed when the build mach
 filled (0.06 GB free about 15:00Z), which also corrupted Docker Desktop's data disk
 (`docker_data.vhdx`, "corrupted and unreadable", 0x80070570). Peter freed space and chose
 to reset Docker's data: the disk was deleted, so **every local image, container and
-volume on the build machine is gone**, other projects' included. The scorer and every other service were untouched and
+volume on the build machine is gone**, other projects' included. **16:44Z, the trends as their own panels**
+(`065bebf`, Peter: the p99 sparkline was mostly off its scale, and he wanted the 50 ms
+budget drawn): under each pair of numbers, a time series of each day's (30 days) or each
+six hours' (7 days) median, p95 and p99 on a log axis with a red dashed line at 50 ms.
+Image `065bebf6ed41` in `stack.env` (previous kept as `stack.env.5f704cd.20261031T1644Z`)
+and launch template version 38; `grafana-files` run, Grafana restarted, nothing else
+touched. The scorer and every other service were untouched and
 still run `f012a8fb094c`. Decisions over 50 ms, five-minute windows: 0.1 to 0.4% before,
 0.93% at 13:55 (the first Prometheus recreate and image pull), 1.5 to 2.0% at 14:05 to
 14:10 and 1.3% at 15:00 (an hourly save, the backfill or both; not separated). At the
