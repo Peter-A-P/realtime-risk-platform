@@ -229,9 +229,19 @@ backfill met the live rule is short by its last 56 minutes, under 0.2% of
 thirty days. Because the series is in the TSDB, the archive (ADR 36), which
 runs no rules, reads the same queries.
 
-The trend is drawn from 0 to 100 ms whatever it holds. Until the failed first
-window (ADR 31) left the trailing thirty days, their p99 was minutes, and on
-its own scale that would have flattened everything since; the panel says so.
+**The trends are their own panels, each period on its own, on a log scale.**
+The first trends were sparklines behind the values, each the trailing-window
+figure over time, drawn from 0 to 100 ms. Peter found the p99 unreadable: until
+the failed first window (ADR 31) left the trailing thirty days on 2026-10-29,
+its p99 was minutes and sat off the scale for most of the chart. And a stat
+panel's sparkline cannot draw a reference line, which he also asked for. So
+under each pair of numbers there is now a time series of each day's (thirty
+days) or each six hours' (seven days) median, p95 and p99, from the same hourly
+recording summed over the period, on a log axis so that a 9 ms median and a
+slow day's seconds-long p99 (2026-10-22, the promotion's restart) both stay
+readable, with the 50 ms budget as a red dashed line. The numbers above them are
+read from the trailing window at one moment, as before.
+
 The thirty- and seven-day recordings of the first version stay alongside, so
 the dashboard that version's image writes still has its data if a
 replacement instance runs it.

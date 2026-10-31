@@ -18,9 +18,11 @@ from verdict.history.compactor import CompactorMetrics
 from verdict.history.labels import CollectorMetrics
 from verdict.live.feed import Feed, FeedMetrics
 from verdict.observe.dashboard import (
+    BUDGET_SECONDS,
     DATASOURCE_UID,
     HOURLY,
     KPI_HEIGHT,
+    STAT_HEIGHT,
     dashboard,
     datasource,
     write_files,
@@ -77,7 +79,7 @@ def test_the_recording_counts_each_hour_once_a_minute() -> None:
     assert rule["interval"] == "1m"
 
 
-def test_the_headline_is_the_top_row_and_ends_at_its_window_now() -> None:
+def test_the_headline_is_the_top_row_and_is_read_now() -> None:
     panels = dashboard()["panels"]
     top = [p for p in panels if p["gridPos"]["y"] == 0]
     assert [p["title"] for p in top] == [
@@ -86,12 +88,21 @@ def test_the_headline_is_the_top_row_and_ends_at_its_window_now() -> None:
     ]
     for panel, window in zip(top, ("30d", "7d"), strict=True):
         assert [t["legendFormat"] for t in panel["targets"]] == ["median", "p95", "p99"]
-        assert all(f"[{window}:1h]" in t["expr"] for t in panel["targets"])
-        assert panel["timeFrom"] == window
-        assert panel["options"]["graphMode"] == "area"
-        assert panel["options"]["reduceOptions"]["calcs"] == ["lastNotNull"]
+        assert all(f"[{window}:1h]" in t["expr"] and t["instant"] for t in panel["targets"])
     assert sum(p["gridPos"]["w"] for p in top) == 24
-    assert all(p["gridPos"]["y"] >= KPI_HEIGHT for p in panels if p not in top)
+    assert all(p["gridPos"]["y"] >= KPI_HEIGHT for p in panels if p["gridPos"]["y"] > STAT_HEIGHT)
+
+
+def test_each_trend_draws_its_own_periods_against_the_budget() -> None:
+    trends = [p for p in dashboard()["panels"] if p["gridPos"]["y"] == STAT_HEIGHT]
+    assert [(p["timeFrom"], p["interval"]) for p in trends] == [("30d", "1d"), ("7d", "6h")]
+    for panel in trends:
+        span = panel["interval"]
+        assert all(f"[{span}:1h]" in t["expr"] for t in panel["targets"])
+        defaults = panel["fieldConfig"]["defaults"]
+        assert defaults["custom"]["thresholdsStyle"] == {"mode": "dashed"}
+        assert {"color": "red", "value": BUDGET_SECONDS} in defaults["thresholds"]["steps"]
+    assert BUDGET_SECONDS == 0.05
 
 
 def test_every_panel_reads_the_provisioned_data_source() -> None:

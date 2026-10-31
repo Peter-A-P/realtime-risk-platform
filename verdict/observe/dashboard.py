@@ -52,8 +52,15 @@ _FIXED_WINDOW: Final = re.compile(r"\[[0-9]+m\]")
 
 AGE: Final = "verdict_event_to_decision_seconds"
 
-KPI_HEIGHT: Final = 5
-"""The headline row's height: it sits above everything else."""
+STAT_HEIGHT: Final = 4
+TREND_HEIGHT: Final = 6
+KPI_HEIGHT: Final = STAT_HEIGHT + TREND_HEIGHT
+"""The headline's height, numbers over their trends: it sits above everything else."""
+
+BUDGET_SECONDS: Final = 0.05
+"""The event-to-decision budget (ADR 9), drawn on the headline's trends."""
+
+_QUANTILES: Final = ((0.50, "median"), (0.95, "p95"), (0.99, "p99"))
 
 INTRODUCTION_HEIGHT: Final = 4
 """Rows for the introduction: its one paragraph at laptop width, no blank below."""
@@ -117,18 +124,16 @@ def _mean(metric: str) -> str:
 
 
 def trailing(q: float, window: str) -> str:
-    """A quantile of every decision over a trailing window, from the hourly recording.
+    """A quantile of every decision over a trailing span, from the hourly recording.
 
     On each hour the subquery takes the newest count of the hour before it
     (the backfill's samples are a few minutes past the hour, the live rule's
     each minute), and the counts are summed: under a million samples a point,
-    where the raw buckets over thirty days are 3.3 million. Drawn over the
-    window, the series is how the window's figure moved; its last point is the
-    figure now.
+    where the raw buckets over thirty days are 3.3 million.
 
     Args:
         q: The quantile.
-        window: A Prometheus duration, such as `30d`.
+        window: A Prometheus duration in whole hours or days, such as `30d`.
 
     Returns:
         The PromQL.
@@ -137,54 +142,85 @@ def trailing(q: float, window: str) -> str:
     return f"histogram_quantile({q}, sum by (le) ({hours}))"
 
 
-def _headline(window: str, days: int, x: int) -> dict[str, Any]:
-    """One window's median, p95 and p99 under one title, each over its own trend."""
-    panel = _panel(
+def _headline(window: str, days: int, x: int) -> list[dict[str, Any]]:
+    """One window's median, p95 and p99 under one title, and their trend below."""
+    stat = _panel(
         f"Event to decision, last {days} days",
         "stat",
-        [
-            (trailing(q, window), name)
-            for q, name in ((0.50, "median"), (0.95, "p95"), (0.99, "p99"))
-        ],
-        (x, 0, 12, KPI_HEIGHT),
+        [(trailing(q, window), name) for q, name in _QUANTILES],
+        (x, 0, 12, STAT_HEIGHT),
         unit="s",
         description=(
             f"Every decision of the last {days} days, from the transaction's event time "
             "to its decision, catch-ups after a restart included. Estimated within the "
             "scorer's histogram buckets: so far a median within 5 to 10 ms, a p95 within "
             "10 to 25 ms and a p99 within 25 to 50 ms. Green inside the 50 ms budget "
-            f"(ADR 9). Behind each, how that figure moved over the last {days} days, "
-            "drawn from 0 to 100 ms (off the top while the trailing window still held "
-            "the failed first window's catch-ups). "
-            "Synthetic live track."
+            "(ADR 9). Synthetic live track."
         ),
     )
-    panel["timeFrom"] = window
-    panel["hideTimeOverride"] = True
-    panel["interval"] = "6h" if days > 7 else "1h"
-    panel["fieldConfig"]["defaults"] |= {
-        # The trend is drawn from 0 to twice the budget. Until the failed first
-        # window (ADR 31) left the trailing thirty days, their p99 was minutes,
-        # and on its own scale that would flatten everything since.
-        "min": 0,
-        "max": 0.1,
+    for target in stat["targets"]:
+        target["instant"] = True
+    stat["fieldConfig"]["defaults"] |= {
         "decimals": 1,
         "color": {"mode": "thresholds"},
         "thresholds": {
             "mode": "absolute",
-            "steps": [{"color": "green", "value": None}, {"color": "red", "value": 0.05}],
+            "steps": [{"color": "green", "value": None}, {"color": "red", "value": BUDGET_SECONDS}],
         },
     }
-    panel["options"] = {
+    stat["options"] = {
         "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
         "colorMode": "value",
-        "graphMode": "area",
+        "graphMode": "none",
         "textMode": "value_and_name",
         "text": {"titleSize": 14, "valueSize": 44},
         "justifyMode": "center",
         "orientation": "vertical",
     }
-    return panel
+    # Each point is its own day (or six hours), not the trailing window: the
+    # trailing thirty days held the failed first window's minutes-long
+    # catch-ups (ADR 31) until 2026-10-29, and drawn that way the p99 sat off
+    # any scale that also showed the rest.
+    span, every = ("1d", "day") if days > 7 else ("6h", "six hours")
+    trend = _panel(
+        f"Event to decision, each {every}, last {days} days",
+        "timeseries",
+        [(trailing(q, span), name) for q, name in _QUANTILES],
+        (x, STAT_HEIGHT, 12, TREND_HEIGHT),
+        unit="s",
+        description=(
+            f"The median, p95 and p99 of each {every}'s decisions, on a log scale so "
+            "that the median and a slow day's p99 both stay readable. The red dashed "
+            "line is the 50 ms budget (ADR 9). Synthetic live track."
+        ),
+    )
+    trend["timeFrom"] = window
+    trend["hideTimeOverride"] = True
+    trend["interval"] = span
+    trend["fieldConfig"]["defaults"] |= {
+        "color": {"mode": "palette-classic"},
+        "thresholds": {
+            "mode": "absolute",
+            "steps": [
+                {"color": "transparent", "value": None},
+                {"color": "red", "value": BUDGET_SECONDS},
+            ],
+        },
+        "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "scaleDistribution": {"type": "log", "log": 10},
+            "axisSoftMin": 0.005,
+            "axisSoftMax": 0.1,
+            "thresholdsStyle": {"mode": "dashed"},
+        },
+    }
+    trend["options"] = {
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
+        "tooltip": {"mode": "multi", "sort": "none"},
+    }
+    return [stat, trend]
 
 
 def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
@@ -196,7 +232,8 @@ def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
             refreshes, and every rate is taken over Grafana's own interval,
             since a five-minute rate drawn at a thirty-day zoom shows one
             five-minute sample of each step and not the step. The headline
-            numbers are drawn over the whole window and end at its end.
+            numbers are read at the window's end and its trends drawn over the
+            whole window.
 
     Returns:
         The dashboard, as Grafana's JSON model.
@@ -217,10 +254,7 @@ def dashboard(window: tuple[str, str] | None = None) -> dict[str, Any]:
 
 
 def _live_dashboard() -> dict[str, Any]:
-    headline = [
-        _headline("30d", 30, 0),
-        _headline("7d", 7, 12),
-    ]
+    headline = _headline("30d", 30, 0) + _headline("7d", 7, 12)
     panels: list[dict[str, Any]] = [
         {
             "type": "text",
