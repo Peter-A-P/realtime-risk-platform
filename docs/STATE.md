@@ -252,7 +252,10 @@ its range by a field's min and max, so each trend's query is now cut at 100 ms
 (`clamp_max`) except at its last step, the number shown; the budget is the trend's
 halfway mark, since a sparkline draws no threshold line. Image `d75c6e668b27` in
 `stack.env` (previous kept as `stack.env.065bebf.20261031T2012Z`) and launch template
-version 39; `grafana-files` run, Grafana restarted, nothing else touched. The scorer and every other service were untouched and
+version 39; `grafana-files` run, Grafana restarted, nothing else touched. **23:19Z, the headline values white and their trends blue** (Peter: too much
+green; a stat panel's trend takes its value's colour, so the two cannot differ), red
+while a figure is over budget. Image `c2b59660ca3d` (previous kept as
+`stack.env.d75c6e6.20261031T2319Z`), launch template version 40; Grafana only. The scorer and every other service were untouched and
 still run `f012a8fb094c`. Decisions over 50 ms, five-minute windows: 0.1 to 0.4% before,
 0.93% at 13:55 (the first Prometheus recreate and image pull), 1.5 to 2.0% at 14:05 to
 14:10 and 1.3% at 15:00 (an hourly save, the backfill or both; not separated). At the
