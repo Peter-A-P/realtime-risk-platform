@@ -165,10 +165,10 @@ def _headline(window: str, days: int, x: int) -> dict[str, Any]:
             f"Every decision of the last {days} days, from the transaction's event time "
             "to its decision, catch-ups after a restart included. Estimated within the "
             "scorer's histogram buckets: so far a median within 5 to 10 ms, a p95 within "
-            "10 to 25 ms and a p99 within 25 to 50 ms. Green inside the 50 ms budget "
-            f"(ADR 9). Behind each, how that figure moved over the last {days} days, "
-            "drawn from 0 to 100 ms, so that the budget is halfway up; anything slower "
-            "is drawn at the top. Synthetic live track."
+            "10 to 25 ms and a p99 within 25 to 50 ms. Behind each, how that figure "
+            f"moved over the last {days} days, drawn from 0 to 100 ms so that the 50 ms "
+            "budget (ADR 9) is halfway up; anything slower is drawn at the top. Blue "
+            "inside the budget, red while the figure is over it. Synthetic live track."
         ),
     )
     panel["timeFrom"] = window
@@ -181,12 +181,14 @@ def _headline(window: str, days: int, x: int) -> dict[str, Any]:
         "color": {"mode": "thresholds"},
         "thresholds": {
             "mode": "absolute",
-            "steps": [{"color": "green", "value": None}, {"color": "red", "value": BUDGET_SECONDS}],
+            "steps": [{"color": "blue", "value": None}, {"color": "red", "value": BUDGET_SECONDS}],
         },
     }
+    # A stat panel draws its trend in its value's colour, so the values are
+    # left white and the colour goes on the trends: blue, red over budget.
     panel["options"] = {
         "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
-        "colorMode": "value",
+        "colorMode": "none",
         "graphMode": "area",
         "textMode": "value_and_name",
         "text": {"titleSize": 14, "valueSize": 44},

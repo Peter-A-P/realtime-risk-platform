@@ -243,7 +243,9 @@ each trend's query is cut at 100 ms with `clamp_max`, which pins the range at
 query's step that ends at Grafana's `$__to`), so the number shown is never cut.
 A sparkline draws no threshold line (Sources), and the stat panel paints it in
 its value's colour, so a threshold gradient does not show either: the budget is
-the trend's halfway mark, and the value turns red above it.
+the trend's halfway mark. For the same reason the values cannot be one colour and
+their trends another; Peter preferred less green, so the values are white and the
+trends blue, red while their figure is over the budget.
 
 The thirty- and seven-day recordings of the first version stay alongside, so
 the dashboard that version's image writes still has its data if a
