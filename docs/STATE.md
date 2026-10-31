@@ -246,7 +246,13 @@ budget drawn): under each pair of numbers, a time series of each day's (30 days)
 six hours' (7 days) median, p95 and p99 on a log axis with a red dashed line at 50 ms.
 Image `065bebf6ed41` in `stack.env` (previous kept as `stack.env.5f704cd.20261031T1644Z`)
 and launch template version 38; `grafana-files` run, Grafana restarted, nothing else
-touched. The scorer and every other service were untouched and
+touched. **20:12Z, the trends back behind the numbers** (`1bf17ab`, `d75c6e6`;
+Peter wanted them as before, with the axis fixed): Grafana 13's sparkline only widens
+its range by a field's min and max, so each trend's query is now cut at 100 ms
+(`clamp_max`) except at its last step, the number shown; the budget is the trend's
+halfway mark, since a sparkline draws no threshold line. Image `d75c6e668b27` in
+`stack.env` (previous kept as `stack.env.065bebf.20261031T2012Z`) and launch template
+version 39; `grafana-files` run, Grafana restarted, nothing else touched. The scorer and every other service were untouched and
 still run `f012a8fb094c`. Decisions over 50 ms, five-minute windows: 0.1 to 0.4% before,
 0.93% at 13:55 (the first Prometheus recreate and image pull), 1.5 to 2.0% at 14:05 to
 14:10 and 1.3% at 15:00 (an hourly save, the backfill or both; not separated). At the
