@@ -97,7 +97,26 @@ function niceMax(value) {
   return 10 * power;
 }
 
-const WORDS = { score: "the model's own score" };
+/* Short names for the drift readout, where a feature's full description is too long. */
+const WORDS = {
+  score: "the model's own fraud score",
+  card_txn_count_1h: "payments on a card in an hour",
+  card_txn_count_24h: "payments on a card in a day",
+  card_amount_sum_1h: "money spent on a card in an hour",
+  card_amount_mean_24h: "a card's average payment over a day",
+  card_amount_max_24h: "a card's largest payment in a day",
+  card_seconds_since_last: "time since a card's last payment",
+  card_distinct_merchants_24h: "merchants a card used in a day",
+  device_txn_count_1h: "payments from a device in an hour",
+  device_distinct_cards_1h: "cards used on a device in an hour",
+  device_distinct_cards_24h: "cards used on a device in a day",
+  device_amount_mean_1h: "a device's average payment in an hour",
+  merchant_txn_count_1h: "payments at a merchant in an hour",
+  merchant_distinct_cards_1h: "cards used at a merchant in an hour",
+  merchant_amount_mean_1h: "a merchant's average payment in an hour",
+  session_txn_count: "payments in a session",
+  session_amount_sum: "money spent in a session",
+};
 
 function humanFeature(name, features) {
   if (WORDS[name]) return WORDS[name];
@@ -561,7 +580,7 @@ function driftChart(data) {
     svg.append(sv("line", { class: "gridline", x1: L, x2: W - R, y1: y(v), y2: y(v) }));
     svg.append(sv("text", { class: "tick", x: L - 8, y: y(v) + 4, "text-anchor": "end" }, String(v)));
   }
-  svg.append(sv("text", { class: "axis-title", x: 12, y: T + (H - T - B) / 2, transform: `rotate(-90 12 ${T + (H - T - B) / 2})`, "text-anchor": "middle" }, "quantities drifted"));
+  svg.append(sv("text", { class: "axis-title", x: 12, y: T + (H - T - B) / 2, transform: `rotate(-90 12 ${T + (H - T - B) / 2})`, "text-anchor": "middle" }, `signals shifted, of ${top}`));
   svg.append(sv("line", { class: "axis-line", x1: L, x2: W - R, y1: H - B, y2: H - B }));
   for (let d = Math.ceil(first / 7) * 7; d <= last; d += 7) {
     svg.append(sv("text", { class: "tick", x: x(d) + bw / 2, y: H - B + 18, "text-anchor": "middle" }, `day ${d}`));
@@ -594,28 +613,28 @@ function driftChart(data) {
     bars.forEach(([hit], j) => hit.classList.toggle("on", j === index));
     readout.textContent = "";
     readout.append(el("span", { class: "when" }, `Day ${day.day}`));
-    readout.append(el("span", { class: "pair" }, REGIMES[day.regime] ? REGIMES[day.regime][1].toLowerCase() : day.regime));
+    readout.append(el("span", { class: "pair" }, `fraud running: ${REGIMES[day.regime] ? REGIMES[day.regime][1].toLowerCase() : day.regime}`));
     if (day.drifted.length === 0) {
-      readout.append(el("span", { class: "pair" }, "nothing drifted"));
+      readout.append(el("span", { class: "pair" }, `none of the ${top} signals shifted`));
     } else {
       const names = day.drifted.map((name) => humanFeature(name, data.features));
-      readout.append(el("span", { class: "pair" }, `${day.drifted.length} drifted: ${names.slice(0, 4).join("; ")}${names.length > 4 ? `; and ${names.length - 4} more` : ""}`));
+      readout.append(el("span", { class: "pair" }, `${day.drifted.length} of ${top} signals shifted: ${names.join("; ")}`));
     }
   }
   bars.forEach(([hit], i) => {
     hit.addEventListener("mouseenter", () => show(i));
     hit.addEventListener("click", () => show(i));
   });
-  readout.textContent = "Point at a day to see what moved.";
+  readout.textContent = "Point at a day to see which signals shifted.";
 
   legend(
     $("drift-legend"),
     drift.regimes.map((r, i) => [`sw-regime-${i}`, REGIMES[r.name] ? `${REGIMES[r.name][1]}: ${REGIMES[r.name][2]}` : r.name]),
   );
-  $("drift-caption").textContent = `Synthetic track, offline replay of the development schedule, days ${first} to ${last} judged (the first week is the reference). A green dot is a day with nothing drifted. Source: docs/drift-report.json.`;
+  $("drift-caption").textContent = `Synthetic track, offline replay of the development schedule. Days 0 to ${first - 1} are the week the model was trained on and the monitors compare against, so judging starts on day ${first}. Source: docs/drift-report.json.`;
   fill($("drift-method"), [
-    `Each day, about ${number.format(Math.round(days.reduce((s, d) => s + d.values, 0) / days.length))} transactions are drawn by a hash of their identifier (the same ones whoever reruns it), and for each of the ${top} quantities (the model's inputs and its own score) the day's distribution is compared with the reference week's. A quantity has drifted when its population stability index passes ${fmt(drift.psi_threshold, 2)} or its Kolmogorov-Smirnov statistic passes ${fmt(drift.ks_threshold, 2)}, the conventions credit scoring has used for decades. `,
-    strong("A request needs the same quantity drifted on two days running,"),
+    `Each day, about ${number.format(Math.round(days.reduce((s, d) => s + d.values, 0) / days.length))} transactions are drawn by a hash of their identifier (the same ones whoever reruns it), and for each of the ${top} signals (the model's inputs and its own score) the day's distribution is compared with the reference week's. A signal counts as shifted when its population stability index passes ${fmt(drift.psi_threshold, 2)} or its Kolmogorov-Smirnov statistic passes ${fmt(drift.ks_threshold, 2)}, the conventions credit scoring has used for decades. `,
+    strong("A retraining request needs the same signal shifted on two days running,"),
     " because a single odd day is often noise. That puts the earliest request a day after a change begins, which is where this one opened. In the live window the reference is the live traffic itself: the window's first two full days, and after each promotion the two full days after it.",
   ]);
 }

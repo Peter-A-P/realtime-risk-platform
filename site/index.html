@@ -153,44 +153,8 @@
         <strong>A load test times every decision exactly, but only for twenty seconds.</strong>
         Running for days, the platform shares the machine with its own housekeeping, and the
         dashboard estimates its percentiles from histogram buckets instead of timing each
-        decision, so its p99 reads higher. The next two sections are measured that way: three
-        days of rehearsal before go-live, then the live window day by day.
-      </p>
-    </div>
-  </section>
-
-  <section class="section" id="spot-panel">
-    <h2>What happens when the machine is taken away</h2>
-    <p class="section-lead">
-      The platform was built to run on a spot instance: spare cloud capacity at a fraction of the
-      price, which AWS can take back with two minutes' notice. For 72 hours before go-live the
-      whole stack ran at the live rate, and AWS took the machine away
-      <strong id="spot-count">-</strong> times. Each mark below is one of them, and its length is
-      how long the platform took to decide on time again.
-    </p>
-    <figure class="chart-figure">
-      <div id="spot-chart" class="chart"></div>
-      <p class="readout" id="spot-readout"></p>
-      <figcaption id="spot-caption"></figcaption>
-    </figure>
-    <section class="headline" id="spot-headline" aria-live="polite"></section>
-    <div class="verdict">
-      <p>
-        <strong>Transactions wait in the stream while a new machine boots.</strong> The scorer
-        saves its feature state to a disk that survives the machine, so a replacement restores
-        what every card, device and merchant has been doing and does not treat them all as
-        strangers for a day. The minutes of catch-up count against uptime and are reported beside
-        the latency.
-      </p>
-    </div>
-    <div class="assumption">
-      <p>
-        <strong>Spot did not survive the live window.</strong> The window opened on a 16 GB spot
-        machine on 28 September, and in its first 28 hours AWS took the machine back thirteen
-        times. The platform recovered by itself from twelve. The thirteenth exposed two faults, a
-        restore that ran the machine out of memory and state files left empty by the hard stop,
-        and the window was stopped. It restarted on 29 September for thirty days on an on-demand
-        machine with 32 GB, which AWS does not take back. The repository's ADR 31 has the details.
+        decision, so its p99 reads higher. The next section is measured that way, across every
+        day of the live window.
       </p>
     </div>
   </section>
@@ -223,10 +187,20 @@
   <section class="section" id="drift-panel">
     <h2>Fraud changes. Does anyone notice?</h2>
     <p class="section-lead" id="drift-lede">
-      Fifty days of generated stream, 86 million transactions, with the fraud changing three times
-      on days the monitors were not told about. Each bar is one day: how many of the monitored
-      quantities moved past a fixed threshold, compared with the week the model was trained on.
-      The monitors watch the model's own score as well as its inputs.
+      A fraud model learns from the past. When fraudsters change tactics, the payments it sees
+      stop looking like the ones it learned from, and its decisions get worse without any error
+      to say so. Every day the platform checks 17 signals for this: the sixteen facts the model
+      is given about each payment, such as how many cards a device has used in the last hour,
+      plus the model's own fraud score. For each one it asks whether the day's values still look
+      like those of the week the model was trained on. A signal that has moved too far counts as
+      shifted, which is what "drift" means here.
+    </p>
+    <p class="section-lead">
+      To test the monitors, the generator played fifty days of payments, 86 million of them, and
+      changed the kind of fraud three times on days the monitors were not told about. The shaded
+      bands across the top show which kind of fraud was running. Each bar is one day, and its
+      height is how many of the 17 signals had shifted that day; a green dot is a day when none
+      had. The dotted line marks the day the monitors asked for a new model.
     </p>
     <figure class="chart-figure">
       <div id="drift-chart" class="chart wide-chart"></div>
@@ -358,6 +332,42 @@
         </p>
         <p id="leak-inflation"></p>
       </div>
+    </div>
+  </section>
+
+  <section class="section" id="spot-panel">
+    <h2>What happens when the machine is taken away</h2>
+    <p class="section-lead">
+      The platform was built to run on a spot instance: spare cloud capacity at a fraction of the
+      price, which AWS can take back with two minutes' notice. For 72 hours before go-live the
+      whole stack ran at the live rate, and AWS took the machine away
+      <strong id="spot-count">-</strong> times. Each mark below is one of them, and its length is
+      how long the platform took to decide on time again.
+    </p>
+    <figure class="chart-figure">
+      <div id="spot-chart" class="chart"></div>
+      <p class="readout" id="spot-readout"></p>
+      <figcaption id="spot-caption"></figcaption>
+    </figure>
+    <section class="headline" id="spot-headline" aria-live="polite"></section>
+    <div class="verdict">
+      <p>
+        <strong>Transactions wait in the stream while a new machine boots.</strong> The scorer
+        saves its feature state to a disk that survives the machine, so a replacement restores
+        what every card, device and merchant has been doing and does not treat them all as
+        strangers for a day. The minutes of catch-up count against uptime and are reported beside
+        the latency.
+      </p>
+    </div>
+    <div class="assumption">
+      <p>
+        <strong>Spot did not survive the live window.</strong> The window opened on a 16 GB spot
+        machine on 28 September, and in its first 28 hours AWS took the machine back thirteen
+        times. The platform recovered by itself from twelve. The thirteenth exposed two faults, a
+        restore that ran the machine out of memory and state files left empty by the hard stop,
+        and the window was stopped. It restarted on 29 September for thirty days on an on-demand
+        machine with 32 GB, which AWS does not take back. The repository's ADR 31 has the details.
+      </p>
     </div>
   </section>
 
