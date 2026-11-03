@@ -847,7 +847,9 @@ tbody tr.reference { background: var(--accent-soft); }
 .series.lever { stroke: var(--ink); stroke-width: 2; fill: none; }
 .cell.steady { fill: color-mix(in srgb, var(--ink-faint) 14%, transparent); }
 .cell.moved { opacity: 0.35; }
-.demo-video { display: block; width: 100%; max-width: 640px; height: auto; border-radius: 10px; background: #000; margin: 1rem auto 0; }
+/* The video is square: as wide as the column allows, but never taller than the screen, so
+   scrolling onto it fills the view. */
+.demo-video { display: block; width: min(100%, calc(100vh - 2.5rem)); width: min(100%, calc(100svh - 2.5rem)); aspect-ratio: 1 / 1; height: auto; border-radius: 10px; background: #000; margin: 1rem auto 0; }
 
 .bar.champion { fill: var(--ink-faint); }
 .bar.candidate { fill: var(--accent); }
