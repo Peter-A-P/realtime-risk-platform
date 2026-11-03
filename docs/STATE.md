@@ -261,6 +261,19 @@ still run `f012a8fb094c`. Decisions over 50 ms, five-minute windows: 0.1 to 0.4%
 14:10 and 1.3% at 15:00 (an hourly save, the backfill or both; not separated). At the
 change: 9.0, 24.4 and 46.6 ms over 30 days, 9.2, 24.9 and 49.4 ms over 7, all targets up,
 no alerts.
+**2026-11-02, the site brought up to date (Peter's request).** `docs/live/daily.json` now runs
+to 2026-11-02T00:00Z (34 days, run from image `c2b59660ca3d` in a throwaway container on
+`verdict_default`, niced; the overlapping days were identical to the previous export). The
+site's text was checked against the stack and rewritten in plainer prose: the window has
+ended and the run-on is drawn and labelled; spot is described as the rehearsal and the
+failed first window, not the current machine; the second promotion has its own paragraph
+(from `promotions[1:]`) and feeds the honesty note; the dashboard guide describes the six
+headline numbers and the five-minute p99 as it now reads (last 7 days: about 25 ms at the
+10th percentile of five-minute windows, 46 ms at the median, 90 ms at the 90th; decisions
+775 to 1,447 a second); the reveal is the day after the stack stops. `architecture.html`
+likewise; `docs/architecture.md` still has the old wording. Also seen: the open drift request
+is now the one opened 2026-10-28 (days 10-27 and 10-28, four quantities); its candidate needs
+10-29 finalised, about 2026-11-06T08:00Z, hours before the run-on ends.
 
 **2026-10-08, the compactor fix is on the instance, and the data volume is
 200 GB.** 2026-09-30 stalled at 06:00Z the same way; the run was killed at

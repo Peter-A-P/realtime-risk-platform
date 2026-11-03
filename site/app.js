@@ -223,7 +223,7 @@ function pipeline(data) {
     const scoring = ["features", "model", "decision", "persist"].reduce((sum, hop) => sum + hops[hop].value, 0);
     fill($("pipeline-verdict"), [
       strong(`The model is ${ms(hops.model.value)} of it.`),
-      ` At ${number.format(test.rate)} a second the scorer's own four steps take ${ms(scoring)} between them at the 99th percentile. Most of the ${ms(test.p99_ms.value)} end to end is the transaction's trip through the stream, and that is the part that buys something: a transaction on the stream survives the machine being taken away, is never decided twice, and can be replayed. The time is spent on not losing anything, not on arithmetic.`,
+      ` At ${number.format(test.rate)} a second the scorer's own four steps take ${ms(scoring)} between them at the 99th percentile. Most of the ${ms(test.p99_ms.value)} end to end is the transaction's trip through the stream. That trip is what lets a transaction survive the machine being taken away, never be decided twice, and be replayed later.`,
     ]);
   }
 
@@ -320,7 +320,7 @@ function loadChart(data) {
   const rest = four.per_run.map((run) => run.p99_ms).filter((v) => v !== worst);
   fill($("load-verdict"), [
     strong("Up to three times the live rate, every percentile is well inside the budget."),
-    ` At ${number.format(four.rate)} a second the consumer still kept up in every run, but the p99 is where the ceiling starts to show: four runs came in between ${fmt(Math.min(...rest), 0)} and ${fmt(Math.max(...rest), 0)} ms and one at ${fmt(worst, 0)}, which is why its interval crosses the line. The live stream peaks at 1,250 a second, so it runs with better than three times its busiest hour in hand. One scorer on one partition; more would divide the load.`,
+    ` At ${number.format(four.rate)} a second the consumer still kept up in every run, but the p99 starts to show the ceiling: four runs came in between ${fmt(Math.min(...rest), 0)} and ${fmt(Math.max(...rest), 0)} ms and one at ${fmt(worst, 0)}, which is why its interval crosses the line. The live stream's busiest minutes reached about 1,450 a second by the end of the window, so the scorer has nearly three times that in hand. This is one scorer on one partition; more of them would divide the load.`,
   ]);
 }
 
@@ -371,6 +371,13 @@ function windowChart(data) {
   svg.append(sv("line", { class: "axis-line", x1: L, x2: W - R, y1: H - B, y2: H - B }));
   svg.append(sv("line", { class: "budget", x1: L, x2: W - R, y1: y(1), y2: y(1) }));
   svg.append(sv("text", { class: "budget-label", x: L + 6, y: y(1) - 6, "text-anchor": "start" }, "ONE IN A HUNDRED: THE P99 AT 50 MS"));
+  // The days after the window's thirty are the run-on, while the last labels arrive.
+  const windowEnd = new Date(new Date(data.live.start).getTime() + data.live.days * 86400000).toISOString().slice(0, 10);
+  const runOn = rows.findIndex((row) => row.day > windowEnd);
+  if (runOn > 0) {
+    svg.append(sv("line", { class: "request-mark", x1: x(runOn), x2: x(runOn), y1: T, y2: H - B }));
+    svg.append(sv("text", { class: "request-label", x: x(runOn) + 5, y: T + 10 }, "run-on"));
+  }
   $("window-chart").append(svg);
 
   const readout = $("window-readout");
@@ -411,17 +418,22 @@ function windowChart(data) {
   const restarts = rows.filter((row) => row.minutes_without_decisions > 0);
   const quiet = rows.filter((row) => row.minutes_without_decisions === 0);
   const worstQuiet = quiet.reduce((a, b) => (b.over_budget_share > a.over_budget_share ? b : a), quiet[0]);
-  $("window-caption").textContent = `Synthetic live track, ${label(rows[0])} to ${label(rows[rows.length - 1])}, ${number.format(total)} decisions. Every decision is counted, not sampled; percentiles are read from the scorer's latency buckets. The first day starts when the window opened. Source: docs/live/daily.json.`;
+  $("window-caption").textContent = `Synthetic live track, ${label(rows[0])} to ${label(rows[rows.length - 1])}, ${number.format(total)} decisions. Every decision is counted, not sampled, and percentiles are read from the scorer's latency buckets. The first day starts when the window opened${runOn > 0 ? `, and the days after ${new Date(`${windowEnd}T00:00:00Z`).toLocaleDateString("en-GB", day)} are the run-on` : ""}. Source: docs/live/daily.json.`;
   const pauseRange = (days) => {
     const minutes = days.map((row) => row.minutes_without_decisions);
     const low = Math.min(...minutes), high = Math.max(...minutes);
     return low === high ? `${low}` : `${low} to ${high}`;
   };
+  // The share over budget across a run of days, each decision counted once.
+  const share = (days) => (100 * days.reduce((sum, row) => sum + row.over_budget_share * row.decisions, 0)) / days.reduce((sum, row) => sum + row.decisions, 0);
   const parts = [strong(`The day's p99 was inside the budget on ${inside} of ${rows.length} days.`)];
-  if (restarts.length) {
-    parts.push(` The scorer was restarted on ${restarts.length === 1 ? "one day" : `${restarts.length} days`} (${restarts.map(label).join(", ")}), and a restart stops it for ${pauseRange(restarts)} minutes while it restores its state: everything that arrives meanwhile is decided late, and counts.`);
+  if (rows.length >= 15) {
+    parts.push(` Over the first seven full days ${fmt(share(rows.slice(1, 8)), 2)}% of decisions went over 50 ms, and over the last seven ${fmt(share(rows.slice(-7)), 2)}%. The fraud labels feed started on 6 October, the traffic grew, and the history compactor shares the same four virtual CPUs as the scorer.`);
   }
-  parts.push(` Without a restart the worst day was ${label(worstQuiet)}, ${fmt(100 * worstQuiet.over_budget_share, 2)}% over, as the stream grew on the same four virtual CPUs.`);
+  if (restarts.length) {
+    parts.push(` The scorer was restarted on ${restarts.length === 1 ? "one day" : `${restarts.length} days`} (${restarts.map(label).join(", ")}). A restart stops it for ${pauseRange(restarts)} minutes while it restores its state, and everything that arrives meanwhile is decided late and counted as late.`);
+  }
+  parts.push(` Without a restart the worst day was ${label(worstQuiet)}, with ${fmt(100 * worstQuiet.over_budget_share, 2)}% over.`);
   fill($("window-verdict"), parts);
 
   const table = $("window-table");
@@ -604,7 +616,7 @@ function driftChart(data) {
   fill($("drift-method"), [
     `Each day, about ${number.format(Math.round(days.reduce((s, d) => s + d.values, 0) / days.length))} transactions are drawn by a hash of their identifier (the same ones whoever reruns it), and for each of the ${top} quantities (the model's inputs and its own score) the day's distribution is compared with the reference week's. A quantity has drifted when its population stability index passes ${fmt(drift.psi_threshold, 2)} or its Kolmogorov-Smirnov statistic passes ${fmt(drift.ks_threshold, 2)}, the conventions credit scoring has used for decades. `,
     strong("A request needs the same quantity drifted on two days running,"),
-    " because one odd day is weather and two is climate. That puts the earliest request a day after a change begins, which is where this one opened. In the live window the reference is the window's own first two full days, so the monitors judge the live traffic against itself.",
+    " because a single odd day is often noise. That puts the earliest request a day after a change begins, which is where this one opened. In the live window the reference is the live traffic itself: the window's first two full days, and after each promotion the two full days after it.",
   ]);
 }
 
@@ -648,7 +660,7 @@ function retrainChart(data) {
   const later = data.retrain.after_labels;
   fill($("retrain-verdict"), [
     strong(`The drift did real damage: the champion falls from ${fmt(own.value, 2)} to ${fmt(early.champion.value, 2)} when the card-testing wave arrives.`),
-    ` A candidate built the moment the alarm fires cannot help, because a fraud label takes about a week to arrive and nothing it could learn from has seen the change: it scores ${fmt(early.difference.value, 4)} against the champion (${range(early.difference, 4)}), and the gate refuses it. Once the drifted days' labels are in, the candidate recovers to ${fmt(later.candidate.value, 2)}, ${fmt(later.difference.value, 2)} better (${range(later.difference, 2)}). The week in between is carried by the rules and the review queue, not the model, which is why the platform has both.`,
+    ` A candidate built the moment the alarm fires cannot help, because a fraud label takes about a week to arrive and nothing it could learn from has seen the change: it scores ${fmt(early.difference.value, 4)} against the champion (${range(early.difference, 4)}), and the gate refuses it. Once the drifted days' labels are in, the candidate recovers to ${fmt(later.candidate.value, 2)}, ${fmt(later.difference.value, 2)} better (${range(later.difference, 2)}). In the week between, the rules and the review queue have to do the work the model cannot, which is why the platform has both.`,
   ]);
 }
 
@@ -685,7 +697,7 @@ function queueChart(data) {
   const day = q.team_a_day_dollars, month = q.team_a_month_dollars, year = q.team_a_year_dollars;
   fill($("queue-verdict"), [
     strong(`${dollars(d.value)} more caught for every analyst-hour, with a 95 percent interval of ${dollars(d.low)} to ${dollars(d.high)}.`),
-    ` For the team of ${q.analysts}, reviewing around the clock, that is ${wholeDollars(day.value)} a day, and ${millions(year.value)} a year at the same rate. Same analysts, same transactions, same hours: only the order changes. The interval is a bootstrap over days, and the comparison is paired, each day ranked both ways.`,
+    ` For the team of ${q.analysts}, reviewing around the clock, that is ${wholeDollars(day.value)} a day, and ${millions(year.value)} a year at the same rate. The analysts, transactions and hours are the same in both; only the order differs. The interval is a bootstrap over days, and the comparison is paired, with each day ranked both ways.`,
   ]);
   const cards = [
     [dollars(d.value), "more per analyst-hour", `95% CI ${dollars(d.low)} to ${dollars(d.high)}`],
@@ -700,8 +712,8 @@ function queueChart(data) {
     holder.append(card);
   }
   fill($("queue-assumption"), [
-    strong("The prices are stated, not discovered."),
-    ` A review is priced at ${dollars(q.review_cost_dollars)} and ${fmt(q.recovery_rate * 100, 0)} percent of a fraud is assumed recovered by chargeback. Neither changes the order of the queue, only the dollars reported; a test holds the ranking to that. The queue here is ${fmt(q.queue_fraud_share * 100, 0)} percent fraud, richer than a real team's, because it was measured offline on the scaled-down synthetic stream, where the model separates fraud far better than on the full live stream or on real data.`,
+    strong("The prices are assumptions."),
+    ` A review is priced at ${dollars(q.review_cost_dollars)}, and ${fmt(q.recovery_rate * 100, 0)} percent of a fraud is assumed recovered by chargeback. Changing either changes the dollars reported but not the order of the queue, and a test checks that. The queue here is ${fmt(q.queue_fraud_share * 100, 0)} percent fraud, richer than a real team's, because it was measured offline on the scaled-down synthetic stream, where the model separates fraud far better than on the full live stream or on real data.`,
   ]);
 }
 
@@ -715,8 +727,8 @@ function rollback(data) {
 function leak(data) {
   const v = data.leak.same_model_inflation;
   fill($("leak-inflation"), [
-    `Retrained on the leaky features, the same model changes its prediction on ${data.leak.rows_changed} of ${number.format(data.leak.test_rows)} test rows, and its PR-AUC moves by ${fmt(v.value, 5)} (95% CI ${range(v, 6)}): nothing a scoreboard would ever show. `,
-    strong("That is the point of testing the features rather than the score."),
+    `Retrained on the leaky features, the same model changes its prediction on ${data.leak.rows_changed} of ${number.format(data.leak.test_rows)} test rows, and its PR-AUC moves by ${fmt(v.value, 5)} (95% CI ${range(v, 6)}). `,
+    strong("A difference that small never shows in a score, so the test checks the features themselves."),
     " Real-data track, offline.",
   ]);
 }
@@ -761,8 +773,23 @@ function live(data) {
   const first = p.days[0], last = p.days[p.days.length - 1];
   fill($("live-verdict"), [
     strong(`PR-AUC rose from ${fmt(p.champion_pr_auc, 3)} to ${fmt(p.challenger_pr_auc, 3)}, a difference of ${signed(d.value)} with a 95 percent interval of ${signed(d.low)} to ${signed(d.high)}.`),
-    ` Synthetic live track, ${first} to ${last}, days the new model was not trained on: ${number.format(p.rows)} labelled transactions, ${number.format(p.frauds)} of them fraud, each weighted to stand for the whole stream. ${p.replayed ? "The new model scored the features the scorer had served on those days, beside the scores the old one gave live. " : ""}The promotion gate found it eligible on ${p.judged_on}; the pull request carrying that evidence was merged by a person, and only then did the flag move. Source: ${p.source}.`,
+    ` Synthetic live track, ${first} to ${last}, days the new model was not trained on: ${number.format(p.rows)} labelled transactions, ${number.format(p.frauds)} of them fraud, each weighted to stand for the whole stream. ${p.replayed ? "The new model scored the features the scorer had served on those days, beside the scores the old one gave live. " : ""}The promotion gate found it eligible on ${p.judged_on}. A person merged the pull request carrying that evidence, and only then did the flag move. Source: ${p.source}.`,
   ]);
+
+  const later = data.promotions.slice(1);
+  if (!later.length) {
+    for (const id of ["live-next-head", "live-next-lede", "live-next"]) $(id).hidden = true;
+    return;
+  }
+  const parts = [];
+  later.forEach((q, i) => {
+    const lead = `PR-AUC rose from ${fmt(q.champion_pr_auc, 3)} to ${fmt(q.challenger_pr_auc, 3)} on ${q.days.join(" and ")}, a difference of ${signed(q.difference.value)} (95% CI ${signed(q.difference.low)} to ${signed(q.difference.high)}).`;
+    parts.push(i === 0 ? strong(lead) : ` ${lead}`);
+    parts.push(` The gate found it eligible on ${q.judged_on}, and a person moved the flag that day.`);
+  });
+  const now = later[later.length - 1];
+  parts.push(` The gain is smaller, on harder traffic: the first retrained model, which scored ${fmt(p.challenger_pr_auc, 2)} before the shift, scored ${fmt(later[0].champion_pr_auc, 2)} after it. ${now.challenger} has decided every transaction since. Synthetic live track, replayed, weighted. Source: ${later.map((q) => q.source).join(", ")}.`);
+  fill($("live-next"), parts);
 }
 
 function honesty(data) {
@@ -770,9 +797,12 @@ function honesty(data) {
   $("honesty-synth").textContent = `${fmt(s.value, 2)} (${range(s, 3)})`;
   $("honesty-real").textContent = `${fmt(r.value, 3)} (${range(r, 3)}), against a base rate of 0.035`;
   const p = data.promotions[0];
-  $("honesty-live").textContent = p
-    ? `${fmt(p.challenger_pr_auc, 2)}, against the first champion's ${fmt(p.champion_pr_auc, 2)} on the same days (the difference's 95% CI is +${fmt(p.difference.low, 3)} to +${fmt(p.difference.high, 3)})`
-    : "-";
+  const now = data.promotions[data.promotions.length - 1];
+  $("honesty-live").textContent = !p
+    ? "-"
+    : now === p
+      ? `the retrained model scores ${fmt(p.challenger_pr_auc, 2)}, against the first champion's ${fmt(p.champion_pr_auc, 2)} on the same days (the difference's 95% CI is +${fmt(p.difference.low, 3)} to +${fmt(p.difference.high, 3)})`
+      : `the first retrained model scored ${fmt(p.challenger_pr_auc, 2)} against the opening champion's ${fmt(p.champion_pr_auc, 2)}, fell to ${fmt(now.champion_pr_auc, 2)} after the fraud shifted, and the model retrained on the shift scores ${fmt(now.challenger_pr_auc, 2)}`;
   $("adr-count").textContent = number.format(data.adr_count);
 }
 

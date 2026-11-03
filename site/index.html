@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Real-Time Fraud and Risk Decisioning Platform: millions of card payments an hour, each decided in milliseconds</title>
-<meta name="description" content="A fraud decisioning platform running live for thirty days: synthetic card transactions scored in milliseconds, drift monitors on a fraud schedule sealed before the window opened, retraining that stops at a pull request, and a review queue ranked by expected loss. Every number is measured and reproducible from the repository.">
+<meta name="description" content="A fraud decisioning platform run live for thirty days on synthetic card transactions: each one scored in milliseconds, drift monitors watching a fraud schedule sealed before the window opened, retraining that stops at a pull request, and a review queue ranked by expected loss. Every number is measured and can be reproduced from the repository.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -37,19 +37,19 @@
     <div class="cta">
       <a class="button primary" id="dashboard-link" href="https://risk.peterparker.ca">Open the live dashboard</a>
       <a class="button" href="https://github.com/Peter-A-P/realtime-risk-platform">Read the code</a>
-      <span class="cta-note">The dashboard shows the platform right now. This page is what it means.</span>
+      <span class="cta-note">The dashboard shows the platform as it runs. This page explains the numbers.</span>
     </div>
 
     <p class="eyebrow">Live, measured, and reproducible from the repository</p>
     <h1>Millions of card payments an hour, <span class="hl">each decided in milliseconds</span> before the money moves. What happens when the fraud changes?</h1>
     <p class="lead">
-      When you tap a card, the bank has a few dozen milliseconds to decide: approve it, send it to
-      a person to check, or decline it. Getting that decision fast is the easy half.
-      <strong>The hard half is that fraud keeps changing shape</strong>, and a model that was right
-      last month quietly stops being right, usually because what it learned from no longer looks
-      like what it sees. This platform is the machinery around the model that keeps it honest: it
-      decides every transaction in milliseconds, notices when the traffic shifts, retrains, and
-      will not promote a new model until a person has seen the evidence.
+      When you tap a card, the bank has a few dozen milliseconds to approve the payment, send it
+      to a person to check, or decline it. Deciding that fast is the easier problem. The harder one
+      is that fraud keeps changing, so a model that was right last month starts making mistakes,
+      usually because the traffic it learned from no longer looks like the traffic it sees. This
+      platform is the machinery around the model. It decides every transaction in milliseconds,
+      notices when the traffic shifts, retrains, and does not promote a new model until a person
+      has reviewed the evidence.
     </p>
     <div class="hero-points">
       <div class="point">
@@ -74,12 +74,12 @@
       </div>
     </div>
     <p class="hero-note">
-      The live stream is synthetic: a generator plays card transactions from an entity graph of
-      200,000 cards, 150,000 devices and 4,000 merchants, with three kinds of fraud acting on it.
-      No real payment data is involved. A public fraud competition's data runs through the same
-      pipeline offline, and every number on this page says which of the two it came from and
-      carries a 95 percent confidence interval, because a number without one is an opinion.
-      <a href="architecture.html">See how it's built</a>, in four diagrams.
+      The live stream is synthetic. A generator plays card transactions over an entity graph of
+      200,000 cards, 150,000 devices and 4,000 merchants, with three kinds of fraud acting on it,
+      and no real payment data is involved. A public fraud competition's data runs through the
+      same pipeline offline. Every number on this page says which of the two it came from and
+      carries a 95 percent confidence interval.
+      <a href="architecture.html">See how it's built</a> in four diagrams.
     </p>
   </header>
 
@@ -95,16 +95,16 @@
   <section class="section" id="pipeline-panel">
     <h2>What happens in those few milliseconds</h2>
     <p class="section-lead">
-      Each transaction takes the same five steps. The times are the 99th percentile of each step,
-      measured on the live machine with the live configuration: the champion model deciding, the
-      challenger scoring beside it in shadow, and every decision written to history. Pick a load to
-      see where the time goes as it rises.
+      Each transaction goes through the same five steps. The times are the 99th percentile of each
+      step, measured on the live machine with the live configuration: the champion model deciding,
+      a challenger scoring beside it in shadow, and every decision written to history. Pick a load
+      to see where the time goes as it rises.
     </p>
 
     <div class="controls">
       <div class="control">
         <label for="pipeline-rate">Load
-          <span class="hint">the live stream runs at 750 to 1,250 a second through the day</span>
+          <span class="hint">the live stream ran at about 775 to 1,450 a second through the day in its last week</span>
         </label>
         <select id="pipeline-rate"></select>
       </div>
@@ -121,11 +121,11 @@
     <details class="disclose">
       <summary>The sixteen features the model sees, in plain words</summary>
       <p>
-        A feature is a fact about the recent past: how busy this card has been, how many different
-        cards this device has carried. Every one is computed once, by one piece of code, and
-        written to the store training reads and the store serving reads in the same call, so the
-        model is never trained on a number it will not be given in production. A test recomputes
-        them from the raw log and fails if any one of them could have seen the future.
+        A feature is a fact about the recent past, such as how busy this card has been or how many
+        different cards this device has carried. Each one is computed once, by one piece of code,
+        and written in the same call to the store training reads and the store serving reads, so
+        the model is never trained on a number it will not be given in production. A test
+        recomputes them from the raw log and fails if any of them could have seen the future.
       </p>
       <div class="feature-groups" id="features"></div>
     </details>
@@ -135,9 +135,9 @@
     <h2>How fast, and how much it can take</h2>
     <p class="section-lead">
       Five runs at each load, on the live machine (4 virtual CPUs). The lines are the typical
-      decision (p50), the slowest one in twenty (p95) and the slowest one in a hundred (p99), from
-      the moment a transaction is sent to the moment its decision is on the stream. The whiskers
-      are the 95 percent interval across runs. Point at a load to read it off.
+      decision (p50), the slowest one in twenty (p95) and the slowest one in a hundred (p99),
+      timed from the moment a transaction is sent to the moment its decision is on the stream.
+      The whiskers are the 95 percent interval across runs. Point at a load to read it.
     </p>
     <figure class="chart-figure">
       <div id="load-chart" class="chart"></div>
@@ -150,23 +150,23 @@
     </div>
     <div class="assumption">
       <p>
-        <strong>A load test is the cleanest measurement, not the whole story.</strong> It times
-        every decision exactly, over twenty seconds. Running for days, the platform also shares the
-        machine with its own housekeeping, and the dashboard estimates its percentiles from
-        buckets rather than timing each decision, so its p99 reads higher. The next section has the
-        three-day number, measured the way the live window will be reported.
+        <strong>A load test times every decision exactly, but only for twenty seconds.</strong>
+        Running for days, the platform shares the machine with its own housekeeping, and the
+        dashboard estimates its percentiles from histogram buckets instead of timing each
+        decision, so its p99 reads higher. The next two sections are measured that way: three
+        days of rehearsal before go-live, then the live window day by day.
       </p>
     </div>
   </section>
 
   <section class="section" id="spot-panel">
-    <h2>It keeps running when the machine is taken away</h2>
+    <h2>What happens when the machine is taken away</h2>
     <p class="section-lead">
-      The platform runs on a spot instance: spare cloud capacity at a fraction of the price, which
-      AWS can take back with two minutes' notice. That is a cost decision with a real consequence,
-      so it was rehearsed. For 72 hours before go-live the whole stack ran at the live rate, and AWS
-      took the machine away <strong id="spot-count">-</strong> times. Each mark below is one of
-      them; its length is how long until the platform was deciding on time again.
+      The platform was built to run on a spot instance: spare cloud capacity at a fraction of the
+      price, which AWS can take back with two minutes' notice. For 72 hours before go-live the
+      whole stack ran at the live rate, and AWS took the machine away
+      <strong id="spot-count">-</strong> times. Each mark below is one of them, and its length is
+      how long the platform took to decide on time again.
     </p>
     <figure class="chart-figure">
       <div id="spot-chart" class="chart"></div>
@@ -176,12 +176,21 @@
     <section class="headline" id="spot-headline" aria-live="polite"></section>
     <div class="verdict">
       <p>
-        <strong>Nothing is lost when the machine goes, and nothing starts from scratch.</strong>
-        Transactions wait in the stream while a new machine boots, and the scorer saves its feature
-        state to a disk that survives the machine, so a replacement restores what every card,
-        device and merchant has been doing instead of treating them all as strangers for a day.
-        The minutes of catch-up are counted in uptime and reported beside the latency, never
-        hidden inside it.
+        <strong>Transactions wait in the stream while a new machine boots.</strong> The scorer
+        saves its feature state to a disk that survives the machine, so a replacement restores
+        what every card, device and merchant has been doing and does not treat them all as
+        strangers for a day. The minutes of catch-up count against uptime and are reported beside
+        the latency.
+      </p>
+    </div>
+    <div class="assumption">
+      <p>
+        <strong>Spot did not survive the live window.</strong> The window opened on a 16 GB spot
+        machine on 28 September, and in its first 28 hours AWS took the machine back thirteen
+        times. The platform recovered by itself from twelve. The thirteenth exposed two faults, a
+        restore that ran the machine out of memory and state files left empty by the hard stop,
+        and the window was stopped. It restarted on 29 September for thirty days on an on-demand
+        machine with 32 GB, which AWS does not take back. The repository's ADR 31 has the details.
       </p>
     </div>
   </section>
@@ -189,10 +198,12 @@
   <section class="section" id="window-panel">
     <h2>The live window, day by day</h2>
     <p class="section-lead">
-      Every decision of the live window, counted from the metrics the stack kept. Each bar is one
-      UTC day, and its height is the share of that day's decisions that took longer than the
-      50 ms budget, from the moment a transaction was sent to the moment its decision was on the
-      stream. Below the dashed line, the day's p99 was inside the budget. Point at a day to read it.
+      Every decision since the live window opened, counted from the metrics the stack kept. Each
+      bar is one UTC day, and its height is the share of that day's decisions that took longer
+      than the 50 ms budget, from the moment a transaction was sent to the moment its decision
+      was on the stream. A bar below the dashed line is a day whose p99 was inside the budget.
+      The thirty days ended on 29 October; the stack runs on after that so the last week's
+      fraud labels can arrive, and those days are drawn too. Point at a day to read it.
     </p>
     <figure class="chart-figure">
       <div id="window-chart" class="chart"></div>
@@ -213,9 +224,9 @@
     <h2>Fraud changes. Does anyone notice?</h2>
     <p class="section-lead" id="drift-lede">
       Fifty days of generated stream, 86 million transactions, with the fraud changing three times
-      on days the monitors were never told about. Each bar is one day: how many of the monitored
-      quantities had moved beyond a fixed threshold, compared with the week the model was trained
-      on. The monitors watch the model's own score as well as its inputs.
+      on days the monitors were not told about. Each bar is one day: how many of the monitored
+      quantities moved past a fixed threshold, compared with the week the model was trained on.
+      The monitors watch the model's own score as well as its inputs.
     </p>
     <figure class="chart-figure">
       <div id="drift-chart" class="chart wide-chart"></div>
@@ -225,11 +236,11 @@
     </figure>
     <div class="verdict">
       <p>
-        <strong>Every change is flagged the day it starts, and the quiet week flags nothing.</strong>
-        The second shift is the one that matters most: amounts move and the amount of fraud does
-        not, so an alarm on the fraud rate would see nothing at all while the model is shown a
-        different world. The thresholds are published conventions, fixed before any drift was
-        seen, and were not revisited after these results.
+        <strong>Every change is flagged on the day it starts, and the quiet week flags nothing.</strong>
+        The second shift matters most. Amounts move while the share of fraud stays the same, so
+        an alarm on the fraud rate would see nothing, yet the model is now scoring traffic unlike
+        anything it was trained on. The thresholds are published conventions, fixed before any
+        drift was seen and not revisited after these results.
       </p>
     </div>
     <details class="disclose">
@@ -265,9 +276,9 @@
       <li><span class="step-n">6</span><span class="step-body"><strong>A person flips the flag.</strong> Rolling back is the same flag: <strong id="rollback-ms">-</strong> from the flip to the old champion deciding again.</span></li>
     </ol>
     <p class="note">
-      During the live window the pull requests are opened by the platform itself, on
+      During the live window the platform opens these pull requests itself, on
       <a href="https://github.com/Peter-A-P/realtime-risk-platform/pulls?q=is%3Apr">the repository's pull requests page</a>,
-      where anyone can read the evidence the day it is written.
+      where anyone can read the evidence on the day it is written.
     </p>
   </section>
 
@@ -275,24 +286,35 @@
     <h2>The first live model was wrong from the first day</h2>
     <p class="section-lead">
       The champion that opened the window had been trained on a scaled-down copy of the stream,
-      4,000 cards and 80 merchants. Live, among 200,000 cards and 4,000 merchants, the numbers it
-      had learned from looked different, and it flagged far more than it should while catching
-      little more fraud than chance would. At first nothing could see it: the drift monitors
-      compare the stream with its own first days, so a model wrong from day one simply looks
+      4,000 cards and 80 merchants. Live, among 200,000 cards and 4,000 merchants, its inputs
+      took values it had never seen, and it flagged far more transactions than it should while
+      catching little more fraud than chance. Nothing caught this at first. The drift monitors
+      compare the stream with its own first days, so a model that is wrong from day one looks
       normal to them, and the labels that say which transactions were fraud arrive a week late.
-      Once they had arrived, the platform measured it, retrained on the window's own history,
-      and judged the new model on days it had never seen. A person approved it, and it decides now.
+      Once the labels were in, the platform measured the model, retrained on the window's own
+      history, and judged the new model on days it had never seen. A person approved it on
+      12 October.
     </p>
     <section class="headline" id="live-headline" aria-label="The first live model against the retrained one"></section>
     <div class="verdict">
       <p id="live-verdict"></p>
     </div>
+
+    <h3 class="subhead" id="live-next-head">Then the fraud shifted</h3>
+    <p class="section-lead" id="live-next-lede">
+      The retrained model decided for ten days. From 10 October the monitors flagged a shift in
+      the average amounts per card, device and merchant, and a second candidate, fitted on the
+      shift's first two days, went through the same replay and the same person.
+    </p>
+    <div class="verdict">
+      <p id="live-next"></p>
+    </div>
     <p class="note">
-      A shift in the fraud has begun since. The monitors flagged it, and a candidate that has
-      learned from the shifted days goes through the same gate and the same person. Its pull
-      requests appear on
-      <a href="https://github.com/Peter-A-P/realtime-risk-platform/pulls?q=is%3Apr">the repository's pull requests page</a>
-      the day they are written.
+      The monitors have flagged the stream again since, most recently on 27 and 28 October, in
+      the same amount averages and in how many cards a device carries in a day. A candidate for
+      that shift needs the labels for 29 October, which arrive about 6 November, hours before the
+      stack stops, so it may not reach the gate in time. Any pull request it opens appears on
+      <a href="https://github.com/Peter-A-P/realtime-risk-platform/pulls?q=is%3Apr">the repository's pull requests page</a>.
     </p>
   </section>
 
@@ -315,10 +337,10 @@
   <section class="section" id="leak-panel">
     <h2>The bug it caught on the first day</h2>
     <p class="section-lead">
-      The most expensive mistake in fraud modelling is a model trained on information it will not
-      have when it matters, which scores beautifully in testing and badly in production. So the
-      test for it was written a week before the first feature existed. The day the features were
-      written, it failed.
+      A costly mistake in fraud modelling is training on information the model will not have at
+      decision time. Such a model scores well in testing and badly in production. The test for it
+      was written a week before the first feature existed, and it failed on the day the features
+      were written.
     </p>
     <div class="leak">
       <div class="leak-events" aria-hidden="true">
@@ -342,41 +364,51 @@
   <section class="section" id="dashboard-guide">
     <h2>How to read the live dashboard</h2>
     <p class="section-lead">
-      The dashboard is the platform's own monitoring, open to anyone and read-only. It is built
-      for the person running the system, so here is what each part is saying and what normal
-      looks like.
+      The dashboard is the platform's own monitoring, public and read-only. It is built for the
+      person running the system, so here is what each part shows and what normal looks like.
     </p>
     <div class="guide">
       <article class="guide-card">
+        <h3>The six numbers across the top</h3>
+        <p>
+          The median, p95 and p99 of event to decision over the last 30 days and the last 7, each
+          drawn over a trend of the same figure. A number turns red while it is over the 50 ms
+          budget. On 31 October the 30-day p99 was 46.6 ms and the 7-day p99 49.4 ms.
+        </p>
+      </article>
+      <article class="guide-card">
         <h3>Decisions a second</h3>
         <p>
-          Between about 750 and 1,250 through the day. The traffic follows a daily cycle, quietest
-          around 08:00 UTC and busiest around 20:00 UTC, with a little noise each hour, because
-          real card traffic is not a flat line.
+          Between about 775 and 1,450 in the window's last week. The traffic follows a daily
+          cycle, quietest around 08:00 UTC and busiest in the evening, with some noise each hour,
+          as real card traffic has.
         </p>
       </article>
       <article class="guide-card">
-        <h3>Event to decision, 99th percentile</h3>
+        <h3>Event to decision, p99, last five minutes</h3>
         <p>
-          The headline latency. It reads in the low twenties of milliseconds, where the load test
-          reads 8: it is estimated from histogram buckets, and the one it lands in runs from 10 to
-          25 ms, so it cannot say where inside that range the true figure lies. Either way it is
-          well inside the 50 ms budget.
+          The latency right now, estimated from histogram buckets. Over the last week it read
+          about 25 ms at the quietest times and about 46 ms at the middle of the range, and it
+          passed the 50 ms budget in the busiest evening hours, when the history compactor
+          competes with the scorer for four virtual CPUs. The load test reads 8 ms because it
+          times each decision exactly with nothing else running.
         </p>
       </article>
       <article class="guide-card">
-        <h3>A spike to minutes, then a burst</h3>
+        <h3>A gap, then a burst</h3>
         <p>
-          That is AWS taking the machine back. Decisions stop, "since the last decision" climbs, a
-          new machine boots and restores, and the backlog is worked off faster than it arrives.
-          Every transaction is still decided; the late ones are counted as late.
+          A scorer restart, usually to roll out a new image. Decisions stop and "since the last
+          decision" climbs for five or six minutes while the scorer restores its state, then it
+          works off the backlog faster than it arrives. Every transaction is still decided, and
+          the late ones count as late. On the spot machine before 29 September, the same shape
+          meant AWS had taken the machine back.
         </p>
       </article>
       <article class="guide-card">
         <h3>While caught up</h3>
         <p>
-          The same latency with every catch-up left out, so a reclaim does not hide how the
-          platform performs when it is current. The live report leaves out only the catch-ups AWS
+          The same latency with every catch-up left out, which shows how the platform performs
+          when it is current. The live report leaves out only catch-ups after a reclaim AWS
           announced, and says how many.
         </p>
       </article>
@@ -384,15 +416,14 @@
         <h3>Scorer hops</h3>
         <p>
           The scorer's own work, split into features, model, rules and writing the decision. Each
-          is well under a millisecond; a hop that climbs is a regression in the code, not the
-          network.
+          is well under a millisecond, so a hop that climbs points to a regression in the code.
         </p>
       </article>
       <article class="guide-card">
         <h3>Model deciding</h3>
         <p>
-          Which model version made the decisions. It changes only when a person promotes a model
-          or rolls one back, and that change is a merged pull request you can read.
+          Which model version made the decisions. It changes only when a person promotes or rolls
+          back a model, and each change is a merged pull request you can read.
         </p>
       </article>
     </div>
@@ -401,11 +432,11 @@
   <section class="section" id="sealed-panel">
     <h2>Sealed before it started</h2>
     <p class="section-lead">
-      A drift monitor that has been tuned to the shifts it will face proves nothing. So the live
-      window's fraud schedule, when each shift comes and what it does, is derived from a secret
-      that was sealed before the window opened. Its fingerprints were committed to the repository;
-      the secret is kept where the platform's builder cannot read it, and is published the day
-      after the window closes, so anyone can check the schedule was never changed.
+      A drift monitor tuned to the shifts it will face proves nothing. So the live window's fraud
+      schedule (when each shift comes and what it does) is derived from a secret sealed before the
+      window opened. Its fingerprints were committed to the repository, and the secret is kept
+      where the platform's builder cannot read it. It is published the day after the stack stops,
+      about 7 November, so anyone can check that the schedule never changed.
     </p>
     <div class="table-wrap">
       <table id="sealed-table"></table>
@@ -416,34 +447,35 @@
     <h2>What this page does not show</h2>
     <ul>
       <li>
-        <strong>The live window's full results are not in yet.</strong> Its latency, uptime, drift
-        alarms and retraining are reported when the thirty days end, in the same tables the README
-        keeps for them. Until then the dashboard is the live record, and the section on the first
-        live model above is what the window has shown so far.
+        <strong>The live window's full report is not written yet.</strong> The thirty days ended on
+        29 October, and the stack runs on until about 6 November so the last week's fraud labels
+        arrive. The window's latency, uptime, drift alarms and retraining go into the README's
+        tables after that. Until then the dashboard and the day-by-day chart above are the live
+        record.
       </li>
       <li>
         <strong>The stream is synthetic, and how hard it is depends on its size.</strong> On the
-        scaled-down copy the first champion was trained and tested on offline, 4,000 cards and 80
-        merchants, it scored <span id="honesty-synth">-</span> PR-AUC. On the full live stream,
-        200,000 cards and 4,000 merchants, the same sixteen features separate fraud far less
-        well: the retrained model scores <span id="honesty-live">-</span>, where guessing would
-        score about 0.03. Neither is easy. On the public competition data, with only the card and
-        amount features a stream could compute and a median of one transaction per card, the
-        offline champion scores <span id="honesty-real">-</span>. None of these is a claim about
-        how well fraud can be caught; the stream is there to exercise the platform.
+        scaled-down copy the first champion was trained and tested on offline (4,000 cards, 80
+        merchants), it scored <span id="honesty-synth">-</span> PR-AUC. On the full live stream
+        of 200,000 cards and 4,000 merchants the same sixteen features separate fraud far less
+        well: <span id="honesty-live">-</span>. Guessing would score about 0.03. On the public
+        competition data, using only the card and amount features a stream could compute, with a
+        median of one transaction per card, the offline champion scores
+        <span id="honesty-real">-</span>. None of these says how well fraud can be caught in
+        general; the stream exists to exercise the platform.
       </li>
       <li>
         <strong>The neural challenger loses on both tracks</strong>, by an interval that excludes
-        zero, so the promotion gate refuses it on both. That is the gate working.
+        zero, so the promotion gate refuses it on both.
       </li>
       <li>
         <strong>One region, one machine, one scorer.</strong> The architecture decision records
-        say what changes at ten times the scale; none of it is built.
+        say what would change at ten times the scale. None of it is built.
       </li>
       <li>
         <strong>The review queue's dollars depend on stated prices</strong> (the cost of a review,
-        the share of fraud recovered anyway). The comparison between the two rankings is what
-        carries, not the absolute amounts.
+        the share of fraud recovered anyway). Which ranking catches more holds when the prices
+        change; the dollar amounts do not.
       </li>
     </ul>
   </section>
