@@ -560,80 +560,100 @@ const REGIMES = {
 function driftChart(data) {
   const drift = data.drift;
   const days = drift.days;
-  const W = 760, H = 320, L = 44, R = 12, T = 34, B = 40;
   const first = days[0].day, last = days[days.length - 1].day;
-  const span = last - first + 1;
-  const bw = (W - L - R) / span;
-  const x = (d) => L + (d - first) * bw;
   const top = drift.quantities;
-  const y = (v) => T + (H - T - B) * (1 - v / top);
-  const svg = svgRoot(W, H, "Drifted quantities per day, with the regime changes shaded");
+  const W = 760, L = 220, R = 14, T = 30;
+  const bw = (W - L - R) / (last + 1);
+  const x = (d) => L + d * bw;
+  const drawn = number.format(Math.round(days.reduce((s, d) => s + d.values, 0) / days.length));
+
+  // What the fraudsters changed: three of the schedule's settings, drawn as steps.
+  const levers = [
+    ["How common fraud is", (r) => r.fraud_rate_multiplier, (v) => `${fmt(v, 1)}x`, 1],
+    ["Typical payment amount", (r) => r.typical_amount_multiplier, (v) => `+${fmt((v - 1) * 100, 0)}%`, 1],
+    ["Share paid online", (r) => r.online_share_points, (v) => `+${fmt(v, 0)} pts`, 0],
+  ];
+  const laneH = 40, laneGap = 8;
+  const leverTop = T + 22;
+  const gridTop = leverTop + levers.length * (laneH + laneGap) + 30;
+  const rowH = 13;
+  const names = drift.names;
+  const H = gridTop + names.length * rowH + 30;
+  const svg = svgRoot(W, H, "What the fraud did each day, and which of the 17 monitored signals shifted");
+  const regimeIndex = Object.fromEntries(drift.regimes.map((r, i) => [r.name, i]));
+  const end = (i) => (i + 1 < drift.regimes.length ? drift.regimes[i + 1].starts_day : last + 1);
 
   drift.regimes.forEach((regime, i) => {
-    const from = Math.max(regime.starts_day, first);
-    const to = i + 1 < drift.regimes.length ? drift.regimes[i + 1].starts_day : last + 1;
-    if (i % 2 === 1) svg.append(sv("rect", { class: "regime-span", x: x(from), y: T - 22, width: x(to) - x(from), height: H - B - T + 22 }));
-    svg.append(sv("text", { class: "regime-label", x: x(from) + 4, y: T - 8 }, REGIMES[regime.name] ? REGIMES[regime.name][0] : regime.name));
+    if (i % 2 === 1) svg.append(sv("rect", { class: "regime-span", x: x(regime.starts_day), y: T - 22, width: x(end(i)) - x(regime.starts_day), height: H - 30 - T + 22 }));
+    const lastOne = i === drift.regimes.length - 1;
+    svg.append(sv("text", { class: "regime-label", x: lastOne ? x(end(i)) - 2 : x(regime.starts_day) + 4, y: T - 8, "text-anchor": lastOne ? "end" : "start" }, REGIMES[regime.name] ? REGIMES[regime.name][0] : regime.name));
   });
 
-  for (let v = 0; v <= top; v += 5) {
-    svg.append(sv("line", { class: "gridline", x1: L, x2: W - R, y1: y(v), y2: y(v) }));
-    svg.append(sv("text", { class: "tick", x: L - 8, y: y(v) + 4, "text-anchor": "end" }, String(v)));
-  }
-  svg.append(sv("text", { class: "axis-title", x: 12, y: T + (H - T - B) / 2, transform: `rotate(-90 12 ${T + (H - T - B) / 2})`, "text-anchor": "middle" }, `signals shifted, of ${top}`));
-  svg.append(sv("line", { class: "axis-line", x1: L, x2: W - R, y1: H - B, y2: H - B }));
-  for (let d = Math.ceil(first / 7) * 7; d <= last; d += 7) {
-    svg.append(sv("text", { class: "tick", x: x(d) + bw / 2, y: H - B + 18, "text-anchor": "middle" }, `day ${d}`));
-  }
+  svg.append(sv("text", { class: "group-label", x: 0, y: leverTop - 8 }, "What the fraud did"));
+  levers.forEach(([title, get, label, base], k) => {
+    const y0 = leverTop + k * (laneH + laneGap);
+    const values = drift.regimes.map(get);
+    const hi = Math.max(...values), lo = Math.min(base, ...values);
+    const y = (v) => y0 + laneH - 4 - ((laneH - 16) * (v - lo)) / (hi - lo || 1);
+    svg.append(sv("text", { class: "row-label", x: L - 10, y: y0 + laneH / 2 + 4, "text-anchor": "end" }, title));
+    svg.append(sv("line", { class: "gridline", x1: L, x2: W - R, y1: y(base), y2: y(base) }));
+    let points = "";
+    drift.regimes.forEach((regime, i) => {
+      const v = get(regime);
+      points += `${x(regime.starts_day)},${y(v)} ${x(end(i))},${y(v)} `;
+      if (v !== base) svg.append(sv("text", { class: "bar-value", x: x(end(i)) - 4, y: y(v) - 4, "text-anchor": "end" }, label(v)));
+    });
+    svg.append(sv("polyline", { class: "series lever", points: points.trim() }));
+  });
 
-  const regimeIndex = Object.fromEntries(drift.regimes.map((r, i) => [r.name, i]));
-  const bars = [];
+  svg.append(sv("text", { class: "group-label", x: 0, y: gridTop - 10 }, "What the monitors saw"));
+  svg.append(sv("text", { class: "group-note", x: L + 4, y: gridTop + 4 * rowH }, "the training"));
+  svg.append(sv("text", { class: "group-note", x: L + 4, y: gridTop + 5 * rowH + 2 }, "week, the"));
+  svg.append(sv("text", { class: "group-note", x: L + 4, y: gridTop + 6 * rowH + 4 }, "yardstick"));
+  names.forEach((name, j) => {
+    svg.append(sv("text", { class: "tick", x: L - 10, y: gridTop + j * rowH + rowH - 3, "text-anchor": "end" }, humanFeature(name, data.features)));
+  });
+  const cols = [];
   for (const day of days) {
-    const count = day.drifted.length;
-    const cls = `bar regime-${regimeIndex[day.regime]}`;
-    let bar;
-    if (count === 0) {
-      bar = sv("circle", { class: "quiet", cx: x(day.day) + bw / 2, cy: y(0) - 4, r: 2.6 });
-    } else {
-      bar = sv("rect", { class: cls, x: x(day.day) + 1.5, y: y(count), width: Math.max(1, bw - 3), height: y(0) - y(count), rx: 1.5 });
-    }
-    svg.append(bar);
-    const hit = sv("rect", { class: "column-hit", x: x(day.day), y: T - 22, width: bw, height: H - B - T + 22 });
+    const cls = `regime-${regimeIndex[day.regime]}`;
+    names.forEach((name, j) => {
+      const state = day.drifted.includes(name) ? `shifted ${cls}` : day.moderate.includes(name) ? `moved ${cls}` : "steady";
+      svg.append(sv("rect", { class: `cell ${state}`, x: x(day.day) + 1, y: gridTop + j * rowH + 1, width: Math.max(1, bw - 2), height: rowH - 2, rx: 1.5 }));
+    });
+    const hit = sv("rect", { class: "column-hit", x: x(day.day), y: T - 22, width: bw, height: H - 30 - T + 22 });
     svg.append(hit);
-    bars.push([hit, bar, day]);
+    cols.push([hit, day]);
   }
   const rx = x(drift.first_request_day) + bw / 2;
-  svg.append(sv("line", { class: "request-mark", x1: rx, x2: rx, y1: y(top) + 6, y2: y(0) }));
-  svg.append(sv("text", { class: "request-label", x: rx + 5, y: y(top) + 16 }, "retraining requested"));
+  svg.append(sv("line", { class: "request-mark", x1: rx, x2: rx, y1: leverTop - 4, y2: H - 30 }));
+  svg.append(sv("text", { class: "request-label", x: rx + 5, y: gridTop - 10 }, "retraining requested"));
+  for (let d = 0; d <= last; d += 7) {
+    svg.append(sv("text", { class: "tick", x: x(d) + bw / 2, y: H - 10, "text-anchor": "middle" }, `day ${d}`));
+  }
   $("drift-chart").append(svg);
 
   const readout = $("drift-readout");
   function show(index) {
-    const [, , day] = bars[index];
-    bars.forEach(([hit], j) => hit.classList.toggle("on", j === index));
+    const [, day] = cols[index];
+    cols.forEach(([hit], j) => hit.classList.toggle("on", j === index));
     readout.textContent = "";
     readout.append(el("span", { class: "when" }, `Day ${day.day}`));
     readout.append(el("span", { class: "pair" }, `fraud running: ${REGIMES[day.regime] ? REGIMES[day.regime][1].toLowerCase() : day.regime}`));
-    if (day.drifted.length === 0) {
-      readout.append(el("span", { class: "pair" }, `none of the ${top} signals shifted`));
-    } else {
-      const names = day.drifted.map((name) => humanFeature(name, data.features));
-      readout.append(el("span", { class: "pair" }, `${day.drifted.length} of ${top} signals shifted: ${names.join("; ")}`));
-    }
+    const shifted = day.drifted.map((name) => humanFeature(name, data.features));
+    readout.append(el("span", { class: "pair" }, shifted.length ? `${shifted.length} of ${top} signals shifted: ${shifted.join("; ")}` : `none of the ${top} signals shifted`));
   }
-  bars.forEach(([hit], i) => {
+  cols.forEach(([hit], i) => {
     hit.addEventListener("mouseenter", () => show(i));
     hit.addEventListener("click", () => show(i));
   });
   readout.textContent = "Point at a day to see which signals shifted.";
 
-  legend(
-    $("drift-legend"),
-    drift.regimes.map((r, i) => [`sw-regime-${i}`, REGIMES[r.name] ? `${REGIMES[r.name][1]}: ${REGIMES[r.name][2]}` : r.name]),
-  );
-  $("drift-caption").textContent = `Synthetic track, offline replay of the development schedule. Days 0 to ${first - 1} are the week the model was trained on and the monitors compare against, so judging starts on day ${first}. Source: docs/drift-report.json.`;
+  legend($("drift-legend"), [
+    ...drift.regimes.map((r, i) => [`sw-regime-${i}`, REGIMES[r.name] ? `${REGIMES[r.name][1]}: ${REGIMES[r.name][2]}` : r.name]),
+  ]);
+  $("drift-caption").textContent = `Synthetic track, offline replay of the public development schedule. The three lines are the schedule's settings. In the grid a solid square is a signal past the line that day, a pale one a signal that moved but stayed under it, measured on about ${drawn} transactions drawn each day. Source: docs/drift-report.json and verdict/events/generator/regimes.py.`;
   fill($("drift-method"), [
-    `Each day, about ${number.format(Math.round(days.reduce((s, d) => s + d.values, 0) / days.length))} transactions are drawn by a hash of their identifier (the same ones whoever reruns it), and for each of the ${top} signals (the model's inputs and its own score) the day's distribution is compared with the reference week's. A signal counts as shifted when its population stability index passes ${fmt(drift.psi_threshold, 2)} or its Kolmogorov-Smirnov statistic passes ${fmt(drift.ks_threshold, 2)}, the conventions credit scoring has used for decades. `,
+    `Each day, about ${drawn} transactions are drawn by a hash of their identifier (the same ones whoever reruns it), and for each of the ${top} signals (the model's inputs and its own score) the day's distribution is compared with the training week's. A signal counts as shifted when its population stability index passes ${fmt(drift.psi_threshold, 2)} or its Kolmogorov-Smirnov statistic passes ${fmt(drift.ks_threshold, 2)}, the conventions credit scoring has used for decades. `,
     strong("A retraining request needs the same signal shifted on two days running,"),
     " because a single odd day is often noise. That puts the earliest request a day after a change begins, which is where this one opened. In the live window the reference is the live traffic itself: the window's first two full days, and after each promotion the two full days after it.",
   ]);

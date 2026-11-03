@@ -17,6 +17,7 @@
 <nav class="tabs" aria-label="This site">
   <div class="tabs-inner">
     <a href="index.html" aria-current="page">Overview</a>
+    <a href="#video-panel">Video</a>
     <a href="#pipeline-panel">The pipeline</a>
     <a href="#load-panel">Speed</a>
     <a href="#drift-panel">Drift</a>
@@ -91,6 +92,14 @@
   </noscript>
 
   <p class="warning" id="failure" hidden></p>
+
+  <section class="section" id="video-panel">
+    <h2>See it running</h2>
+    <p class="section-lead">The platform in a short video, with sound.</p>
+    <video class="demo-video" controls preload="metadata" playsinline src="video/verdict-linkedin-sound.mp4">
+      Your browser cannot play this video. <a href="video/verdict-linkedin-sound.mp4">Download it</a> instead.
+    </video>
+  </section>
 
   <section class="section" id="pipeline-panel">
     <h2>What happens in those few milliseconds</h2>
@@ -197,10 +206,12 @@
     </p>
     <p class="section-lead">
       To test the monitors, the generator played fifty days of payments, 86 million of them, and
-      changed the kind of fraud three times on days the monitors were not told about. The shaded
-      bands across the top show which kind of fraud was running. Each bar is one day, and its
-      height is how many of the 17 signals had shifted that day; a green dot is a day when none
-      had. The dotted line marks the day the monitors asked for a new model.
+      changed the fraud three times on days the monitors were not told about. The top of the
+      chart shows what each change did: card testing doubled how common fraud was, the next
+      change raised payment amounts by a third while fraud stayed where it was, and account
+      takeovers moved more of it online. Below that, each row is one of the 17 signals and each
+      column a day. A coloured square means that signal had shifted that day. The dotted line
+      marks the day the monitors asked for a new model.
     </p>
     <figure class="chart-figure">
       <div id="drift-chart" class="chart wide-chart"></div>

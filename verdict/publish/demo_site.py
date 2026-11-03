@@ -15,6 +15,7 @@ each promotion verdict a merged pull request committed to `docs/live/`.
 from __future__ import annotations
 
 import json
+import math
 import statistics
 from collections.abc import Mapping
 from functools import partial
@@ -23,6 +24,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from verdict.drift.monitors import KS_STATISTIC_DRIFT, PSI_DRIFT
+from verdict.events.generator.regimes import DEV_SCHEDULE
 from verdict.observe.alerts import DASHBOARD
 from verdict.scoring.rules import DecisionRules
 from verdict.store.features import FEATURE_SET
@@ -171,12 +173,24 @@ def _drift(docs: Path) -> dict[str, Any]:
         return (date.fromisoformat(day) - date.fromisoformat(first)).days
 
     request = report["first_request"]
+    levers = {regime.name: regime for regime in DEV_SCHEDULE.regimes}
     return {
         "quantities": len(report["reference"]["quantities"]),
+        "names": report["reference"]["quantities"],
         "psi_threshold": PSI_DRIFT,
         "ks_threshold": KS_STATISTIC_DRIFT,
+        # What each regime does to the stream, from the public development
+        # schedule the replay was generated with (the live one stays sealed).
         "regimes": [
-            {"name": regime["name"], "starts_day": day_number(regime["starts_on"])}
+            {
+                "name": regime["name"],
+                "starts_day": day_number(regime["starts_on"]),
+                "fraud_rate_multiplier": levers[regime["name"]].fraud_rate_multiplier,
+                "typical_amount_multiplier": round(
+                    math.exp(levers[regime["name"]].amount_log_shift), 4
+                ),
+                "online_share_points": round(100 * levers[regime["name"]].online_share_shift, 2),
+            }
             for regime in regimes
         ],
         "days": [
@@ -184,6 +198,7 @@ def _drift(docs: Path) -> dict[str, Any]:
                 "day": day_number(day["day"]),
                 "regime": regime_of(day["day"]),
                 "drifted": day["drifted"],
+                "moderate": day["moderate"],
                 "values": day["values"],
             }
             for day in report["days"]

@@ -903,42 +903,49 @@
    {
     "day": 7,
     "drifted": [],
+    "moderate": [],
     "regime": "baseline",
     "values": 53383
    },
    {
     "day": 8,
     "drifted": [],
+    "moderate": [],
     "regime": "baseline",
     "values": 53380
    },
    {
     "day": 9,
     "drifted": [],
+    "moderate": [],
     "regime": "baseline",
     "values": 53447
    },
    {
     "day": 10,
     "drifted": [],
+    "moderate": [],
     "regime": "baseline",
     "values": 53423
    },
    {
     "day": 11,
     "drifted": [],
+    "moderate": [],
     "regime": "baseline",
     "values": 53257
    },
    {
     "day": 12,
     "drifted": [],
+    "moderate": [],
     "regime": "baseline",
     "values": 53371
    },
    {
     "day": 13,
     "drifted": [],
+    "moderate": [],
     "regime": "baseline",
     "values": 53488
    },
@@ -951,6 +958,7 @@
      "merchant_distinct_cards_1h",
      "merchant_txn_count_1h"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55395
    },
@@ -965,6 +973,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55598
    },
@@ -979,6 +988,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55120
    },
@@ -993,6 +1003,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55659
    },
@@ -1007,6 +1018,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55621
    },
@@ -1020,6 +1032,7 @@
      "merchant_distinct_cards_1h",
      "merchant_txn_count_1h"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 54953
    },
@@ -1034,6 +1047,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55944
    },
@@ -1047,6 +1061,7 @@
      "merchant_distinct_cards_1h",
      "merchant_txn_count_1h"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55236
    },
@@ -1061,6 +1076,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55554
    },
@@ -1075,6 +1091,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55549
    },
@@ -1089,6 +1106,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55472
    },
@@ -1103,6 +1121,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55671
    },
@@ -1117,6 +1136,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55328
    },
@@ -1131,6 +1151,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55575
    },
@@ -1144,6 +1165,7 @@
      "merchant_distinct_cards_1h",
      "merchant_txn_count_1h"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55421
    },
@@ -1158,6 +1180,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "card-testing-wave",
     "values": 55171
    },
@@ -1173,6 +1196,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53713
    },
@@ -1186,6 +1210,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53602
    },
@@ -1199,6 +1224,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53509
    },
@@ -1212,6 +1238,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53520
    },
@@ -1225,6 +1252,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53284
    },
@@ -1238,6 +1266,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53198
    },
@@ -1251,6 +1280,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53528
    },
@@ -1264,6 +1294,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53717
    },
@@ -1277,6 +1308,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53503
    },
@@ -1290,6 +1322,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53154
    },
@@ -1303,6 +1336,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53110
    },
@@ -1316,6 +1350,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53443
    },
@@ -1329,6 +1364,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53416
    },
@@ -1342,6 +1378,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53477
    },
@@ -1355,6 +1392,7 @@
      "merchant_amount_mean_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "amount-drift-no-fraud-change",
     "values": 53781
    },
@@ -1370,6 +1408,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "takeover-season",
     "values": 54149
    },
@@ -1385,6 +1424,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "takeover-season",
     "values": 54299
    },
@@ -1400,6 +1440,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "takeover-season",
     "values": 54138
    },
@@ -1415,6 +1456,7 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "takeover-season",
     "values": 53983
    },
@@ -1429,30 +1471,62 @@
      "merchant_txn_count_1h",
      "score"
     ],
+    "moderate": [],
     "regime": "takeover-season",
     "values": 53978
    }
   ],
   "first_request_day": 15,
   "ks_threshold": 0.1,
+  "names": [
+   "card_amount_max_24h",
+   "card_amount_mean_24h",
+   "card_amount_sum_1h",
+   "card_distinct_merchants_24h",
+   "card_seconds_since_last",
+   "card_txn_count_1h",
+   "card_txn_count_24h",
+   "device_amount_mean_1h",
+   "device_distinct_cards_1h",
+   "device_distinct_cards_24h",
+   "device_txn_count_1h",
+   "merchant_amount_mean_1h",
+   "merchant_distinct_cards_1h",
+   "merchant_txn_count_1h",
+   "score",
+   "session_amount_sum",
+   "session_txn_count"
+  ],
   "psi_threshold": 0.25,
   "quantities": 17,
   "regimes": [
    {
+    "fraud_rate_multiplier": 1.0,
     "name": "baseline",
-    "starts_day": 0
+    "online_share_points": 0.0,
+    "starts_day": 0,
+    "typical_amount_multiplier": 1.0
    },
    {
+    "fraud_rate_multiplier": 2.1,
     "name": "card-testing-wave",
-    "starts_day": 14
+    "online_share_points": 5.0,
+    "starts_day": 14,
+    "typical_amount_multiplier": 1.0
    },
    {
+    "fraud_rate_multiplier": 1.0,
     "name": "amount-drift-no-fraud-change",
-    "starts_day": 30
+    "online_share_points": 0.0,
+    "starts_day": 30,
+    "typical_amount_multiplier": 1.3499
    },
    {
+    "fraud_rate_multiplier": 1.4,
     "name": "takeover-season",
-    "starts_day": 45
+    "online_share_points": 15.0,
+    "starts_day": 45,
+    "typical_amount_multiplier": 1.1052
    }
   ]
  },
