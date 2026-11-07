@@ -296,6 +296,28 @@ days for #11 are untouched. Compose kept as `compose.yml.c2b5966.*`, `stack.env`
 `.gitattributes` now makes every text file LF (`d1201ab`), so **a fresh checkout's feature
 code no longer has the live bytes: build images from the main checkout until the window is
 over, and compare `fingerprint()` in a new image with the running one before any roll.**
+**2026-11-07, the stack is down (Peter: no extra week; #11 gets no replayed verdict).**
+`fetch.sh --final` at 01:27Z stopped Prometheus and streamed the record through the archive
+bucket; `kept.tar` failed three times on SSL record-layer errors over the home line and came
+down with four parallel requests and adaptive retries (a temporary `AWS_CONFIG_FILE`); all
+three tars checksum-verified and listed. The archive is at
+`C:\Users\peter\verdict-archive\20261107T0127Z` (outside OneDrive; 21 GB:
+`prometheus.tar`, `state.tar`, `kept.tar`, with `data/` and `state/` extracted), served by
+`deploy/archive/serve.sh` once the venv is mended. From it, run in a container of
+`d1201ab53d8b` on the archive's network: `docs/live/daily.json` through 2026-11-06 (39
+days) and **`docs/live/window-report.json`, the thirty days 2026-09-29T19:11Z to
+2026-10-29T19:11Z: 2,702,289,930 decisions, while serving p50 8.9, p95 24.2, p99 45.8 ms;
+16 minutes without decisions, uptime 99.963%, 0 spot reclaims, 3 other stops** (the scorer
+restarts). Then `terraform destroy` from a reviewed plan, 20 resources (instance group, data
+volume, ECR, archive bucket, SNS, VPC); the instance is terminated and no tagged volume
+remains; the tagging index still listed deleted ARNs an hour later, so rerun `down.sh
+--check` before calling it clean. Left by design: `/verdict/cloudflare-tunnel-token`,
+`/verdict/schedule-secret` (for the reveal, due 2026-11-07), and `/verdict/github-token`
+(delete it and revoke it on GitHub). **The project venv is damaged** (numpy, pydantic and
+more gone; OneDrive holds files open, so `uv sync --reinstall` fails with access denied):
+rebuild it with OneDrive paused, or move it out of OneDrive. Still to do: the README's live
+table from `window-report.json`, the demo site and peterparker.ca (the dashboard is gone),
+the reveal, and the plan's STATUS.md with the window's spend.
 
 **2026-10-08, the compactor fix is on the instance, and the data volume is
 200 GB.** 2026-09-30 stalled at 06:00Z the same way; the run was killed at
