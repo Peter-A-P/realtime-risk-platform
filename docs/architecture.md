@@ -27,7 +27,8 @@ features it was made on. From that history, the analysts' review queue is ranked
 loss, and each finished day is checked for drift. Drift checks and a models job can open
 retraining and promotion pull requests, but never merge them. A person does.
 
-The scorer's timings go to a public monitoring dashboard, which is the first link on this site.
+The scorer's timings went to a public monitoring dashboard while the stack ran; since the
+teardown, the same dashboard is a Grafana snapshot of the thirty days, the first link on the site.
 
 Where it lives: `verdict.events`, `verdict.features.engine`, `verdict.store`, `verdict.live.feed`,
 `verdict.stream`, `verdict.scoring`, `verdict.models`, `verdict.history`, `verdict.review_queue`,
@@ -88,7 +89,9 @@ Where it lives: `verdict.store.leakage`, `verdict.models.dataset`, `verdict.mode
 
 ![Terraform from the laptop stands up an auto-scaling group of one in AWS ca-central-1 that boots the pushed image, keeps history and saved feature state on an EBS volume, serves the dashboard through a Cloudflare tunnel, emails alerts through SNS and opens its retraining and promotion verdicts as pull requests a person merges.](architecture/live.svg)
 
-The live stack is one machine in one AWS region in Canada, with no inbound port open.
+The live stack was one machine in one AWS region in Canada, with no inbound port open. It ran
+from 2026-09-29 to 2026-11-06 and was torn down on 2026-11-07; what follows is how it was built,
+and `deploy/up.sh` builds it again.
 
 From a laptop, one script pushes a single container image and Terraform stands up a group that
 always keeps exactly one machine running. When that machine boots, it reads its secrets from

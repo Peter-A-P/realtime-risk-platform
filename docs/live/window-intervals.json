@@ -1,0 +1,38 @@
+{
+ "track": "synthetic live",
+ "window": {
+  "first_minute": "2026-09-29T19:11:00Z",
+  "minutes": 43200
+ },
+ "latency_ms": {
+  "method": "the event-to-decision histogram summed over the thirty window days (19:11Z to 19:11Z) from the archived Prometheus; percentiles interpolated within buckets as histogram_quantile does; 95% intervals resample the thirty days with replacement, 2,000 replicates. No spot reclaim happened, so latency while serving and every minute are the same figure; window-report.json carries the pooled figures.",
+  "p50": {
+   "pooled": 8.86,
+   "low": 8.5,
+   "high": 9.28
+  },
+  "p95": {
+   "pooled": 24.21,
+   "low": 23.76,
+   "high": 24.64
+  },
+  "p99": {
+   "pooled": 45.71,
+   "low": 41.95,
+   "high": 48.04
+  }
+ },
+ "decisions_per_second": {
+  "mean": 1042.5,
+  "low": 1031.4,
+  "high": 1053.4,
+  "method": "mean of the thirty window days, 95% day bootstrap"
+ },
+ "cost_per_million_decisions_usd": {
+  "mean": 0.0819,
+  "low": 0.081,
+  "high": 0.0828,
+  "method": "AWS Cost Explorer, cost tagged project=verdict, gross before account credits, each full UTC day 2026-09-30 to 2026-10-28 (29 days) over that day's decisions in daily.json; 95% day bootstrap. The window's thirty days cost about US$221.",
+  "cad_at_1_35": 0.11
+ }
+}

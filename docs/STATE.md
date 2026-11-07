@@ -319,6 +319,32 @@ rebuild it with OneDrive paused, or move it out of OneDrive. Still to do: the RE
 table from `window-report.json`, the demo site and peterparker.ca (the dashboard is gone),
 the reveal, and the plan's STATUS.md with the window's spend.
 
+**2026-11-07, after the teardown: shipped, the dashboard kept public, the live table filled
+(Peter).** README and peterparker.ca say shipped and shut down on 2026-11-07 (peterparker.ca
+status `shipped`, a log entry, the one-liner "ran live for thirty days"). The dashboard is
+public again as a **Grafana snapshot** of the thirty days on snapshots.raintank.io (ADR 36's
+addendum), linked from the site's first button, the README and `docs/site.md`. It was built
+by querying every panel through the archive Grafana (`serve.sh`) and saving the results into
+the dashboard JSON; revised once on Peter's review: the window's decision count (2.70
+billion) instead of the five-minute p99, a 0 to 100 ms latency axis with the budget line,
+and PR-AUC by day for the deciding model and the shadow, measured from `kept.tar`'s rows
+(`docs/live/daily-pr-auc.json`: about 0.06 to 10 October, 0.03 after the shift, 0.11 to
+0.19 after the first promotion, 0.21 after the second, 0.42 by the last days with no model
+change). The first snapshot was deleted with its key. The snapshot body, its delete key and
+the scripts are in the archive folder, not here; raintank uploads are refused by the
+session's permission check unless Peter approves each one. **The README's live table is
+filled**: latency while serving 8.9 / 24.2 / 45.8 ms with day-bootstrap intervals,
+1,042 decisions a second, uptime 99.963%, 0 reclaims and 3 restarts, 3 shifts flagged and
+2 promotions, the two verdicts' PR-AUC, and US$0.082 per million decisions from Cost
+Explorer (`docs/live/window-intervals.json`). Spend tagged `project=verdict`, gross before
+account credits: US$30.47 in September, US$228.53 in October, about US$45 in November to
+the teardown, **about US$304 (CA$411) in all**, against a CA$350 budget; the untagged line
+shows credits that offset part of it. The venv imports everything again (a full test run
+was cut off at ten minutes with no failure). Still open: the reveal (the build identity is
+denied `/verdict/schedule-secret` by design; Peter supplies the secret), the
+`/verdict/github-token` parameter (delete it and revoke the token; it is the only tagged
+resource left). The plan's STATUS.md has the spend and the shipped status.
+
 **2026-10-08, the compactor fix is on the instance, and the data volume is
 200 GB.** 2026-09-30 stalled at 06:00Z the same way; the run was killed at
 09:19Z, image `c11c306feca4` (the merge of pull request 1) was pushed from a

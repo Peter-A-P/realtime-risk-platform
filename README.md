@@ -20,15 +20,14 @@ down with the stack; **[the same dashboard as a Grafana snapshot](https://snapsh
 shows the whole thirty-day window from the archived metrics, and
 [docs/live/window-report.json](docs/live/window-report.json) and
 [docs/live/daily.json](docs/live/daily.json) carry the window's figures. The design is in
-[PLAN.md](PLAN.md). The live-window table below is still to be filled from that report; everything
-else here is measured and says which track it came from.
+[PLAN.md](PLAN.md). Everything here is measured and says which track it came from.
 
 This is a platform, not a fraud model. The model is the least interesting part.
 
 ## Result
 
 The first table gathers the platform's properties from the committed reports; the sections
-under it say how each was measured. The live-window report will fill the last table.
+under it say how each was measured. The last table is the thirty-day live window.
 
 **Platform properties (replay and load tests)**
 
@@ -322,7 +321,20 @@ candidate now waits for two labelled drifted days and is fitted on them
 
 | Decision latency while serving p50 / p95 / p99 ms (95% CI) | Same, every minute | Sustained events/s | Uptime % | Spot reclaims (median recovery) / other stops | Drift triggers / retrains approved | Champion vs challenger PR-AUC (95% CI) | Cost per million events |
 |---|---|---|---|---|---|---|---|
-| _not yet_ | | | | | | | |
+| 8.9 (8.5 to 9.3) / 24.2 (23.8 to 24.6) / **45.8 (42.0 to 48.0)**, against a 50 ms budget | the same: no spot reclaim to leave out | 1,042 a second on average (1,031 to 1,053), following the day; 2.70 billion decisions | **99.963**: 16 of 43,200 minutes without a decision | 0 (on-demand) / 3 scorer restarts of 5, 6 and 5 minutes | 3 shifts flagged, from 10, 20 and 27 October / 4 candidates fitted, 2 promoted by merged pull request | 0.0616 against 0.4504, +0.389 (+0.375 to +0.401), 12 Oct; 0.1069 against 0.1279, +0.021 (+0.019 to +0.023), 22 Oct | US$0.082 (0.081 to 0.083), about CA$0.11 |
+
+Synthetic live track, 2026-09-29T19:11Z to 2026-10-29T19:11Z. Latency and uptime are
+from [docs/live/window-report.json](docs/live/window-report.json); the latency intervals
+resample the thirty days, and the cost is the AWS bill for resources tagged to the project
+over the window's full days, before account credits, divided by that day's decisions
+([docs/live/window-intervals.json](docs/live/window-intervals.json)). The PR-AUC pairs are
+the two promotion verdicts in [docs/live/](docs/live/), each on labelled days the candidate
+was not trained on; [docs/live/daily-pr-auc.json](docs/live/daily-pr-auc.json) has the
+deciding model's PR-AUC on every day. The window's p99 is inside the budget, but not every
+day's: the UTC day's p99 was over 50 ms on 5 of the 31 calendar days the window touched,
+two of them by restarts' catch-ups (3.9 s on 21 October, 98 ms on 23 October), and the
+others at 51 to 61 ms as traffic grew in the last ten days
+([docs/live/daily.json](docs/live/daily.json)).
 
 Latency while serving leaves out only the recovery after a spot reclaim AWS announced,
 on AWS's own notice as the evidence; every other minute counts, and every minute counts
