@@ -175,8 +175,8 @@
       bar is one UTC day, and its height is the share of that day's decisions that took longer
       than the 50 ms budget, from the moment a transaction was sent to the moment its decision
       was on the stream. A bar below the dashed line is a day whose p99 was inside the budget.
-      The thirty days ended on 29 October; the stack runs on after that so the last week's
-      fraud labels can arrive, and those days are drawn too. Point at a day to read it.
+      The thirty days ended on 29 October; the stack ran on until 7 November so the last week's
+      fraud labels could arrive, and those days are drawn too. Point at a day to read it.
     </p>
     <figure class="chart-figure">
       <div id="window-chart" class="chart"></div>
@@ -295,10 +295,12 @@
       <p id="live-next"></p>
     </div>
     <p class="note">
-      The monitors have flagged the stream again since, most recently on 27 and 28 October, in
-      the same amount averages and in how many cards a device carries in a day. A candidate for
-      that shift needs the labels for 29 October, which arrive about 6 November, hours before the
-      stack stops, so it may not reach the gate in time. Any pull request it opens appears on
+      The monitors flagged the stream again on 27 and 28 October, in the same amount averages
+      and in how many cards a device carries in a day. A third candidate, fitted on those days,
+      scored 0.527 PR-AUC against the champion's 0.420 on later rows neither had seen (+0.107,
+      95% CI +0.100 to +0.114). A person merged it to run in shadow on 6 November, but the stack
+      was shut down the next day before it could be replayed, so it never decided anything. Its
+      pull request is on
       <a href="https://github.com/Peter-A-P/realtime-risk-platform/pulls?q=is%3Apr">the repository's pull requests page</a>.
     </p>
   </section>
@@ -385,8 +387,10 @@
   <section class="section" id="dashboard-guide">
     <h2>How to read the live dashboard</h2>
     <p class="section-lead">
-      The dashboard is the platform's own monitoring, public and read-only. It is built for the
-      person running the system, so here is what each part shows and what normal looks like.
+      The dashboard was the platform's own monitoring, public and read-only while the stack ran.
+      It went down with the stack on 7 November; its data is archived and can be served again
+      from the repository's <code>deploy/archive/serve.sh</code>. This is what each part showed
+      and what normal looked like.
     </p>
     <div class="guide">
       <article class="guide-card">
@@ -456,8 +460,8 @@
       A drift monitor tuned to the shifts it will face proves nothing. So the live window's fraud
       schedule (when each shift comes and what it does) is derived from a secret sealed before the
       window opened. Its fingerprints were committed to the repository, and the secret is kept
-      where the platform's builder cannot read it. It is published the day after the stack stops,
-      about 7 November, so anyone can check that the schedule never changed.
+      where the platform's builder cannot read it. It is published once the stack has
+      stopped, so anyone can check that the schedule never changed.
     </p>
     <div class="table-wrap">
       <table id="sealed-table"></table>
@@ -468,11 +472,10 @@
     <h2>What this page does not show</h2>
     <ul>
       <li>
-        <strong>The live window's full report is not written yet.</strong> The thirty days ended on
-        29 October, and the stack runs on until about 6 November so the last week's fraud labels
-        arrive. The window's latency, uptime, drift alarms and retraining go into the README's
-        tables after that. Until then the dashboard and the day-by-day chart above are the live
-        record.
+        <strong>The README's live tables are not filled in yet.</strong> The thirty days ended
+        on 29 October and the stack was shut down on 7 November. The window's report is
+        committed as <code>docs/live/window-report.json</code>, and the day-by-day chart above
+        is the live record until the tables are written from it.
       </li>
       <li>
         <strong>The stream is synthetic, and how hard it is depends on its size.</strong> On the

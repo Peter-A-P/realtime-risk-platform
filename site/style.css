@@ -999,3 +999,4 @@ tbody tr.reference { background: var(--accent-soft); }
 .day-mark.model { fill: var(--ink-faint); }
 .swatch.dot { border-radius: 50%; width: 0.6rem; height: 0.6rem; }
 .swatch.diamond { transform: rotate(45deg); width: 0.55rem; height: 0.55rem; }
+.button[hidden] { display: none; }

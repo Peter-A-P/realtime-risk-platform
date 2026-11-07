@@ -155,7 +155,11 @@ function liveStrip(data) {
     text.textContent = `The ${days}-day live window ended on ${endText}. The stack runs on until ${runsUntil.toLocaleDateString("en-GB", dateFormat)} so the last week's labels arrive, and the fraud schedule is revealed on ${revealText}.`;
   } else {
     $("live-strip").classList.add("ended");
-    text.textContent = `The ${days}-day live window ran from ${start.toLocaleDateString("en-GB", dateFormat)} to ${endText}.`;
+    text.textContent = `The ${days}-day live window ran from ${start.toLocaleDateString("en-GB", dateFormat)} to ${endText}. The stack has been shut down, and every day of it is drawn below.`;
+    // The dashboard went with the stack: the first button becomes the code.
+    $("dashboard-link").hidden = true;
+    document.querySelector(".cta-note").textContent = "The live dashboard went down with the stack on 7 November.";
+    return;
   }
   $("dashboard-link").href = data.dashboard;
 }
