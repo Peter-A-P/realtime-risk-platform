@@ -10,6 +10,11 @@ with the secret and reported:
 
     verified: secret, derived schedule and regimes.py all match the commitment
 
+The secret is [schedule-secret.txt](schedule-secret.txt) (no trailing newline). Anyone
+can rerun the check:
+
+    python -m verdict.cli schedule verify --secret "$(cat docs/live/schedule-secret.txt)" --reveal
+
 The derived schedule is [schedule-revealed.json](schedule-revealed.json). Its canonical
 JSON (sorted keys, no spaces) hashes to the committed `schedule_sha256`, `a2aae908...`, so
 anyone can check that this is the schedule committed before go-live:

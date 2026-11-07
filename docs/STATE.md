@@ -353,9 +353,11 @@ the window start 2026-09-29T19:11Z the fraud changed 10-09 18:11, 10-19 14:11 an
 04:11 UTC; each was flagged on its first full UTC day (10-10, 10-20, 10-27), with nothing
 flagged on clean days. Regime 5 (11-03 18:11) came in the run-on while the monitors were
 already flagging, and is not claimed as a detection; 6 and 7 never ran. README, the site's
-sealed panel and the README's build table say so. **The secret itself is not yet in the
-repository**: Peter did not paste it; publishing it (for example `docs/live/schedule-secret.txt`)
-lets a stranger rerun the verify. Until then `regimes.py` stays unedited.
+sealed panel and the README's build table say so. The secret is published as
+`docs/live/schedule-secret.txt` (verified again from the file), so a stranger can rerun the
+verify. The seal is over: `regimes.py` may change, though any edit breaks the rerun, so
+leave it unless there is a reason. `/verdict/schedule-secret` in SSM can be deleted with
+the github-token parameter.
 
 **2026-10-08, the compactor fix is on the instance, and the data volume is
 200 GB.** 2026-09-30 stalled at 06:00Z the same way; the run was killed at
