@@ -1,0 +1,536 @@
+{
+ "track": "synthetic live",
+ "source": "the kept history (ADR 18): every finalised day of the window, labels joined a week after",
+ "metric": "PR-AUC as average precision over distinct score thresholds, weighted by each kept row's weight (verdict.models.promote.average_precision)",
+ "interval": "95% Poisson bootstrap over rows within the day, 20 replicates; it does not cover day-to-day variation",
+ "note": "champion is the model that decided that day; shadow scored the same transactions without acting. The first and last days are partial.",
+ "days": [
+  {
+   "day": "2026-09-29",
+   "champion": {
+    "pr_auc": 0.0403,
+    "low": 0.04,
+    "high": 0.0406,
+    "rows": 3633308,
+    "frauds_weighted": 618784.0
+   },
+   "shadow": {
+    "pr_auc": 0.0445,
+    "low": 0.0442,
+    "high": 0.0447,
+    "rows": 3633308,
+    "frauds_weighted": 618784.0
+   }
+  },
+  {
+   "day": "2026-09-30",
+   "champion": {
+    "pr_auc": 0.0568,
+    "low": 0.0567,
+    "high": 0.0569,
+    "rows": 18307376,
+    "frauds_weighted": 2650900.0
+   },
+   "shadow": {
+    "pr_auc": 0.058,
+    "low": 0.0579,
+    "high": 0.0582,
+    "rows": 18307376,
+    "frauds_weighted": 2650900.0
+   }
+  },
+  {
+   "day": "2026-10-01",
+   "champion": {
+    "pr_auc": 0.0607,
+    "low": 0.0606,
+    "high": 0.061,
+    "rows": 16031882,
+    "frauds_weighted": 2656634.0
+   },
+   "shadow": {
+    "pr_auc": 0.0606,
+    "low": 0.0604,
+    "high": 0.0607,
+    "rows": 16031882,
+    "frauds_weighted": 2656634.0
+   }
+  },
+  {
+   "day": "2026-10-02",
+   "champion": {
+    "pr_auc": 0.0613,
+    "low": 0.0612,
+    "high": 0.0615,
+    "rows": 15966498,
+    "frauds_weighted": 2665915.0
+   },
+   "shadow": {
+    "pr_auc": 0.061,
+    "low": 0.0608,
+    "high": 0.0612,
+    "rows": 15966498,
+    "frauds_weighted": 2665915.0
+   }
+  },
+  {
+   "day": "2026-10-03",
+   "champion": {
+    "pr_auc": 0.0612,
+    "low": 0.061,
+    "high": 0.0613,
+    "rows": 16044467,
+    "frauds_weighted": 2694888.0
+   },
+   "shadow": {
+    "pr_auc": 0.061,
+    "low": 0.0609,
+    "high": 0.0613,
+    "rows": 16044467,
+    "frauds_weighted": 2694888.0
+   }
+  },
+  {
+   "day": "2026-10-04",
+   "champion": {
+    "pr_auc": 0.0616,
+    "low": 0.0615,
+    "high": 0.0618,
+    "rows": 15829238,
+    "frauds_weighted": 2684803.0
+   },
+   "shadow": {
+    "pr_auc": 0.0617,
+    "low": 0.0615,
+    "high": 0.0619,
+    "rows": 15829238,
+    "frauds_weighted": 2684803.0
+   }
+  },
+  {
+   "day": "2026-10-05",
+   "champion": {
+    "pr_auc": 0.0605,
+    "low": 0.0603,
+    "high": 0.0607,
+    "rows": 16031706,
+    "frauds_weighted": 2639607.0
+   },
+   "shadow": {
+    "pr_auc": 0.0604,
+    "low": 0.0602,
+    "high": 0.0606,
+    "rows": 16031706,
+    "frauds_weighted": 2639607.0
+   }
+  },
+  {
+   "day": "2026-10-06",
+   "champion": {
+    "pr_auc": 0.0614,
+    "low": 0.0612,
+    "high": 0.0616,
+    "rows": 15849842,
+    "frauds_weighted": 2664786.0
+   },
+   "shadow": {
+    "pr_auc": 0.0611,
+    "low": 0.0609,
+    "high": 0.0612,
+    "rows": 15849842,
+    "frauds_weighted": 2664786.0
+   }
+  },
+  {
+   "day": "2026-10-07",
+   "champion": {
+    "pr_auc": 0.061,
+    "low": 0.0609,
+    "high": 0.0612,
+    "rows": 15976532,
+    "frauds_weighted": 2684970.0
+   },
+   "shadow": {
+    "pr_auc": 0.0609,
+    "low": 0.0607,
+    "high": 0.0611,
+    "rows": 15976532,
+    "frauds_weighted": 2684970.0
+   }
+  },
+  {
+   "day": "2026-10-08",
+   "champion": {
+    "pr_auc": 0.0611,
+    "low": 0.061,
+    "high": 0.0612,
+    "rows": 15923670,
+    "frauds_weighted": 2653499.0
+   },
+   "shadow": {
+    "pr_auc": 0.0608,
+    "low": 0.0607,
+    "high": 0.061,
+    "rows": 15923670,
+    "frauds_weighted": 2653499.0
+   }
+  },
+  {
+   "day": "2026-10-09",
+   "champion": {
+    "pr_auc": 0.0554,
+    "low": 0.0552,
+    "high": 0.0555,
+    "rows": 16186813,
+    "frauds_weighted": 2440859.0
+   },
+   "shadow": {
+    "pr_auc": 0.0544,
+    "low": 0.0542,
+    "high": 0.0546,
+    "rows": 16186813,
+    "frauds_weighted": 2440859.0
+   }
+  },
+  {
+   "day": "2026-10-10",
+   "champion": {
+    "pr_auc": 0.027,
+    "low": 0.0269,
+    "high": 0.027,
+    "rows": 16088749,
+    "frauds_weighted": 1304046.0
+   },
+   "shadow": {
+    "pr_auc": 0.081,
+    "low": 0.0804,
+    "high": 0.0818,
+    "rows": 16088749,
+    "frauds_weighted": 1304046.0
+   }
+  },
+  {
+   "day": "2026-10-11",
+   "champion": {
+    "pr_auc": 0.0288,
+    "low": 0.0287,
+    "high": 0.0289,
+    "rows": 16440773,
+    "frauds_weighted": 1503382.0
+   },
+   "shadow": {
+    "pr_auc": 0.1192,
+    "low": 0.1177,
+    "high": 0.1213,
+    "rows": 16440773,
+    "frauds_weighted": 1503382.0
+   }
+  },
+  {
+   "day": "2026-10-12",
+   "champion": {
+    "pr_auc": 0.0304,
+    "low": 0.0303,
+    "high": 0.0305,
+    "rows": 14343419,
+    "frauds_weighted": 1501348.0
+   },
+   "shadow": {
+    "pr_auc": 0.1087,
+    "low": 0.1079,
+    "high": 0.1098,
+    "rows": 14343419,
+    "frauds_weighted": 1501348.0
+   }
+  },
+  {
+   "day": "2026-10-13",
+   "champion": {
+    "pr_auc": 0.1081,
+    "low": 0.1075,
+    "high": 0.1091,
+    "rows": 1627204,
+    "frauds_weighted": 1494003.0
+   },
+   "shadow": {
+    "pr_auc": 0.1081,
+    "low": 0.1073,
+    "high": 0.1087,
+    "rows": 1627204,
+    "frauds_weighted": 1494003.0
+   }
+  },
+  {
+   "day": "2026-10-14",
+   "champion": {
+    "pr_auc": 0.1049,
+    "low": 0.104,
+    "high": 0.1052,
+    "rows": 1640951,
+    "frauds_weighted": 1482028.0
+   },
+   "shadow": {
+    "pr_auc": 0.1049,
+    "low": 0.1043,
+    "high": 0.1055,
+    "rows": 1640951,
+    "frauds_weighted": 1482028.0
+   }
+  },
+  {
+   "day": "2026-10-15",
+   "champion": {
+    "pr_auc": 0.1137,
+    "low": 0.113,
+    "high": 0.1145,
+    "rows": 1649594,
+    "frauds_weighted": 1525744.0
+   },
+   "shadow": {
+    "pr_auc": 0.1137,
+    "low": 0.1134,
+    "high": 0.1145,
+    "rows": 1649594,
+    "frauds_weighted": 1525744.0
+   }
+  },
+  {
+   "day": "2026-10-16",
+   "champion": {
+    "pr_auc": 0.1081,
+    "low": 0.1077,
+    "high": 0.1089,
+    "rows": 1644356,
+    "frauds_weighted": 1498599.0
+   },
+   "shadow": {
+    "pr_auc": 0.1081,
+    "low": 0.1075,
+    "high": 0.1085,
+    "rows": 1644356,
+    "frauds_weighted": 1498599.0
+   }
+  },
+  {
+   "day": "2026-10-17",
+   "champion": {
+    "pr_auc": 0.1222,
+    "low": 0.1215,
+    "high": 0.123,
+    "rows": 1672276,
+    "frauds_weighted": 1517662.0
+   },
+   "shadow": {
+    "pr_auc": 0.1222,
+    "low": 0.1214,
+    "high": 0.1232,
+    "rows": 1672276,
+    "frauds_weighted": 1517662.0
+   }
+  },
+  {
+   "day": "2026-10-18",
+   "champion": {
+    "pr_auc": 0.1148,
+    "low": 0.114,
+    "high": 0.116,
+    "rows": 1626242,
+    "frauds_weighted": 1508862.0
+   },
+   "shadow": {
+    "pr_auc": 0.1148,
+    "low": 0.1144,
+    "high": 0.1154,
+    "rows": 1626242,
+    "frauds_weighted": 1508862.0
+   }
+  },
+  {
+   "day": "2026-10-19",
+   "champion": {
+    "pr_auc": 0.1688,
+    "low": 0.1679,
+    "high": 0.1693,
+    "rows": 2683008,
+    "frauds_weighted": 3212743.0
+   },
+   "shadow": {
+    "pr_auc": 0.1688,
+    "low": 0.1685,
+    "high": 0.1693,
+    "rows": 2683008,
+    "frauds_weighted": 3212743.0
+   }
+  },
+  {
+   "day": "2026-10-20",
+   "champion": {
+    "pr_auc": 0.1906,
+    "low": 0.1901,
+    "high": 0.1908,
+    "rows": 5261564,
+    "frauds_weighted": 7044782.0
+   },
+   "shadow": {
+    "pr_auc": 0.1906,
+    "low": 0.1903,
+    "high": 0.1911,
+    "rows": 5261564,
+    "frauds_weighted": 7044782.0
+   }
+  },
+  {
+   "day": "2026-10-21",
+   "champion": {
+    "pr_auc": 0.1823,
+    "low": 0.1819,
+    "high": 0.1826,
+    "rows": 5724715,
+    "frauds_weighted": 7023270.0
+   },
+   "shadow": {
+    "pr_auc": 0.1822,
+    "low": 0.1818,
+    "high": 0.1827,
+    "rows": 5724715,
+    "frauds_weighted": 7023270.0
+   }
+  },
+  {
+   "day": "2026-10-22",
+   "champion": {
+    "pr_auc": 0.1826,
+    "low": 0.1822,
+    "high": 0.1831,
+    "rows": 5729012,
+    "frauds_weighted": 7060294.0
+   },
+   "shadow": {
+    "pr_auc": 0.2083,
+    "low": 0.2072,
+    "high": 0.2091,
+    "rows": 5729012,
+    "frauds_weighted": 7060294.0
+   }
+  },
+  {
+   "day": "2026-10-23",
+   "champion": {
+    "pr_auc": 0.2112,
+    "low": 0.2108,
+    "high": 0.2119,
+    "rows": 3653597,
+    "frauds_weighted": 7019099.0
+   },
+   "shadow": {
+    "pr_auc": 0.2112,
+    "low": 0.2105,
+    "high": 0.2118,
+    "rows": 3653597,
+    "frauds_weighted": 7019099.0
+   }
+  },
+  {
+   "day": "2026-10-24",
+   "champion": {
+    "pr_auc": 0.2114,
+    "low": 0.2108,
+    "high": 0.2122,
+    "rows": 3606095,
+    "frauds_weighted": 6862491.0
+   },
+   "shadow": {
+    "pr_auc": 0.2114,
+    "low": 0.2108,
+    "high": 0.2118,
+    "rows": 3606095,
+    "frauds_weighted": 6862491.0
+   }
+  },
+  {
+   "day": "2026-10-25",
+   "champion": {
+    "pr_auc": 0.214,
+    "low": 0.2135,
+    "high": 0.2144,
+    "rows": 3574704,
+    "frauds_weighted": 6999215.0
+   },
+   "shadow": {
+    "pr_auc": 0.214,
+    "low": 0.2135,
+    "high": 0.2148,
+    "rows": 3574704,
+    "frauds_weighted": 6999215.0
+   }
+  },
+  {
+   "day": "2026-10-26",
+   "champion": {
+    "pr_auc": 0.2067,
+    "low": 0.2059,
+    "high": 0.2073,
+    "rows": 3719363,
+    "frauds_weighted": 7019852.0
+   },
+   "shadow": {
+    "pr_auc": 0.2067,
+    "low": 0.2062,
+    "high": 0.2072,
+    "rows": 3719363,
+    "frauds_weighted": 7019852.0
+   }
+  },
+  {
+   "day": "2026-10-27",
+   "champion": {
+    "pr_auc": 0.3471,
+    "low": 0.3464,
+    "high": 0.3482,
+    "rows": 3219544,
+    "frauds_weighted": 8417694.0
+   },
+   "shadow": {
+    "pr_auc": 0.3471,
+    "low": 0.3463,
+    "high": 0.3479,
+    "rows": 3219544,
+    "frauds_weighted": 8417694.0
+   }
+  },
+  {
+   "day": "2026-10-28",
+   "champion": {
+    "pr_auc": 0.4211,
+    "low": 0.4201,
+    "high": 0.422,
+    "rows": 3109074,
+    "frauds_weighted": 8520177.0
+   },
+   "shadow": {
+    "pr_auc": 0.4211,
+    "low": 0.4198,
+    "high": 0.4218,
+    "rows": 3109074,
+    "frauds_weighted": 8520177.0
+   }
+  },
+  {
+   "day": "2026-10-29",
+   "champion": {
+    "pr_auc": 0.4232,
+    "low": 0.4223,
+    "high": 0.424,
+    "rows": 3121334,
+    "frauds_weighted": 8596966.0
+   },
+   "shadow": {
+    "pr_auc": 0.4232,
+    "low": 0.4224,
+    "high": 0.4242,
+    "rows": 3121334,
+    "frauds_weighted": 8596966.0
+   }
+  }
+ ]
+}

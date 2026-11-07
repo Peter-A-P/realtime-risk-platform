@@ -95,3 +95,22 @@ What it costs:
 - It is frozen at its resolution: zooming in past about thirty minutes a
   point shows no more detail, and the days after the window are not in it.
 - The delete key is kept with the archive on the build machine, not here.
+
+Revised the same day, after a first look at the snapshot. A published
+snapshot cannot be edited, so the revision is a new snapshot, and the first
+was deleted with its key. Three changes, none to the archived metrics:
+
+- The stat for the last five minutes' p99 meant nothing over a finished
+  window and became the window's decision count, the increase of the
+  scorer's decision counter over the thirty days, which agrees with the
+  window report's count to within 0.01%. "Decisions a second" shows the
+  window's mean instead of its last sample.
+- The two latency graphs stop at 100 ms with the 50 ms budget drawn as a
+  line, so the everyday milliseconds show; the few catch-ups that went to
+  minutes run off the top, and the panels say so.
+- A panel of PR-AUC by day for the deciding model and the shadow. Prometheus
+  never held it: it is measured from the kept history once each day's labels
+  were in, and the figures are committed in
+  [docs/live/daily-pr-auc.json](../live/daily-pr-auc.json) with their
+  intervals. The shadow is drawn only on days it scored differently from the
+  champion; on the others it was the same model.

@@ -32,7 +32,7 @@ from verdict.store.features import FEATURE_SET
 REPOSITORY: Final = "https://github.com/Peter-A-P/realtime-risk-platform"
 
 DASHBOARD: Final = (
-    "https://snapshots.raintank.io/dashboard/snapshot/eF1qdXLeZMleCGfNOa08wE4NCbgYXUh8"
+    "https://snapshots.raintank.io/dashboard/snapshot/0CtvXlMuEJkegYXf6IueSy1igyc5Nb28"
 )
 """The live dashboard as a Grafana snapshot over the thirty-day window. The live
 one at risk.peterparker.ca went down with the stack on 2026-11-07; this is the
