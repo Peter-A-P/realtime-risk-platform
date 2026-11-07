@@ -54,3 +54,6 @@ Thumbs.db
 
 # Raw chaos captures for project 10 (verdict chaos capture): large, kept locally.
 chaos-captures/
+
+# uv sync writes this when repairing the venv; the pins live in pyproject.toml
+uv.lock
