@@ -4,3 +4,8 @@
 *.sh text eol=lf
 *.tftpl text eol=lf
 deploy/live/*.yml text eol=lf
+# So does every other text file. Images are built from this tree, and the scorer's
+# saved feature state is keyed on the exact bytes of the feature code (the
+# fingerprint in verdict/scoring/recovery.py): an image built from a CRLF checkout
+# started the live scorer cold on 2026-11-07.
+* text=auto eol=lf
