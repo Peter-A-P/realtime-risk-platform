@@ -317,6 +317,15 @@ had never seen a shifted transaction and still beat the weak incumbent, so a dri
 candidate now waits for two labelled drifted days and is fitted on them
 ([ADR 34](docs/adr/0034-a-drift-candidate-learns-from-the-drift.md)).
 
+**The sealed schedule, revealed on 2026-11-07.** The secret checks against the hashes
+committed before the first window opened, and the schedule it derives
+([docs/live/schedule-reveal.md](docs/live/schedule-reveal.md)) changed the fraud three
+times inside the window: 2026-10-09 at 18:11, 10-19 at 14:11 and 10-27 at 04:11 UTC. The
+monitors, never told, flagged each on its first full UTC day (10-10, 10-20 and 10-27), and
+flagged nothing on the clean days between. A fourth change, on 11-03 in the run-on week,
+came while the monitors were already flagging the third and cannot be told apart from it.
+Three changes are evidence, not a false-alarm rate. Synthetic live track.
+
 **Live window**
 
 | Decision latency while serving p50 / p95 / p99 ms (95% CI) | Same, every minute | Sustained events/s | Uptime % | Spot reclaims (median recovery) / other stops | Drift triggers / retrains approved | Champion vs challenger PR-AUC (95% CI) | Cost per million events |
@@ -363,7 +372,7 @@ Every piece, where it lives, and what it guarantees.
 | Wire schema, versioned and closed | [verdict/events/schema.py](verdict/events/schema.py) | A transaction carries no label, no score and no feature. A test asserts it |
 | Entity graph: cards, devices, merchants | [verdict/events/generator/entities.py](verdict/events/generator/entities.py) | Fraud is a property of a graph, not a row |
 | Three fraud patterns | [verdict/events/generator/scenarios.py](verdict/events/generator/scenarios.py) | Card testing, account takeover, merchant collusion |
-| Sealed regime schedule | [verdict/events/generator/regimes.py](verdict/events/generator/regimes.py) | Design public, development schedule public, live realisation sealed until the live window ends |
+| Sealed regime schedule | [verdict/events/generator/regimes.py](verdict/events/generator/regimes.py) | Design public, development schedule public, live realisation sealed until the stack stopped and [revealed on 2026-11-07](docs/live/schedule-reveal.md) |
 | Raw event log | [verdict/events/rawlog.py](verdict/events/rawlog.py) | Three files. Ground truth is kept out of the transaction log, and a test reads the bytes to prove it |
 | Replay, in time order | [verdict/events/replay.py](verdict/events/replay.py) | Refuses an out-of-order log rather than sorting it quietly |
 | Real data onto events | [verdict/events/ieee_cis_events.py](verdict/events/ieee_cis_events.py) | A card is issuer, product, billing region and account start day. No device or merchant is invented to fill the schema, which is at version 2 so it can say so |

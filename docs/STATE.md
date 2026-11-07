@@ -345,6 +345,18 @@ denied `/verdict/schedule-secret` by design; Peter supplies the secret), the
 `/verdict/github-token` parameter (delete it and revoke the token; it is the only tagged
 resource left). The plan's STATUS.md has the spend and the shipped status.
 
+**2026-11-07, the schedule revealed (Peter ran the verify).** Peter ran `verdict schedule
+verify --reveal` with the secret: verified against `docs/sealed-schedule.json`. The derived
+schedule is `docs/live/schedule-revealed.json` (its canonical hash is the committed
+`schedule_sha256`), and `docs/live/schedule-reveal.md` sets it against the monitors: from
+the window start 2026-09-29T19:11Z the fraud changed 10-09 18:11, 10-19 14:11 and 10-27
+04:11 UTC; each was flagged on its first full UTC day (10-10, 10-20, 10-27), with nothing
+flagged on clean days. Regime 5 (11-03 18:11) came in the run-on while the monitors were
+already flagging, and is not claimed as a detection; 6 and 7 never ran. README, the site's
+sealed panel and the README's build table say so. **The secret itself is not yet in the
+repository**: Peter did not paste it; publishing it (for example `docs/live/schedule-secret.txt`)
+lets a stranger rerun the verify. Until then `regimes.py` stays unedited.
+
 **2026-10-08, the compactor fix is on the instance, and the data volume is
 200 GB.** 2026-09-30 stalled at 06:00Z the same way; the run was killed at
 09:19Z, image `c11c306feca4` (the merge of pull request 1) was pushed from a

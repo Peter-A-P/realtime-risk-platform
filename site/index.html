@@ -471,9 +471,12 @@
     <p class="section-lead">
       A drift monitor tuned to the shifts it will face proves nothing. So the live window's fraud
       schedule (when each shift comes and what it does) is derived from a secret sealed before the
-      window opened. Its fingerprints were committed to the repository, and the secret is kept
-      where the platform's builder cannot read it. It is published once the stack has
-      stopped, so anyone can check that the schedule never changed.
+      window opened. Its fingerprints were committed to the repository, and the secret was kept
+      where the platform's builder could not read it. It was revealed on 7 November 2026, after
+      the stack stopped, and checks against the fingerprints below. The schedule changed the fraud
+      on 9 October at 18:11, 19 October at 14:11 and 27 October at 04:11 UTC; the drift monitors,
+      never told, flagged each on its first full day (10, 20 and 27 October) and nothing on the
+      days between. <a href="https://github.com/Peter-A-P/realtime-risk-platform/blob/main/docs/live/schedule-reveal.md">The revealed schedule and the comparison</a>.
     </p>
     <div class="table-wrap">
       <table id="sealed-table"></table>

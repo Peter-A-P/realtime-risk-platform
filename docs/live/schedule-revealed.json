@@ -1,0 +1,12 @@
+{
+  "name": "live",
+  "regimes": [
+    {"amount_log_shift": 0.0, "attack_intensity": 1.0, "fraud_rate_multiplier": 1.0, "name": "regime-1", "online_share_shift": 0.0, "scenario_weights": [0.4940002683157969, 0.938022919452177, 0.8278229428934322], "starts_after_days": 0.0},
+    {"amount_log_shift": -0.19144518212425027, "attack_intensity": 2.2928580097301072, "fraud_rate_multiplier": 0.5750909809945397, "name": "regime-2", "online_share_shift": 0.023328632887739453, "scenario_weights": [0.3043531420428468, 0.05463941742430595, 0.9559093113553833], "starts_after_days": 9.958333333333334},
+    {"amount_log_shift": -0.3200102542084011, "attack_intensity": 1.143484986542505, "fraud_rate_multiplier": 2.4992359131754167, "name": "regime-3", "online_share_shift": 0.18796917837047886, "scenario_weights": [0.4159352141097224, 0.9794183614935252, 0.3228763650220979], "starts_after_days": 19.791666666666668},
+    {"amount_log_shift": -0.14345739263593824, "attack_intensity": 0.9766621251566346, "fraud_rate_multiplier": 2.9966797414937756, "name": "regime-4", "online_share_shift": 0.0824632636120455, "scenario_weights": [0.49164163664297955, 0.6970032955430241, 0.12524711710734393], "starts_after_days": 27.375},
+    {"amount_log_shift": 0.14661573051079024, "attack_intensity": 2.283024658712429, "fraud_rate_multiplier": 1.984616133082132, "name": "regime-5", "online_share_shift": -0.0787807887211677, "scenario_weights": [0.8779615748085583, 0.48871939420645794, 0.07044230904504625], "starts_after_days": 34.958333333333336},
+    {"amount_log_shift": -0.07239928593886835, "attack_intensity": 2.4814606510215844, "fraud_rate_multiplier": 0.5648068538063424, "name": "regime-6", "online_share_shift": 0.20159474200824515, "scenario_weights": [0.3883054153202945, 0.87604342800196, 0.7748489916261725], "starts_after_days": 43.5},
+    {"amount_log_shift": -0.04246647734813863, "attack_intensity": 1.6385762592397062, "fraud_rate_multiplier": 2.676701320003976, "name": "regime-7", "online_share_shift": -0.07245710118871922, "scenario_weights": [0.18067299770659367, 0.2796513110228837, 0.2681435030236767], "starts_after_days": 51.041666666666664}
+  ]
+}
