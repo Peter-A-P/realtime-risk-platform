@@ -274,6 +274,28 @@ headline numbers and the five-minute p99 as it now reads (last 7 days: about 25 
 likewise; `docs/architecture.md` still has the old wording. Also seen: the open drift request
 is now the one opened 2026-10-28 (days 10-27 and 10-28, four quantities); its candidate needs
 10-29 finalised, about 2026-11-06T08:00Z, hours before the run-on ends.
+**2026-11-06/07, #11 merged and rolled; the stack runs on for its replayed verdict (Peter).**
+The models job opened #11 at 08:52Z: `candidate-2026-10-28-1-56dbe1c042a3`, fitted to
+2026-10-28 on 2.28M rows, in-table test PR-AUC 0.4199 champion, 0.5266 candidate, +0.1067 (CI
++0.0995 to +0.1135). Peter merged it (`dbe6533`) and chose to keep the stack running past
+2026-11-06 so the gate can replay it (2026-10-29 and 30). **The roll went wrong first.** Image
+`dbe653395b44` was built from a fresh `git worktree`, whose Windows checkout gave every file
+CRLF; the scorer's saved-state fingerprint hashes the raw bytes of `features/engine.py` and
+`aggregators.py`, and the running image carries `engine.py` LF and `aggregators.py` CRLF (as
+the main checkout has them), so at 00:13Z the scorer started with empty feature windows
+("written by other feature code"), crashed once on 51 late records and ran cold until 00:32Z.
+The 23:35Z snapshot was copied to `/data/engine.snapshot.f012a8f.20261106T2335Z` before its
+first hourly save could overwrite it; image `d1201ab53d8b` was built from the main checkout
+as it is and checked to give the old fingerprint (`f40ed0e6...`) before it was pushed; the
+instance's root disk was full (32 GB of old images: all but `f012a8fb094c` removed, 17 GB
+free); rolled at 00:32Z, restored 349,993 entities and replayed 9,327,405 records, deciding
+again at 00:42:44Z. So about nineteen minutes of decisions were made on under-counted
+features, and decisions paused about one minute at 00:12Z and ten from 00:32Z. The replayed
+days for #11 are untouched. Compose kept as `compose.yml.c2b5966.*`, `stack.env` as
+`stack.env.c2b5966.*` and `.dbe6533.*`; launch template version 42 carries `d1201ab53d8b`.
+`.gitattributes` now makes every text file LF (`d1201ab`), so **a fresh checkout's feature
+code no longer has the live bytes: build images from the main checkout until the window is
+over, and compare `fingerprint()` in a new image with the running one before any roll.**
 
 **2026-10-08, the compactor fix is on the instance, and the data volume is
 200 GB.** 2026-09-30 stalled at 06:00Z the same way; the run was killed at
