@@ -3,21 +3,23 @@
 Scores every transaction in under 50 milliseconds, thousands per second, before the
 money moves, and keeps working as fraud patterns shift, without the training-versus-
 production mismatch that quietly breaks most deployed models. The platform around the
-model is what organisations are actually missing, and this one runs live behind a
-public dashboard.
+model is what organisations are actually missing, and this one ran live for thirty
+days behind a public dashboard.
 
-**Status: live, 2026-09-29 to 2026-10-29, and running on to 2026-11-06 so the window's last
-week of labels arrives.** A first window, begun on 2026-09-28 on a spot
+**Status: shipped. The live window ran from 2026-09-29 to 2026-10-29, the stack ran on to
+2026-11-06 for the window's last week of labels, and it was shut down on 2026-11-07.** A first window, begun on 2026-09-28 on a spot
 instance, failed on its second day: the instance was reclaimed thirteen times in 28 hours,
 and the last replacement's restore outgrew the machine and a hard stop left two state files
 empty. The window restarted for thirty days on an on-demand machine with 32 GB, on the same
 fraud schedule, sealed before the first window started
 ([ADR 31](docs/adr/0031-a-thirty-day-window-on-demand-with-32-gb.md)). Its first champion
 turned out to be wrong from the first day, and was replaced through the platform's own
-retraining path on 2026-10-12; [the live window so far](#the-live-window-so-far) says how. **[fraud.peterparker.ca](https://fraud.peterparker.ca)**
-explains what the platform does and what has been measured, in charts, and links the live
-dashboard at [risk.peterparker.ca](https://risk.peterparker.ca). The design is
-in [PLAN.md](PLAN.md). The live-window table below fills when the window ends; everything
+retraining path on 2026-10-12; [the live window](#the-live-window) says how. **[fraud.peterparker.ca](https://fraud.peterparker.ca)**
+explains what the platform does and what was measured, in charts. The live dashboard went
+down with the stack; its metrics are archived, and
+[docs/live/window-report.json](docs/live/window-report.json) and
+[docs/live/daily.json](docs/live/daily.json) carry the window's figures. The design is in
+[PLAN.md](PLAN.md). The live-window table below is still to be filled from that report; everything
 else here is measured and says which track it came from.
 
 This is a platform, not a fraud model. The model is the least interesting part.
@@ -25,7 +27,7 @@ This is a platform, not a fraud model. The model is the least interesting part.
 ## Result
 
 The first table gathers the platform's properties from the committed reports; the sections
-under it say how each was measured. The live window fills the last table when it ends.
+under it say how each was measured. The live-window report will fill the last table.
 
 **Platform properties (replay and load tests)**
 
@@ -115,7 +117,7 @@ offline numbers come from (4,000 cards, 80 merchants) is still far easier than t
 data. The full-size live stream (200,000 cards, 4,000 merchants) is much harder for the same
 features: the first champion scored 0.0616 there and the retrained one 0.4504, a
 difference of +0.389 (+0.375 to +0.401), synthetic live
-([the live window so far](#the-live-window-so-far)). Neither stream is there to make fraud
+([the live window](#the-live-window)). Neither stream is there to make fraud
 easy or undetectable; they are there to exercise the platform.
 
 **What has been measured: the review queue**
@@ -287,7 +289,7 @@ caching, showed both the fast and the slow behaviour in about the same proportio
 shipped settings. The first result was run order. What the setting sweep could not do, the
 comparison against the same client inside the broker's network did in one run.
 
-### The live window so far
+### The live window
 
 **The first live champion was wrong from the first day, and that is the approach tried and
 rejected: training on a scaled-down population.** The champion that opened the window was
@@ -373,12 +375,12 @@ Every piece, where it lives, and what it guarantees.
 | Sixteen feature definitions | [verdict/store/features.py](verdict/store/features.py) | A feature is a specification, not code: card velocity, device and merchant entity-graph counts, session aggregates. The window is `[t - w, t)`, and an event is never part of its own features |
 | Feature store | [verdict/store/repo.py](verdict/store/repo.py) | Feast, generated from the definitions, push sources rather than materialisation |
 | Local stream stack | [deploy/compose/docker-compose.yml](deploy/compose/docker-compose.yml) | Redpanda, three topics created explicitly, auto-creation off and checked at start-up. Its first run found a start-up flag that Redpanda v24.3 rejects |
-| The live stack | [deploy/terraform/](deploy/terraform/), [deploy/live/compose.yml](deploy/live/compose.yml) | One region, one spot instance, no inbound port: the dashboard leaves through a tunnel and a person arrives through Session Manager ([ADR 14](docs/adr/0014-live-in-one-region.md)). Everything is tagged, and `deploy/down.sh` asks the cloud, not Terraform's state, what is left after a teardown. Running since the live window began |
+| The live stack | [deploy/terraform/](deploy/terraform/), [deploy/live/compose.yml](deploy/live/compose.yml) | One region, one spot instance, no inbound port: the dashboard leaves through a tunnel and a person arrives through Session Manager ([ADR 14](docs/adr/0014-live-in-one-region.md)). Everything is tagged, and `deploy/down.sh` asks the cloud, not Terraform's state, what is left after a teardown. Ran from 2026-09-29 and was torn down on 2026-11-07 |
 | What the platform keeps | [verdict/history/](verdict/history/) | Every decision staged with the features it was served before its transaction is checkpointed; once labels are in, every reviewed or declined row and a published sample of the rest, each weighted so totals come out right ([ADR 18](docs/adr/0018-history-is-a-weighted-sample.md)). On a replay the weighted PR-AUC and decision cost match the full data's, and read without the weights they do not |
 | The live feeds | [verdict/live/feed.py](verdict/live/feed.py) | The generator played in real time: each transaction at its event time, each label a week later, from two runs of one deterministic stream. Each feed saves its place, and a run restored after a spot replacement continues byte for byte, sending at least once and skipping nothing ([ADR 15](docs/adr/0015-spot-and-recovery.md)) |
 | Drift, retraining and promotion, live | [verdict/live/models_job.py](verdict/live/models_job.py) | Each finished day of the live window judged against the window's own first full days ([ADR 29](docs/adr/0029-traffic-follows-the-day-and-drift-is-judged-against-the-live-baseline.md)); a retraining candidate fitted when a request is open and a pull request opened for it; the promotion gate run on a week of shadow scores and its verdict opened as a pull request. It never merges, deploys or moves the champion ([ADR 28](docs/adr/0028-drift-retraining-and-the-gate-run-on-the-live-stack.md)) |
 | Surviving a replacement | [verdict/scoring/recovery.py](verdict/scoring/recovery.py) | The scorer saves its feature state to the data volume a slice at a time between batches, and a replacement restores it and replays only the records after it, instead of serving every card "no history" for a day. A test stops it throughout a save and holds the restored scorer to an uninterrupted one's features ([ADR 27](docs/adr/0027-the-scorer-saves-its-feature-state-and-restores-from-it.md)) |
-| The demo site | [site/](site/), [verdict/publish/demo_site.py](verdict/publish/demo_site.py) | The page at fraud.peterparker.ca: a static page whose every figure is exported from the committed reports, and whose first link is the live dashboard. A test holds it to a fresh export and to a policy that allows nothing off-origin ([ADR 30](docs/adr/0030-a-demo-site-that-gives-the-dashboard-its-context.md), [docs/site.md](docs/site.md)) |
+| The demo site | [site/](site/), [verdict/publish/demo_site.py](verdict/publish/demo_site.py) | The page at fraud.peterparker.ca: a static page whose every figure is exported from the committed reports, and whose first link was the live dashboard until the stack came down. A test holds it to a fresh export and to a policy that allows nothing off-origin ([ADR 30](docs/adr/0030-a-demo-site-that-gives-the-dashboard-its-context.md), [docs/site.md](docs/site.md)) |
 | The public dashboard | [verdict/observe/dashboard.py](verdict/observe/dashboard.py) | Grafana, anonymous and read-only behind the tunnel, provisioned from code. It opens on event-to-decision latency over the last thirty and seven days, computed by a recording rule rather than per viewer ([ADR 14](docs/adr/0014-live-in-one-region.md)). A test checks every panel's query against the metrics the platform exports and the rules the live stack records |
 | Decisions 1 to 30 | [docs/adr/](docs/adr/) | Platform not model; two tracks; stream choice; aggregation engine (amended); feature store; computed once; leakage test first; scoring as a consumer; the latency budget and what the host costs; labels arrive late and nothing reads them early; shadow and promotion; drift thresholds; queue ranking; the live stack's shape; surviving a spot replacement; teardown and repeatability; what a card, device and moment are on the real data; history as a weighted sample; the champion and challenger; day-long windows at hourly resolution; harder synthetic fraud; the queue measured on the queue the platform would hold; drift against the schedule's own regimes; retraining that stops at a pull request; latency while serving and availability as two numbers; alerts by email; saved feature state; drift, retraining and the gate on the live stack; live traffic that follows the day, judged against its own baseline; a demo site that gives the dashboard its context |
 
