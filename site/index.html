@@ -36,9 +36,9 @@
       <span id="live-text">A thirty-day live window</span>
     </div>
     <div class="cta">
-      <a class="button primary" id="dashboard-link" href="https://risk.peterparker.ca">Open the live dashboard</a>
+      <a class="button primary" id="dashboard-link" href="https://snapshots.raintank.io/dashboard/snapshot/eF1qdXLeZMleCGfNOa08wE4NCbgYXUh8">Open the dashboard</a>
       <a class="button" href="https://github.com/Peter-A-P/realtime-risk-platform">Read the code</a>
-      <span class="cta-note">The dashboard shows the platform as it runs. This page explains the numbers.</span>
+      <span class="cta-note">The live Grafana dashboard, saved with all thirty days of the window's data. This page explains the numbers.</span>
     </div>
 
     <p class="eyebrow">Live, measured, and reproducible from the repository</p>
@@ -385,12 +385,14 @@
   </section>
 
   <section class="section" id="dashboard-guide">
-    <h2>How to read the live dashboard</h2>
+    <h2>How to read the dashboard</h2>
     <p class="section-lead">
       The dashboard was the platform's own monitoring, public and read-only while the stack ran.
-      It went down with the stack on 7 November; its data is archived and can be served again
-      from the repository's <code>deploy/archive/serve.sh</code>. This is what each part showed
-      and what normal looked like.
+      The live one went down with the stack on 7 November. The button at the top opens
+      <a href="https://snapshots.raintank.io/dashboard/snapshot/eF1qdXLeZMleCGfNOa08wE4NCbgYXUh8">the same dashboard</a>
+      as a Grafana snapshot with the thirty days of the window saved into it, and the repository's
+      <code>deploy/archive/serve.sh</code> serves the archived metrics again in full. This is what
+      each part shows and what normal looked like.
     </p>
     <div class="guide">
       <article class="guide-card">

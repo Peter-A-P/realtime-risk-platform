@@ -156,9 +156,10 @@ function liveStrip(data) {
   } else {
     $("live-strip").classList.add("ended");
     text.textContent = `The ${days}-day live window ran from ${start.toLocaleDateString("en-GB", dateFormat)} to ${endText}. The stack has been shut down, and every day of it is drawn below.`;
-    // The dashboard went with the stack: the first button becomes the code.
-    $("dashboard-link").hidden = true;
-    document.querySelector(".cta-note").textContent = "The live dashboard went down with the stack on 7 November.";
+    // The live dashboard went with the stack; the button opens its snapshot.
+    $("dashboard-link").textContent = "Open the dashboard";
+    document.querySelector(".cta-note").textContent =
+      "The live Grafana dashboard, saved with all thirty days of the window's data. This page explains the numbers.";
     return;
   }
   $("dashboard-link").href = data.dashboard;

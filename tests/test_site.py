@@ -16,8 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from verdict.observe.alerts import DASHBOARD
-from verdict.publish.demo_site import REPORTS, host_headers, site_data
+from verdict.publish.demo_site import DASHBOARD, REPORTS, host_headers, site_data
 
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"

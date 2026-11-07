@@ -7,9 +7,10 @@ under `docs/` that the README also cites, so the page and the README cannot
 disagree, and `tests/test_site.py` holds the page's file to a fresh export.
 
 The live window's running numbers are not here. They are on the dashboard
-the page links at its top, and the live window's own report fills them in
-when it ends. What is here from the window is what was approved on the way:
-each promotion verdict a merged pull request committed to `docs/live/`.
+the page links at its top, a Grafana snapshot of the window since the stack
+came down, and in the live window's own report. What is here from the window
+is what was approved on the way: each promotion verdict a merged pull request
+committed to `docs/live/`.
 """
 
 from __future__ import annotations
@@ -25,11 +26,18 @@ from typing import Any, Final
 
 from verdict.drift.monitors import KS_STATISTIC_DRIFT, PSI_DRIFT
 from verdict.events.generator.regimes import DEV_SCHEDULE
-from verdict.observe.alerts import DASHBOARD
 from verdict.scoring.rules import DecisionRules
 from verdict.store.features import FEATURE_SET
 
 REPOSITORY: Final = "https://github.com/Peter-A-P/realtime-risk-platform"
+
+DASHBOARD: Final = (
+    "https://snapshots.raintank.io/dashboard/snapshot/eF1qdXLeZMleCGfNOa08wE4NCbgYXUh8"
+)
+"""The live dashboard as a Grafana snapshot over the thirty-day window. The live
+one at risk.peterparker.ca went down with the stack on 2026-11-07; this is the
+same dashboard with the archived metrics saved into it (ADR 36), published on
+Grafana's public snapshot service so it needs no server."""
 
 LIVE_WINDOW_START: Final[str | None] = "2026-09-29T19:11:00Z"
 """When the live window began, as `deploy/go-live.sh` chose it (docs/STATE.md);

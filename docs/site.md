@@ -55,9 +55,13 @@ Azure's validation and the certificate is never issued. Then:
 az staticwebapp hostname set --name fraud-peterparker-ca --resource-group rg-portfolio --hostname fraud.peterparker.ca
 ```
 
-Azure issues and renews the certificate itself. The dashboard keeps
+Azure issues and renews the certificate itself. The dashboard kept
 `risk.peterparker.ca`, served from the instance through the Cloudflare Tunnel
-(ADR 14); the two names are independent.
+(ADR 14), until the stack came down on 2026-11-07. Since then the page's first
+button opens a Grafana snapshot of the same dashboard over the thirty-day
+window, published on snapshots.raintank.io from the archived metrics (ADR 36).
+The script that built it and the snapshot's delete key are kept with the
+archive on the build machine, not in this repository.
 
 ## Check it
 

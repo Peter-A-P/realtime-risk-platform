@@ -16,7 +16,8 @@ fraud schedule, sealed before the first window started
 turned out to be wrong from the first day, and was replaced through the platform's own
 retraining path on 2026-10-12; [the live window](#the-live-window) says how. **[fraud.peterparker.ca](https://fraud.peterparker.ca)**
 explains what the platform does and what was measured, in charts. The live dashboard went
-down with the stack; its metrics are archived, and
+down with the stack; **[the same dashboard as a Grafana snapshot](https://snapshots.raintank.io/dashboard/snapshot/eF1qdXLeZMleCGfNOa08wE4NCbgYXUh8)**
+shows the whole thirty-day window from the archived metrics, and
 [docs/live/window-report.json](docs/live/window-report.json) and
 [docs/live/daily.json](docs/live/daily.json) carry the window's figures. The design is in
 [PLAN.md](PLAN.md). The live-window table below is still to be filled from that report; everything

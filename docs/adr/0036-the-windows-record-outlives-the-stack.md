@@ -70,3 +70,28 @@ Three things, so the window can be seen after the stack is gone.
   days are finalised only if the stack runs past the thirtieth day. That is
   Peter's decision, with the move to OVH (ADR 31); the archive takes
   whatever is there when it runs.
+
+## Addendum, 2026-11-07: a public snapshot of the dashboard
+
+"The archived dashboard is local, not public" was the cost above, and Peter
+asked for the dashboard to stay public after the teardown. Running Grafana
+somewhere would bring back a monthly bill for a stack that is meant to be
+down. A Grafana snapshot needs no server: the dashboard's JSON is saved with
+each panel's query results inside it, and Grafana's public snapshot service,
+snapshots.raintank.io, serves it as the ordinary Grafana interface.
+
+The snapshot was built from the archive served by `serve.sh`: every panel's
+queries run through the archive Grafana's query API over exactly the window,
+2026-09-29T19:11Z to 2026-10-29T19:11Z, at about 1,440 points a series, and
+saved as the panel's snapshot data. It was checked rendered, locally and on
+the service, before it was linked. It is set never to expire. The demo site's
+first button, the README and `docs/site.md` link it.
+
+What it costs:
+
+- It is hosted by Grafana Labs, not by this project, so how long it lasts
+  is theirs to decide. The archive and `serve.sh` remain the full record, and
+  the window report and the daily chart the public numbers.
+- It is frozen at its resolution: zooming in past about thirty minutes a
+  point shows no more detail, and the days after the window are not in it.
+- The delete key is kept with the archive on the build machine, not here.
