@@ -24,22 +24,5 @@
         "Cache-Control": "public, max-age=600, must-revalidate"
       }
     }
-  ],
-  "navigationFallback": {
-    "rewrite": "/index.html",
-    "exclude": [
-      "/results.json",
-      "/*.css",
-      "/*.js",
-      "/fonts/*",
-      "/architecture/*",
-      "/video/*"
-    ]
-  },
-  "responseOverrides": {
-    "404": {
-      "rewrite": "/index.html",
-      "statusCode": 200
-    }
-  }
+  ]
 }

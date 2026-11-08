@@ -71,6 +71,22 @@ def test_the_headline_figures_are_the_readmes() -> None:
         assert figure in readme, figure
 
 
+def test_the_live_window_figures_are_the_readmes() -> None:
+    window = site_data(DOCS)["window"]
+    p99 = window["p99_ms"]
+    assert (round(p99["value"], 1), round(p99["low"], 1), round(p99["high"], 1)) == (
+        45.8,
+        42.0,
+        48.0,
+    )
+    assert round(window["uptime_percent"], 3) == 99.963
+    assert window["minutes_without_decisions"] == 16
+    assert round(window["cost_per_million_usd"]["value"], 3) == 0.082
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    for figure in ("**45.8 (42.0 to 48.0)**", "**99.963**", "US$0.082 (0.081 to 0.083)"):
+        assert figure in readme, figure
+
+
 def test_the_drift_chart_shows_a_quiet_week_then_every_change() -> None:
     drift = site_data(DOCS)["drift"]
     starts = [regime["starts_day"] for regime in drift["regimes"][1:]]

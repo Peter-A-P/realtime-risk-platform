@@ -90,6 +90,16 @@ function legend(node, items) {
   }
 }
 
+/* A chart mark a reader can ask about: the pointer, a tap and the keyboard all show its readout. */
+function focusable(node, label, show) {
+  node.setAttribute("tabindex", "0");
+  node.setAttribute("role", "button");
+  node.setAttribute("aria-label", label);
+  node.addEventListener("mouseenter", show);
+  node.addEventListener("click", show);
+  node.addEventListener("focus", show);
+}
+
 function niceMax(value) {
   const steps = [1, 2, 2.5, 5, 10];
   const power = Math.pow(10, Math.floor(Math.log10(value)));
@@ -159,7 +169,7 @@ function liveStrip(data) {
     // The live dashboard went with the stack; the button opens its snapshot.
     $("dashboard-link").textContent = "Open the dashboard";
     document.querySelector(".cta-note").textContent =
-      "The live Grafana dashboard, saved with all thirty days of the window's data. This page explains the numbers.";
+      "A snapshot of the live Grafana dashboard, with all thirty days of the window's data. This page explains the numbers.";
     return;
   }
   $("dashboard-link").href = data.dashboard;
@@ -169,15 +179,15 @@ function liveStrip(data) {
 
 function hero(data) {
   const base = data.load_tests.find((test) => test.rate === 1000);
-  $("hero-p99").textContent = ms(base.p99_ms.value);
-  fill($("hero-p99-note"), [
-    `95% CI ${range(base.p99_ms, 1, " ms")}, at 1,000 a second on the live machine, against a ${data.budget_ms} ms budget. Synthetic track.`,
-  ]);
+  const live = data.window.p99_ms;
+  $("hero-p99").textContent = ms(live.value);
+  $("hero-p99-note").textContent =
+    `95% CI ${range(live, 1, " ms")}, against a ${data.budget_ms} ms budget. A 20-second load test at 1,000 a second reads ${ms(base.p99_ms.value)}. Synthetic live track.`;
   const kept = data.load_tests.filter((test) => test.kept_up === test.runs);
   const top = kept[kept.length - 1];
   $("hero-rate").textContent = `${fmt((top.rate * 3600) / 1e6, 1)} million`;
   $("hero-rate-unit").textContent = `transactions an hour, ${number.format(top.rate)} a second, and it kept up`;
-  $("hero-rate-note").textContent = `four times the live rate, one scorer, every one of ${top.runs} runs. Synthetic track, on the live machine.`;
+  $("hero-rate-note").textContent = `four times the live stream's average of about ${number.format(Math.round(data.window.decisions_per_second.value / 100) * 100)} a second, one scorer, every one of ${top.runs} runs. Synthetic track, on the live machine.`;
   const q = data.queue.difference_dollars;
   const year = data.queue.team_a_year_dollars;
   $("hero-queue").textContent = `+${millions(year.value)}`;
@@ -289,7 +299,7 @@ function loadChart(data) {
     svg.append(sv("text", { class: "tick", x: x(i), y: H - B + 18, "text-anchor": "middle" }, `${number.format(t.rate)} a second`));
   });
   svg.append(sv("line", { class: "budget", x1: L, x2: W - R, y1: y(data.budget_ms), y2: y(data.budget_ms) }));
-  svg.append(sv("text", { class: "budget-label", x: W - R - 4, y: y(data.budget_ms) - 6, "text-anchor": "end" }, `THE BUDGET, ${data.budget_ms} MS`));
+  svg.append(sv("text", { class: "budget-label halo", x: L + 6, y: y(data.budget_ms) - 6, "text-anchor": "start" }, `THE BUDGET, ${data.budget_ms} MS`));
 
   const hits = [];
   tests.forEach((t, i) => {
@@ -324,10 +334,7 @@ function loadChart(data) {
     }
     readout.append(el("span", { class: "pair" }, `kept up in ${t.kept_up} of ${t.runs} runs`));
   }
-  hits.forEach((hit, i) => {
-    hit.addEventListener("mouseenter", () => show(i));
-    hit.addEventListener("click", () => show(i));
-  });
+  hits.forEach((hit, i) => focusable(hit, `${number.format(tests[i].rate)} transactions a second`, () => show(i)));
   show(0);
 
   legend($("load-legend"), [
@@ -424,10 +431,7 @@ function windowChart(data) {
     const models = Object.keys(row.models);
     pair(models.length > 1 ? "models" : "model", models.join(", then "));
   }
-  hits.forEach((hit, i) => {
-    hit.addEventListener("mouseenter", () => show(i));
-    hit.addEventListener("click", () => show(i));
-  });
+  hits.forEach((hit, i) => focusable(hit, new Date(`${rows[i].day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" }), () => show(i)));
   show(rows.length - 1);
 
   legend($("window-legend"), [
@@ -460,6 +464,8 @@ function windowChart(data) {
   parts.push(` Without a restart the worst day was ${label(worstQuiet)}, with ${fmt(100 * worstQuiet.over_budget_share, 2)}% over.`);
   fill($("window-verdict"), parts);
 
+  windowHeadline(data);
+
   const table = $("window-table");
   const thead = el("thead");
   const head = el("tr");
@@ -484,11 +490,29 @@ function windowChart(data) {
   table.append(thead, body);
 }
 
+/* The thirty days in four numbers, as the README's live table gives them. */
+function windowHeadline(data) {
+  const w = data.window;
+  const cards = [
+    [ms(w.p99_ms.value), "p99, event to decision, over the thirty days", `95% CI ${range(w.p99_ms, 1, " ms")}; p50 ${ms(w.p50_ms.value)}, against a ${data.budget_ms} ms budget`, "up"],
+    [`${fmt(w.uptime_percent, 3)}%`, "of minutes with decisions", `${w.minutes_without_decisions} of ${number.format(w.minutes)} minutes without one, in ${w.other_stops.length} scorer restarts`, "up"],
+    [`${fmt(w.decisions / 1e9, 2)} billion`, "decisions", `${fmt(w.decisions_per_second.value, 1)} a second on average, 95% CI ${range(w.decisions_per_second, 0)}`, ""],
+    [`US$${fmt(w.cost_per_million_usd.value, 3)}`, "per million decisions", `95% CI ${range(w.cost_per_million_usd, 3)}, about CA$${fmt(w.cost_per_million_cad, 2)}; the AWS bill over the window's full days`, ""],
+  ];
+  const holder = $("window-headline");
+  holder.textContent = "";
+  for (const [figure, caption, rangeText, mood] of cards) {
+    const card = el("div", { class: `stat ${mood}` });
+    card.append(el("span", { class: "figure" }, figure), el("span", { class: "caption" }, caption), el("span", { class: "range" }, rangeText));
+    holder.append(card);
+  }
+}
+
 /* ---------------------------------------------------------------- spot reclaims */
 
 function spotChart(data) {
   const run = data.dry_run;
-  const W = 760, H = 150, L = 16, R = 16, T = 26, B = 34;
+  const W = 760, H = 112, L = 16, R = 16, T = 26, B = 34;
   const start = new Date(run.first_minute).getTime();
   const end = new Date(run.last_minute).getTime() + 60000;
   const x = (t) => L + ((W - L - R) * (t - start)) / (end - start);
@@ -529,10 +553,7 @@ function spotChart(data) {
       el("span", { class: "pair" }, `${reclaim.minutes_without_decisions} of those minutes with no decision at all`),
     );
   }
-  marks.forEach(([, hit], i) => {
-    hit.addEventListener("mouseenter", () => show(i));
-    hit.addEventListener("click", () => show(i));
-  });
+  marks.forEach(([, hit, reclaim], i) => focusable(hit, `Reclaim at ${new Date(reclaim.noticed_at).toUTCString()}`, () => show(i)));
   readout.textContent = "Point at a mark to read it.";
   $("spot-caption").textContent = `Synthetic track, the 72-hour dry run before go-live, development schedule at 1,000 a second. A mark runs from AWS's two-minute notice to the minute the platform was deciding on time again. Source: docs/dry-run-report.json.`;
 
@@ -647,10 +668,7 @@ function driftChart(data) {
     const shifted = day.drifted.map((name) => humanFeature(name, data.features));
     readout.append(el("span", { class: "pair" }, shifted.length ? `${shifted.length} of ${top} signals shifted: ${shifted.join("; ")}` : `none of the ${top} signals shifted`));
   }
-  cols.forEach(([hit], i) => {
-    hit.addEventListener("mouseenter", () => show(i));
-    hit.addEventListener("click", () => show(i));
-  });
+  cols.forEach(([hit, day], i) => focusable(hit, `Day ${day.day}`, () => show(i)));
   readout.textContent = "Point at a day to see which signals shifted.";
 
   legend($("drift-legend"), [
@@ -792,7 +810,7 @@ function sealed(data) {
     body.append(tr);
   }
   table.append(body);
-  table.append(el("caption", {}, "SHA-256 hashes, committed as docs/sealed-schedule.json before the window opened. After the reveal, `verdict schedule verify` with the published secret checks all three."));
+  table.append(el("caption", {}, "SHA-256 hashes, committed as docs/sealed-schedule.json before the window opened. Since the reveal, the repository's verdict schedule verify command, run with the published secret, checks all three."));
 }
 
 function live(data) {
@@ -832,8 +850,80 @@ function live(data) {
     parts.push(` The gate found it eligible on ${q.judged_on}, and a person moved the flag that day.`);
   });
   const now = later[later.length - 1];
-  parts.push(` The gain is smaller, on harder traffic: the first retrained model, which scored ${fmt(p.challenger_pr_auc, 2)} before the shift, scored ${fmt(later[0].champion_pr_auc, 2)} after it. ${now.challenger} has decided every transaction since. Synthetic live track, replayed, weighted. Source: ${later.map((q) => q.source).join(", ")}.`);
+  parts.push(` The gain is smaller, on harder traffic: the first retrained model, which scored ${fmt(p.challenger_pr_auc, 2)} before the shift, scored ${fmt(later[0].champion_pr_auc, 2)} after it. The second retrained model (${now.challenger}) decided every transaction from then until the stack was shut down. Synthetic live track, replayed, weighted. Source: ${later.map((q) => q.source).join(", ")}.`);
   fill($("live-next"), parts);
+}
+
+/* The deciding model's PR-AUC each day of the window, with the two promotions marked. */
+function praucChart(data) {
+  const days = data.daily_pr_auc;
+  if (!days || !days.length) {
+    $("prauc-chart").closest("figure").hidden = true;
+    return;
+  }
+  const W = 760, H = 260, L = 56, R = 18, T = 18, B = 40;
+  const top = niceMax(Math.max(...days.map((d) => d.high)) * 1.05);
+  const slot = (W - L - R) / days.length;
+  const x = (i) => L + slot * (i + 0.5);
+  const y = (v) => T + (H - T - B) * (1 - v / top);
+  const svg = svgRoot(W, H, "PR-AUC of the model deciding each day of the live window, with the two promotions marked");
+  for (let v = 0; v <= top + 1e-9; v += top / 5) {
+    svg.append(sv("line", { class: "gridline", x1: L, x2: W - R, y1: y(v), y2: y(v) }));
+    svg.append(sv("text", { class: "tick", x: L - 8, y: y(v) + 4, "text-anchor": "end" }, fmt(v, 1)));
+  }
+  svg.append(sv("text", { class: "axis-title", x: 14, y: T + (H - T - B) / 2, transform: `rotate(-90 14 ${T + (H - T - B) / 2})`, "text-anchor": "middle" }, "PR-AUC"));
+  svg.append(sv("line", { class: "axis-line", x1: L, x2: W - R, y1: H - B, y2: H - B }));
+  const guess = data.fraud_share.value;
+  svg.append(sv("line", { class: "baseline", x1: L, x2: W - R, y1: y(guess), y2: y(guess) }));
+  svg.append(sv("text", { class: "baseline-label halo", x: W - R - 4, y: y(guess) - 6, "text-anchor": "end" }, "GUESSING"));
+  const label = (d) => new Date(`${d.day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  days.forEach((d, i) => {
+    if (i === 0 || new Date(`${d.day}T00:00:00Z`).getUTCDay() === 1) {
+      svg.append(sv("text", { class: "tick", x: x(i), y: H - B + 16, "text-anchor": "middle" }, label(d)));
+    }
+  });
+  for (const p of data.promotions) {
+    const i = days.findIndex((d) => d.day === p.judged_on);
+    if (i < 0) continue;
+    svg.append(sv("line", { class: "request-mark", x1: x(i), x2: x(i), y1: T, y2: H - B }));
+    svg.append(sv("text", { class: "request-label halo", x: x(i) + 5, y: T + 10 }, `promoted ${label(days[i])}`));
+  }
+  svg.append(sv("polyline", { class: "series prauc", points: days.map((d, i) => `${x(i)},${y(d.value)}`).join(" ") }));
+  const hits = [];
+  days.forEach((d, i) => {
+    svg.append(sv("circle", { class: "dot prauc", cx: x(i), cy: y(d.value), r: 3.5 }));
+    const hit = sv("rect", { class: "column-hit", x: x(i) - slot / 2, y: T, width: slot, height: H - T - B });
+    svg.append(hit);
+    hits.push(hit);
+  });
+  $("prauc-chart").append(svg);
+  const readout = $("prauc-readout");
+  function show(i) {
+    hits.forEach((h, j) => h.classList.toggle("on", i === j));
+    const d = days[i];
+    readout.textContent = "";
+    readout.append(
+      el("span", { class: "when" }, new Date(`${d.day}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "long", timeZone: "UTC" })),
+      el("span", { class: "pair" }, `PR-AUC ${fmt(d.value, 3)} (${range(d, 3)})`),
+    );
+  }
+  hits.forEach((hit, i) => focusable(hit, label(days[i]), () => show(i)));
+  show(days.length - 1);
+  legend($("prauc-legend"), [
+    ["sw-accent", "PR-AUC of the model deciding that day"],
+    ["sw-ink", "a promotion, the day a person moved the flag", "dashed"],
+    ["sw-faint", "guessing, the share of fraud", "dashed"],
+  ]);
+  $("prauc-caption").textContent =
+    "The first champion sat just above guessing, and fell to it when the fraud shifted on 9 October. The day after each promotion the line is higher. A day's PR-AUC also depends on how hard that day's traffic is, so not every change between days is the model. Synthetic live track, every finalised day, weighted; the first and last days are partial, and each day's interval, which resamples only that day's rows, is narrower than the dots. Source: docs/live/daily-pr-auc.json.";
+}
+
+function lastCandidate(data) {
+  const c = data.last_candidate;
+  if (!c) return;
+  const signed = (v) => `${v >= 0 ? "+" : ""}${fmt(v, 3)}`;
+  $("last-candidate").textContent =
+    `A third candidate, fitted on those days, scored ${fmt(c.candidate_pr_auc.value, 3)} PR-AUC against the champion's ${fmt(c.champion_pr_auc.value, 3)} on later rows neither had seen (${signed(c.difference.value)}, 95% CI ${signed(c.difference.low)} to ${signed(c.difference.high)}).`;
 }
 
 function honesty(data) {
@@ -848,6 +938,7 @@ function honesty(data) {
       ? `the retrained model scores ${fmt(p.challenger_pr_auc, 2)}, against the first champion's ${fmt(p.champion_pr_auc, 2)} on the same days (the difference's 95% CI is +${fmt(p.difference.low, 3)} to +${fmt(p.difference.high, 3)})`
       : `the first retrained model scored ${fmt(p.challenger_pr_auc, 2)} against the opening champion's ${fmt(p.champion_pr_auc, 2)}, fell to ${fmt(now.champion_pr_auc, 2)} after the fraud shifted, and the model retrained on the shift scores ${fmt(now.challenger_pr_auc, 2)}`;
   $("adr-count").textContent = number.format(data.adr_count);
+  $("eng-adr").textContent = number.format(data.adr_count);
 }
 
 async function main() {
@@ -864,6 +955,8 @@ async function main() {
     driftChart(data);
     retrainChart(data);
     live(data);
+    praucChart(data);
+    lastCandidate(data);
     queueChart(data);
     rollback(data);
     leak(data);

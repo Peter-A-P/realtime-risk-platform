@@ -1027,6 +1027,194 @@
   "start": "2026-09-29T19:11:00Z",
   "track": "synthetic live"
  },
+ "daily_pr_auc": [
+  {
+   "day": "2026-09-29",
+   "high": 0.0406,
+   "low": 0.04,
+   "value": 0.0403
+  },
+  {
+   "day": "2026-09-30",
+   "high": 0.0569,
+   "low": 0.0567,
+   "value": 0.0568
+  },
+  {
+   "day": "2026-10-01",
+   "high": 0.061,
+   "low": 0.0606,
+   "value": 0.0607
+  },
+  {
+   "day": "2026-10-02",
+   "high": 0.0615,
+   "low": 0.0612,
+   "value": 0.0613
+  },
+  {
+   "day": "2026-10-03",
+   "high": 0.0613,
+   "low": 0.061,
+   "value": 0.0612
+  },
+  {
+   "day": "2026-10-04",
+   "high": 0.0618,
+   "low": 0.0615,
+   "value": 0.0616
+  },
+  {
+   "day": "2026-10-05",
+   "high": 0.0607,
+   "low": 0.0603,
+   "value": 0.0605
+  },
+  {
+   "day": "2026-10-06",
+   "high": 0.0616,
+   "low": 0.0612,
+   "value": 0.0614
+  },
+  {
+   "day": "2026-10-07",
+   "high": 0.0612,
+   "low": 0.0609,
+   "value": 0.061
+  },
+  {
+   "day": "2026-10-08",
+   "high": 0.0612,
+   "low": 0.061,
+   "value": 0.0611
+  },
+  {
+   "day": "2026-10-09",
+   "high": 0.0555,
+   "low": 0.0552,
+   "value": 0.0554
+  },
+  {
+   "day": "2026-10-10",
+   "high": 0.027,
+   "low": 0.0269,
+   "value": 0.027
+  },
+  {
+   "day": "2026-10-11",
+   "high": 0.0289,
+   "low": 0.0287,
+   "value": 0.0288
+  },
+  {
+   "day": "2026-10-12",
+   "high": 0.0305,
+   "low": 0.0303,
+   "value": 0.0304
+  },
+  {
+   "day": "2026-10-13",
+   "high": 0.1091,
+   "low": 0.1075,
+   "value": 0.1081
+  },
+  {
+   "day": "2026-10-14",
+   "high": 0.1052,
+   "low": 0.104,
+   "value": 0.1049
+  },
+  {
+   "day": "2026-10-15",
+   "high": 0.1145,
+   "low": 0.113,
+   "value": 0.1137
+  },
+  {
+   "day": "2026-10-16",
+   "high": 0.1089,
+   "low": 0.1077,
+   "value": 0.1081
+  },
+  {
+   "day": "2026-10-17",
+   "high": 0.123,
+   "low": 0.1215,
+   "value": 0.1222
+  },
+  {
+   "day": "2026-10-18",
+   "high": 0.116,
+   "low": 0.114,
+   "value": 0.1148
+  },
+  {
+   "day": "2026-10-19",
+   "high": 0.1693,
+   "low": 0.1679,
+   "value": 0.1688
+  },
+  {
+   "day": "2026-10-20",
+   "high": 0.1908,
+   "low": 0.1901,
+   "value": 0.1906
+  },
+  {
+   "day": "2026-10-21",
+   "high": 0.1826,
+   "low": 0.1819,
+   "value": 0.1823
+  },
+  {
+   "day": "2026-10-22",
+   "high": 0.1831,
+   "low": 0.1822,
+   "value": 0.1826
+  },
+  {
+   "day": "2026-10-23",
+   "high": 0.2119,
+   "low": 0.2108,
+   "value": 0.2112
+  },
+  {
+   "day": "2026-10-24",
+   "high": 0.2122,
+   "low": 0.2108,
+   "value": 0.2114
+  },
+  {
+   "day": "2026-10-25",
+   "high": 0.2144,
+   "low": 0.2135,
+   "value": 0.214
+  },
+  {
+   "day": "2026-10-26",
+   "high": 0.2073,
+   "low": 0.2059,
+   "value": 0.2067
+  },
+  {
+   "day": "2026-10-27",
+   "high": 0.3482,
+   "low": 0.3464,
+   "value": 0.3471
+  },
+  {
+   "day": "2026-10-28",
+   "high": 0.422,
+   "low": 0.4201,
+   "value": 0.4211
+  },
+  {
+   "day": "2026-10-29",
+   "high": 0.424,
+   "low": 0.4223,
+   "value": 0.4232
+  }
+ ],
  "dashboard": "https://snapshots.raintank.io/dashboard/snapshot/0CtvXlMuEJkegYXf6IueSy1igyc5Nb28",
  "drift": {
   "days": [
@@ -1842,6 +2030,24 @@
   "low": 0.02853,
   "value": 0.03056
  },
+ "last_candidate": {
+  "candidate": "candidate-2026-10-28-1-56dbe1c042a3",
+  "candidate_pr_auc": {
+   "high": 0.533903,
+   "low": 0.518796,
+   "value": 0.5266
+  },
+  "champion_pr_auc": {
+   "high": 0.425245,
+   "low": 0.414473,
+   "value": 0.419891
+  },
+  "difference": {
+   "high": 0.113484,
+   "low": 0.099476,
+   "value": 0.106709
+  }
+ },
  "leak": {
   "rows_changed": 4,
   "same_model_inflation": {
@@ -2344,6 +2550,50 @@
   "docs/week1-measurement.json",
   "docs/live/replayed-verdict-candidate-2026-10-09-1-3f05ac05258b-2026-10-12.json",
   "docs/live/replayed-verdict-candidate-2026-10-12-1-eabf45c88f9e-2026-10-22.json",
-  "docs/live/daily.json"
- ]
+  "docs/live/daily.json",
+  "docs/live/window-report.json",
+  "docs/live/window-intervals.json",
+  "docs/live/daily-pr-auc.json",
+  "docs/live/candidate-2026-10-28-1.json"
+ ],
+ "window": {
+  "cost_per_million_cad": 0.11,
+  "cost_per_million_usd": {
+   "high": 0.0828,
+   "low": 0.081,
+   "value": 0.0819
+  },
+  "decisions": 2702289930,
+  "decisions_per_second": {
+   "high": 1053.4,
+   "low": 1031.4,
+   "value": 1042.5
+  },
+  "first_minute": "2026-09-29T19:11:00+00:00",
+  "last_minute": "2026-10-29T19:10:00+00:00",
+  "minutes": 43200,
+  "minutes_without_decisions": 16,
+  "other_stops": [
+   5,
+   6,
+   5
+  ],
+  "p50_ms": {
+   "high": 9.28,
+   "low": 8.5,
+   "value": 8.857438
+  },
+  "p95_ms": {
+   "high": 24.64,
+   "low": 23.76,
+   "value": 24.217461
+  },
+  "p99_ms": {
+   "high": 48.04,
+   "low": 41.95,
+   "value": 45.758536
+  },
+  "spot_reclaims": 0,
+  "uptime_percent": 99.963
+ }
 }

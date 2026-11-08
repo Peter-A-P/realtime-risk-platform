@@ -72,8 +72,9 @@ only the fraud labels that had arrived by then. The promotion gate compares cham
 challenger on the same transactions and writes its verdict into a pull request. The queue
 evaluation compares ranking by expected loss with ranking by score, one day at a time.
 
-The synthetic track, on the right, runs live and under load. The generator's schedule is sealed
-by published fingerprints, and the secret is revealed after the window closes. The load test
+The synthetic track, on the right, runs live and under load. The generator's schedule was
+sealed by published fingerprints, and the secret was revealed on 2026-11-07, after the stack
+stopped. The load test
 sends transactions at fixed rates and times every step over five runs. Checks hold the fast store
 to the history store, and the streaming results to a run without the stream. Drift is judged
 each day against the window's own first days.

@@ -6,11 +6,11 @@ typed into the page by hand: every figure it shows is read here from a report
 under `docs/` that the README also cites, so the page and the README cannot
 disagree, and `tests/test_site.py` holds the page's file to a fresh export.
 
-The live window's running numbers are not here. They are on the dashboard
-the page links at its top, a Grafana snapshot of the window since the stack
-came down, and in the live window's own report. What is here from the window
-is what was approved on the way: each promotion verdict a merged pull request
-committed to `docs/live/`.
+From the live window it carries the window's own report (latency with its
+day-bootstrap intervals, uptime, throughput and cost), the deciding model's
+PR-AUC day by day, each promotion verdict a merged pull request committed to
+`docs/live/`, and the last candidate, merged to shadow but never replayed.
+The dashboard the page links at its top is a Grafana snapshot of the window.
 """
 
 from __future__ import annotations
@@ -80,6 +80,19 @@ REPORTS: Final[tuple[str, ...]] = (
 
 
 DAILY: Final = "live/daily.json"
+
+WINDOW_REPORT: Final = "live/window-report.json"
+"""The thirty-day window's pooled latency, uptime and stops (`verdict observe window`)."""
+
+WINDOW_INTERVALS: Final = "live/window-intervals.json"
+"""The window's day-bootstrap intervals and its cost per million decisions."""
+
+DAILY_PR_AUC: Final = "live/daily-pr-auc.json"
+"""The deciding model's PR-AUC on every finalised day of the window."""
+
+LAST_CANDIDATE: Final = "live/candidate-2026-10-28-1.json"
+"""The third candidate: merged to run in shadow on 2026-11-06, never replayed or promoted
+because the stack was shut down the next day."""
 
 
 def _load(docs: Path, name: str) -> dict[str, Any]:
@@ -320,6 +333,82 @@ def _promotions(docs: Path) -> list[dict[str, Any]]:
     return out
 
 
+def _window(docs: Path) -> dict[str, Any]:
+    """The thirty-day window's headline figures, as the README's live table gives them.
+
+    The point estimates are the window's pooled percentiles; the intervals resample
+    the thirty days (`window-intervals.json`), as the README's table does.
+
+    Args:
+        docs: The repository's `docs/` directory.
+
+    Returns:
+        Latency with intervals, uptime, throughput, decisions and cost.
+    """
+    report = _load(docs, WINDOW_REPORT)
+    intervals = _load(docs, WINDOW_INTERVALS)
+    serving = report["latency_while_serving"]
+    availability = report["availability"]
+    latency = intervals["latency_ms"]
+    rate = intervals["decisions_per_second"]
+    cost = intervals["cost_per_million_decisions_usd"]
+    return {
+        "first_minute": report["window"]["first_minute"],
+        "last_minute": report["window"]["last_minute"],
+        "minutes": report["window"]["minutes"],
+        **{
+            f"{key}_ms": {
+                "value": round(float(serving[f"{key}_ms"]), 6),
+                "low": float(latency[key]["low"]),
+                "high": float(latency[key]["high"]),
+            }
+            for key in ("p50", "p95", "p99")
+        },
+        "decisions": round(serving["decisions"]),
+        "uptime_percent": round(availability["uptime_percent"], 3),
+        "minutes_without_decisions": availability["minutes_without_decisions"],
+        "spot_reclaims": len(availability["spot_reclaims"]),
+        "other_stops": [stop["minutes"] for stop in availability["other_stops"]],
+        "decisions_per_second": _interval(rate),
+        "cost_per_million_usd": _interval(cost),
+        "cost_per_million_cad": cost["cad_at_1_35"],
+    }
+
+
+def _daily_pr_auc(docs: Path) -> list[dict[str, Any]]:
+    """The deciding model's PR-AUC on each finalised day, with its within-day interval."""
+    report = _load(docs, DAILY_PR_AUC)
+    return [
+        {
+            "day": day["day"],
+            "value": day["champion"]["pr_auc"],
+            "low": day["champion"]["low"],
+            "high": day["champion"]["high"],
+        }
+        for day in report["days"]
+    ]
+
+
+def _last_candidate(docs: Path) -> dict[str, Any]:
+    """The third candidate's comparison with the champion, on rows neither had seen."""
+    comparison = _load(docs, LAST_CANDIDATE)["comparison"]
+    return {
+        "candidate": comparison["challenger"],
+        "champion_pr_auc": _interval(comparison["champion_pr_auc"]),
+        "candidate_pr_auc": _interval(comparison["challenger_pr_auc"]),
+        "difference": _interval(comparison["challenger_minus_champion"]),
+    }
+
+
+LIVE_REPORTS: Final[tuple[str, ...]] = (
+    WINDOW_REPORT,
+    WINDOW_INTERVALS,
+    DAILY_PR_AUC,
+    LAST_CANDIDATE,
+)
+"""The live window's reports the page reads, in `docs/`."""
+
+
 def site_data(docs: Path) -> dict[str, Any]:
     """Everything the demo page shows, from the reports in `docs`.
 
@@ -340,10 +429,14 @@ def site_data(docs: Path) -> dict[str, Any]:
     return {
         "sources": [f"docs/{name}" for name in REPORTS]
         + [p["source"] for p in promotions]
-        + ([f"docs/{DAILY}"] if daily else []),
+        + ([f"docs/{DAILY}"] if daily else [])
+        + [f"docs/{name}" for name in LIVE_REPORTS],
         "adr_count": len(list((docs / "adr").glob("[0-9][0-9][0-9][0-9]-*.md"))),
         "promotions": promotions,
         "daily": daily,
+        "window": _window(docs),
+        "daily_pr_auc": _daily_pr_auc(docs),
+        "last_candidate": _last_candidate(docs),
         "repository": REPOSITORY,
         "dashboard": DASHBOARD,
         "live": {

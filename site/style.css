@@ -651,9 +651,9 @@ tbody tr.reference { background: var(--accent-soft); }
 
 /* ---------------------------------------------------------------- this page's own */
 
-/* The live strip and the way to the dashboard sit above the headline, because the dashboard
-   is the one thing on this page that is happening now, and a reader who came for it should
-   not have to scroll to find it. */
+/* The live strip and the way to the dashboard sit under the lead, above the figures: the
+   question comes first, and a reader who came for the dashboard still finds it on the first
+   screen. */
 .live-strip {
   display: inline-flex;
   align-items: center;
@@ -1000,3 +1000,50 @@ tbody tr.reference { background: var(--accent-soft); }
 .swatch.dot { border-radius: 50%; width: 0.6rem; height: 0.6rem; }
 .swatch.diamond { transform: rotate(45deg); width: 0.55rem; height: 0.55rem; }
 .button[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- on this page, and the end of it */
+
+.toc { padding: 1.5rem 0 1.75rem; border-bottom: 1px solid var(--line); }
+.toc ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: toc;
+  columns: 2 16rem;
+  column-gap: 2rem;
+}
+.toc li { counter-increment: toc; margin: 0 0 0.3rem; break-inside: avoid; font-size: 0.93rem; }
+.toc li::before {
+  content: counter(toc, decimal-leading-zero);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  margin-right: 0.6rem;
+}
+@media (max-width: 34rem) {
+  .toc ol { columns: 1; }
+}
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.9rem; margin: 1.25rem 0; }
+.card-note { padding: 1rem 1.1rem; background: var(--paper-soft); border: 1px solid var(--line); border-top: 3px solid var(--warn); border-radius: var(--radius); }
+.card-note h3 { font-size: 1.08rem; margin-top: 0; }
+.card-note p { font-size: 0.9rem; color: var(--ink-soft); margin: 0; }
+
+.chips { list-style: none; padding: 0; margin: 1.25rem 0; display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.chips li { padding: 0.25rem 0.75rem; border: 1px solid var(--line-2); border-radius: 999px; font-size: 0.82rem; background: var(--paper-soft); color: var(--ink-soft); }
+
+.glossary { margin: 0 0 0.9rem; }
+.glossary dt { font-weight: 600; margin-top: 0.7rem; }
+.glossary dd { margin: 0.15rem 0 0; color: var(--ink-soft); font-size: 0.92rem; }
+
+/* A label a line runs through keeps a ring of paper round it. */
+.halo { paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+
+/* Chart marks take the keyboard: the focused one is outlined and shows its readout. */
+.column-hit:focus, .reclaim-hit:focus { outline: none; fill: color-mix(in srgb, var(--accent) 10%, transparent); stroke: var(--accent); stroke-width: 1.5; }
+
+/* The live model, day by day: one series, the promotions as events, guessing in neutral. */
+.series.prauc { stroke: var(--accent); stroke-width: 2; }
+.dot.prauc { fill: var(--accent); }
+.baseline { stroke: var(--ink-faint); stroke-width: 1.25; stroke-dasharray: 6 4; }
+.baseline-label { fill: var(--ink-faint); font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; }

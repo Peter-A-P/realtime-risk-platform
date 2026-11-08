@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How it's built: Real-Time Fraud and Risk Decisioning Platform</title>
 <meta name="description" content="How the real-time fraud decisioning platform behind this page is built and measured, in four diagrams.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,13 +19,14 @@
   <div class="tabs-inner">
     <a href="index.html">Overview</a>
     <a href="index.html#video-panel">Video</a>
-      <a href="index.html#pipeline-panel">The pipeline</a>
+    <a href="index.html#pipeline-panel">The pipeline</a>
     <a href="index.html#load-panel">Speed</a>
     <a href="index.html#drift-panel">Drift</a>
     <a href="index.html#retrain-panel">Retraining</a>
     <a href="index.html#live-panel">The live model</a>
     <a href="index.html#queue-panel">The queue</a>
     <a href="index.html#dashboard-guide">The dashboard</a>
+    <a href="index.html#built">How this was built</a>
     <a href="architecture.html" aria-current="page">How it's built</a>
   </div>
 </nav>
@@ -34,9 +36,9 @@
     <p class="eyebrow">Architecture</p>
     <h1>How it's built</h1>
     <p class="lead">
-      How the real-time fraud decisioning platform behind this page is built and measured, in four pictures. Select a diagram to open it full size.
+      How the platform is put together, in four pictures: the platform as a whole, one transaction's path through the scorer, how the published numbers are produced, and the live stack. Select a diagram to open it full size.
     </p>
-    <p class="hero-note"><a href="index.html">Back to the demo</a></p>
+    <p class="hero-note"><a href="index.html">Back to the results</a></p>
   </header>
 
   <section class="section" id="the-platform">
@@ -49,7 +51,7 @@
       <p>On the left is real data, replayed. A public fraud competition dataset is converted into the platform's own event format and replayed in time order. Each transaction is given its features before the platform learns anything from it, and every feature value is computed once and written to both the fast store used while scoring and the history store used for training.</p>
       <p>In the middle is live traffic, made up. A generator plays a schedule of changing fraud patterns, sealed in advance so nobody can tune the monitors to it. Transactions arrive at once and their fraud labels a week later, as they do at a real bank, all through a message stream.</p>
       <p>The scorer reads the stream in batches. The current model, the champion, makes the decisions, and a challenger scores the same transactions in shadow beside it. Every decision is kept with the features it was made on. From that history, the analysts' review queue is ranked by expected loss, and each finished day is checked for drift. Drift checks and a models job can open retraining and promotion pull requests, and only a person can merge them.</p>
-      <p>The scorer's timings go to a public monitoring dashboard, which is the first link on this site.</p>
+      <p>The scorer's timings went to a public monitoring dashboard while the stack ran. Since the teardown, the same dashboard is a Grafana snapshot of the thirty days, the first link on the results page.</p>
       <p class="where">Where it lives: <code>verdict.events</code>, <code>verdict.features.engine</code>, <code>verdict.store</code>, <code>verdict.live.feed</code>, <code>verdict.stream</code>, <code>verdict.scoring</code>, <code>verdict.models</code>, <code>verdict.history</code>, <code>verdict.review_queue</code>, <code>verdict.drift</code>, <code>verdict.observe</code> and <code>verdict.publish</code>.</p>
     </div>
   </section>
@@ -76,7 +78,7 @@
     <div class="prose">
       <p>Every number in the README comes from one of two tracks, and each table says which.</p>
       <p>The real-data track, on the left, runs offline. The competition data becomes events with nothing invented to fill gaps. A leakage test recomputes every feature from the raw log and fails on any value a transaction could not have known at the time. Training sets are cut at a date and hold only the fraud labels that had arrived by then. The promotion gate compares champion and challenger on the same transactions and writes its verdict into a pull request. The queue evaluation compares ranking by expected loss with ranking by score, one day at a time.</p>
-      <p>The synthetic track, on the right, runs live and under load. The generator's schedule is sealed by published fingerprints, and the secret is revealed the day after the stack stops. The load test sends transactions at fixed rates and times every step over five runs. Checks compare the fast store with the history store, and the streaming results with a run without the stream. Drift is judged each day against the window's own first full days, or, after a promotion, the two full days after it.</p>
+      <p>The synthetic track, on the right, runs live and under load. The generator's schedule was sealed by published fingerprints, and the secret was revealed on 7 November 2026, after the stack stopped. The load test sends transactions at fixed rates and times every step over five runs. Checks compare the fast store with the history store, and the streaming results with a run without the stream. Drift is judged each day against the window's own first full days, or, after a promotion, the two full days after it.</p>
       <p>Both tracks end in committed reports with 95% intervals, and one command writes the README's tables from them.</p>
       <p class="where">Where it lives: <code>verdict.store.leakage</code>, <code>verdict.models.dataset</code>, <code>verdict.models.promote</code>, <code>verdict.review_queue.evaluate</code>, <code>verdict.scoring.loadtest</code>, <code>verdict.stream.parity</code> and <code>verdict.drift</code>.</p>
     </div>
@@ -88,14 +90,14 @@
       <a href="architecture/live.svg"><img src="architecture/live.svg" width="1262" height="584" alt="Terraform from the laptop stands up an auto-scaling group of one in AWS ca-central-1 that boots the pushed image, keeps history and saved feature state on an EBS volume, serves the dashboard through a Cloudflare tunnel, emails alerts through SNS and opens its retraining and promotion verdicts as pull requests a person merges."></a>
     </figure>
     <div class="prose">
-      <p>The live stack is one machine in one AWS region in Canada, with no inbound port open.</p>
-      <p>From a laptop, one script pushes a single container image and Terraform stands up a group that always keeps exactly one machine running. Since 29 September that machine is on demand with 32 GB; the first window, on a 16 GB spot machine, failed on its second day (ADR 31). When that machine boots, it reads its secrets from AWS's parameter store and pulls the image. Everything runs on it under Docker Compose: the message stream, the scorer, the two traffic feeds, and the jobs that handle labels, storage, models and alerts.</p>
+      <p>The live stack was one machine in one AWS region in Canada, with no inbound port open. It ran from 29 September to 6 November 2026 and was torn down on 7 November; what follows is how it was built, and <code>deploy/up.sh</code> builds it again.</p>
+      <p>From a laptop, one script pushes a single container image and Terraform stands up a group that always keeps exactly one machine running. For the thirty days that machine was on demand with 32 GB; the first window, on a 16 GB spot machine, failed on its second day (ADR 31). When that machine boots, it reads its secrets from AWS's parameter store and pulls the image. Everything runs on it under Docker Compose: the message stream, the scorer, the two traffic feeds, and the jobs that handle labels, storage, models and alerts.</p>
       <p>The decision history and the scorer's saved state live on a disk that survives a replacement machine. The public dashboard leaves through a Cloudflare tunnel, which is the only way out. Alerts, such as a day that did not finish or a history that was not sealed, are emailed through AWS. The models job opens retraining and promotion pull requests on GitHub, and a person merges or closes them. A teardown script removes the stack and checks with the cloud itself, not with Terraform's records, what is left.</p>
       <p class="where">Where it lives: <code>deploy/push-image.sh</code>, <code>deploy/terraform</code>, <code>deploy/go-live.sh</code>, <code>deploy/live/compose.yml</code> and <code>deploy/down.sh</code>.</p>
     </div>
   </section>
 
-  <p class="arch-back"><a href="index.html">Back to the demo</a></p>
+  <p class="arch-back"><a href="index.html">Back to the results</a></p>
 </main>
 <footer class="foot">
   <div class="foot-inner">
